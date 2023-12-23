@@ -10,17 +10,27 @@ pub fn add_agent_to_anchor(_: ()) -> ExternResult<()> {
         ALL_AGENTS.into(),
         ALL_AGENTS.into(),
     )?;
-    create_link(
+    let action_hash = create_link(
         all_agents_anchor.clone(),
         agent_info()?.agent_initial_pubkey,
         LinkTypes::AnchorToAgent,
         (),
     )?;
-    debug!(
-        "Adding agent to anchor with pubkey: {:?}\nbase_address: {:?}",
-        agent_info()?.agent_initial_pubkey,
-        all_agents_anchor,
-    );
+    let record = get(action_hash, GetOptions::default())?.unwrap();
+    let action = record.action();
+    match action {
+        Action::CreateLink(link) => {
+            debug!(
+                "Adding agent to anchor with pubkey: {:?}\nbase_address: {:?}\naction author: {:?}\ntarget_address: {:?}",
+                agent_info()?.agent_initial_pubkey,
+                all_agents_anchor,
+                action.author(),
+                link.target_address,
+            );
+        }
+        _ => (),
+    }
+
     Ok(())
 }
 
