@@ -1,5 +1,7 @@
 import { createContext } from '@lit-labs/context';
 import { AppAgentClient } from '@holochain/client';
+import { UnzoomStore } from './unzoom-store';
 
 export const clientContext = createContext<AppAgentClient>('appAgentClient');
+export const unzoomStoreContext = createContext<UnzoomStore>('unzoomStore');
 

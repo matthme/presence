@@ -1,9 +1,5 @@
-import { 
-  Record, 
-  ActionHash, 
-  DnaHash,
+import {
   SignedActionHashed,
-  EntryHash, 
   AgentPubKey,
   Create,
   Update,
@@ -12,7 +8,33 @@ import {
   DeleteLink
 } from '@holochain/client';
 
+export type SdpOfferInput = {
+  timestamp: number;
+  offer: string;
+  to_agents: AgentPubKey[];
+  other_connected_peers?: AgentPubKey[];
+}
+
+export type SdpResponseInput = {
+  offer_timestamp: number;
+  response: string;
+  to_agent: AgentPubKey;
+}
+
 export type UnzoomSignal = {
+  type: 'Pong',
+  from_agent: AgentPubKey,
+} | {
+  type: "SdpOffer",
+  from_agent: AgentPubKey,
+  timestamp: number,
+  offer: string,
+} | {
+  type: "SdpResponse",
+  from_agent: AgentPubKey,
+  offer_timestamp: number,
+  response: string,
+} | {
   type: 'EntryCreated';
   action: SignedActionHashed<Create>;
   app_entry: EntryTypes;

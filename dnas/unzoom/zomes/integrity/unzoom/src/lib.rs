@@ -59,6 +59,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             action,
         } => match link_type {
             LinkTypes::AnchorToAgent => {
+                debug!(
+                    "@FlatOp::RegisterCreateLink: base_address: {:?}\ntarget_address: {:?}",
+                    base_address, target_address
+                );
                 validate_create_link_anchor_to_agent(action, base_address, target_address, tag)
             }
         },

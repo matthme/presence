@@ -1,22 +1,26 @@
 use hdk::prelude::*;
 use unzoom_integrity::*;
 
-const ALL_AGENTS: &str = "ALL_AGENTS";
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AnchorToAgentInput {
-    pub agent: AgentPubKey,
-}
+pub const ALL_AGENTS: &str = "ALL_AGENTS";
 
 #[hdk_extern]
-pub fn add_anchor_to_agent_for_agent(input: AnchorToAgentInput) -> ExternResult<()> {
+pub fn add_agent_to_anchor(_: ()) -> ExternResult<()> {
     let all_agents_anchor = anchor(
         LinkTypes::AnchorToAgent,
-        "ALL_AGENTS".into(),
-        "ALL_AGENTS".into(),
+        ALL_AGENTS.into(),
+        ALL_AGENTS.into(),
     )?;
-    create_link(all_agents_anchor, input.agent, LinkTypes::AnchorToAgent, ())?;
-
+    create_link(
+        all_agents_anchor.clone(),
+        agent_info()?.agent_initial_pubkey,
+        LinkTypes::AnchorToAgent,
+        (),
+    )?;
+    debug!(
+        "Adding agent to anchor with pubkey: {:?}\nbase_address: {:?}",
+        agent_info()?.agent_initial_pubkey,
+        all_agents_anchor,
+    );
     Ok(())
 }
 
@@ -24,8 +28,8 @@ pub fn add_anchor_to_agent_for_agent(input: AnchorToAgentInput) -> ExternResult<
 pub fn get_all_agents(_: ()) -> ExternResult<Vec<AgentPubKey>> {
     let all_agents_anchor = anchor(
         LinkTypes::AnchorToAgent,
-        "ALL_AGENTS".into(),
-        "ALL_AGENTS".into(),
+        ALL_AGENTS.into(),
+        ALL_AGENTS.into(),
     )?;
     let links = get_links(all_agents_anchor, LinkTypes::AnchorToAgent, None)?;
     Ok(links

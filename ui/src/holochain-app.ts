@@ -2,58 +2,61 @@ import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   AppAgentWebsocket,
-  ActionHash,
   AppAgentClient,
 } from '@holochain/client';
 import { provide } from '@lit-labs/context';
-import '@material/mwc-circular-progress';
+import { WeClient, initializeHotReload, isWeContext } from '@lightningrodlabs/we-applet';
 
-import { clientContext } from './contexts';
+import { clientContext, unzoomStoreContext } from './contexts';
+import { UnzoomStore } from './unzoom-store';
+import { UnzoomClient } from './unzoom-client';
+
+import "./main-view";
 
 @customElement('holochain-app')
 export class HolochainApp extends LitElement {
   @state() loading = true;
+
+  @provide({ context: unzoomStoreContext })
+  @property({ type: Object })
+  unzoomStore!: UnzoomStore;
 
   @provide({ context: clientContext })
   @property({ type: Object })
   client!: AppAgentClient;
 
   async firstUpdated() {
-    // We pass an unused string as the url because it will dynamically be replaced in launcher environments
-    this.client = await AppAgentWebsocket.connect(new URL('https://UNUSED'), 'unzoom');
-
+    if ((import.meta as any).env.DEV) {
+      try {
+        await initializeHotReload();
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
+      }
+    }
+    if (isWeContext()) {
+      const weClient = await WeClient.connect();
+      if (
+        (weClient.renderInfo.type !== "applet-view")
+        || (weClient.renderInfo.view.type !== "main")
+      ) throw new Error("This Applet only implements the applet main view.");
+      this.client = weClient.renderInfo.appletClient;
+    } else {
+      // We pass an unused string as the url because it will dynamically be replaced in launcher environments
+      this.client = await AppAgentWebsocket.connect(new URL('https://UNUSED'), 'unzoom');
+    }
+    this.unzoomStore = new UnzoomStore(new UnzoomClient(this.client, "unzoom", "unzoom"));
     this.loading = false;
   }
 
   render() {
     if (this.loading)
       return html`
-        <mwc-circular-progress indeterminate></mwc-circular-progress>
+        loading...
       `;
 
     return html`
-      <main>
-        <h1>Unzoom</h1>
-
-        <div id="content" style="display: flex; flex-direction: column; flex: 1;">
-          <h2>EDIT ME! Add the components of your app here.</h2>
-          
-          <span>Look in the <code>ui/src/DNA/ZOME</code> folders for UI elements that are generated with <code>hc scaffold entry-type</code>, <code>hc scaffold collection</code> and <code>hc scaffold link-type</code> and add them here as appropriate.</span>
-        
-          <span>For example, if you have scaffolded a "todos" dna, a "todos" zome, a "todo_item" entry type, and a collection called "all_todos", you might want to add an element here to create and list your todo items, with the generated <code>ui/src/todos/todos/all-todos.ts</code> and <code>ui/src/todos/todos/create-todo.ts</code> elements.</span>
-          
-          <span>So, to use those elements here:</span>
-          <ol>
-            <li>Import the elements with:
-              <pre>
-import './todos/todos/all-todos';
-import './todos/todos/create-todo';
-              </pre>
-            </li>
-            <li>Replace this "EDIT ME!" section with <code>&lt;create-todo&gt;&lt;/create-todo&gt;&lt;all-todos&gt;&lt;/all-todos&gt;</code>.</li>
-          </ol>
-        </div>
-      </main>
+      <main-view .unzoomStore=${this.unzoomStore}></main-view>
     `;
   }
 

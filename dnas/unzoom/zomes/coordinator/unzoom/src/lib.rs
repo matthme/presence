@@ -1,8 +1,10 @@
 pub mod anchor_to_agent;
 pub mod remote_signals;
 
+use crate::anchor_to_agent::add_agent_to_anchor;
 use hdk::prelude::*;
 use unzoom_integrity::*;
+
 // Called the first time a zome call is made to the cell containing this zome
 #[hdk_extern]
 pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
@@ -13,8 +15,10 @@ pub fn init(_: ()) -> ExternResult<InitCallbackResult> {
         ().into(), // Unrestricted access means any external agent can call the extern
         GrantedFunctions::Listed(functions),
     );
-
     create_cap_grant(cap_grant_entry)?;
+
+    // register own public key on global anchor
+    add_agent_to_anchor(())?;
     Ok(InitCallbackResult::Pass)
 }
 
