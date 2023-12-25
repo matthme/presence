@@ -8,15 +8,24 @@ import {
 import { StoreSubscriber } from '@holochain-open-dev/stores';
 import * as SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
-import { mdiMicrophone, mdiMicrophoneOff, mdiVideo, mdiVideoOff } from '@mdi/js';
+import {
+  mdiMicrophone,
+  mdiMicrophoneOff,
+  mdiStop,
+  mdiVideo,
+  mdiVideoOff,
+} from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { localized, msg } from '@lit/localize';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 import { UnzoomStore } from './unzoom-store';
 import { UnzoomSignal } from './unzoom/unzoom/types';
 
 type ConnectionId = string;
+@localized()
 @customElement('main-view')
 export class MainView extends LitElement {
   @property({ type: Object })
@@ -109,22 +118,29 @@ export class MainView extends LitElement {
     return peer;
   }
 
-  async streamOn() {
+  async videoOn() {
     if (this._mediaStream) {
-      this._mediaStream.getTracks().forEach(track => {
+      this._mediaStream.getVideoTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = true;
       });
+      this._camera = true;
     } else {
       try {
         this._mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
+        // Disable audo track by default
+        this._mediaStream.getAudioTracks().forEach(track => {
+          // eslint-disable-next-line no-param-reassign
+          track.enabled = false;
+        });
         const myVideo = this.shadowRoot?.getElementById(
           'my-own-stream'
         ) as HTMLVideoElement;
         myVideo.srcObject = this._mediaStream;
+        this._camera = true;
         await myVideo.play();
       } catch (e: any) {
         console.error(`Failed to get media devices: ${e.toString()}`);
@@ -138,12 +154,54 @@ export class MainView extends LitElement {
     }
   }
 
-  async streamOff() {
+  async videoOff() {
     if (this._mediaStream) {
-      this._mediaStream.getTracks().forEach(track => {
+      this._mediaStream.getVideoTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = false;
       });
+      this._camera = false;
+    }
+  }
+
+  async audioOn() {
+    if (this._mediaStream) {
+      this._mediaStream.getAudioTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = true;
+      });
+      this._microphone = true;
+    } else {
+      try {
+        this._mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        // Disable audo track by default
+        this._mediaStream.getVideoTracks().forEach(track => {
+          // eslint-disable-next-line no-param-reassign
+          track.enabled = false;
+        });
+        this._microphone = true;
+      } catch (e: any) {
+        console.error(`Failed to get media devices: ${e.toString()}`);
+      }
+      Object.values(this._openConnections).forEach(conn => {
+        if (this._mediaStream) {
+          console.log('Adding media stream to connection ', conn.connectionId);
+          conn.peer.addStream(this._mediaStream);
+        }
+      });
+    }
+  }
+
+  async audioOff() {
+    if (this._mediaStream) {
+      this._mediaStream.getAudioTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
+      });
+      this._microphone = false;
     }
   }
 
@@ -272,39 +330,103 @@ export class MainView extends LitElement {
   renderToggles() {
     return html`
       <div class="toggles-panel">
-        <div class="toggle-btn ${this._microphone ? '' : 'btn-off'}"
-          @mouseenter=${() => {
-            this._hoverMicrophone = true;
-          }}
-          @mouseout=${() => {
-            this._hoverMicrophone = false;
-          }}
-          @blur=${() => {
-            this._hoverMicrophone = false;
-          }}
-          >
-          <sl-icon
-            class="toggle-btn-icon ${(this._hoverMicrophone && !this._microphone) || (this._microphone) ? '' : 'btn-icon-off'}"
-            .src=${(this._hoverMicrophone && !this._microphone) || (this._microphone) ? wrapPathInSvg(mdiMicrophone) : wrapPathInSvg(mdiMicrophoneOff)}
-          ></sl-icon>
-        </div>
-        <div
-          class="toggle-btn ${this._camera ? '' : 'btn-off'}"
-          @mouseenter=${() => {
-            this._hoverCamera = true;
-          }}
-          @mouseout=${() => {
-            this._hoverCamera = false;
-          }}
-          @blur=${() => {
-            this._hoverCamera = false;
-          }}
+        <sl-tooltip
+          content="${this._camera ? msg('Voice Off') : msg('Voice On')}"
+          hoist
         >
-          <sl-icon
-            class="toggle-btn-icon ${(this._hoverCamera && !this._camera) || (this._camera) ? '' : 'btn-icon-off'}"
-            .src=${(this._hoverCamera && !this._camera) || (this._camera) ? wrapPathInSvg(mdiVideo) : wrapPathInSvg(mdiVideoOff)}
-          ></sl-icon>
-        </div>
+          <div
+            class="toggle-btn ${this._microphone ? '' : 'btn-off'}"
+            tabindex="0"
+            @click=${async () => {
+              if (this._microphone) {
+                await this.audioOff();
+              } else {
+                await this.audioOn();
+              }
+            }}
+            @keypress=${async (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                if (this._microphone) {
+                  await this.audioOff();
+                } else {
+                  await this.audioOn();
+                }
+              }
+            }}
+            @mouseenter=${() => {
+              this._hoverMicrophone = true;
+            }}
+            @mouseout=${() => {
+              this._hoverMicrophone = false;
+            }}
+            @blur=${() => {
+              this._hoverMicrophone = false;
+            }}
+          >
+            <sl-icon
+              class="toggle-btn-icon ${(this._hoverMicrophone &&
+                !this._microphone) ||
+              this._microphone
+                ? ''
+                : 'btn-icon-off'}"
+              .src=${(this._hoverMicrophone && !this._microphone) ||
+              this._microphone
+                ? wrapPathInSvg(mdiMicrophone)
+                : wrapPathInSvg(mdiMicrophoneOff)}
+            ></sl-icon>
+          </div>
+        </sl-tooltip>
+
+        <sl-tooltip
+          content="${this._camera ? msg('Camera Off') : msg('Camera On')}"
+          hoist
+        >
+          <div
+            class="toggle-btn ${this._camera ? '' : 'btn-off'}"
+            tabindex="0"
+            @click=${async () => {
+              if (this._camera) {
+                await this.videoOff();
+              } else {
+                await this.videoOn();
+              }
+            }}
+            @keypress=${async (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                if (this._camera) {
+                  await this.videoOff();
+                } else {
+                  await this.videoOn();
+                }
+              }
+            }}
+            @mouseenter=${() => {
+              this._hoverCamera = true;
+            }}
+            @mouseout=${() => {
+              this._hoverCamera = false;
+            }}
+            @blur=${() => {
+              this._hoverCamera = false;
+            }}
+          >
+            <sl-icon
+              class="toggle-btn-icon ${(this._hoverCamera && !this._camera) ||
+              this._camera
+                ? ''
+                : 'btn-icon-off'}"
+              .src=${(this._hoverCamera && !this._camera) || this._camera
+                ? wrapPathInSvg(mdiVideo)
+                : wrapPathInSvg(mdiVideoOff)}
+            ></sl-icon>
+          </div>
+        </sl-tooltip>
+
+        <sl-tooltip content="${msg('Leave Call')}" hoist>
+          <div class="btn-stop">
+            <div class="stop-icon"></div>
+          </div>
+        </sl-tooltip>
       </div>
     `;
   }
@@ -312,8 +434,8 @@ export class MainView extends LitElement {
   render() {
     return html`
       <div>Open connections: ${Object.keys(this._openConnections)}</div>
-      <button @click=${() => this.streamOn()}>STREAM ON</button>
-      <button @click=${() => this.streamOff()}>STREAM OFF</button>
+      <button @click=${() => this.videoOn()}>STREAM ON</button>
+      <button @click=${() => this.videoOff()}>STREAM OFF</button>
       <div
         style="display: flex; flex-direction: row; align-items: center; flex-wrap: wrap;"
       >
@@ -335,22 +457,32 @@ export class MainView extends LitElement {
   }
 
   static styles = css`
-    :host {
-      min-height: 100vh;
+    main {
+      flex-grow: 1;
+    }
+
+    .btn-stop {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      font-size: calc(10px + 2vmin);
-      color: #1a2b42;
-      max-width: 960px;
-      margin: 0 auto;
-      text-align: center;
-      background-color: var(--lit-element-background-color);
+      justify-content: center;
+      background: #9c0f0f;
+      margin: 0 5px;
+      border-radius: 50%;
+      height: 60px;
+      width: 60px;
+      cursor: pointer;
     }
 
-    main {
-      flex-grow: 1;
+    .btn-stop:hover {
+      background: #dc4a4a;
+    }
+
+    .stop-icon {
+      height: 23px;
+      width: 23px;
+      border-radius: 3px;
+      background: #eba6a6;
     }
 
     .toggle-btn-icon {
@@ -394,8 +526,9 @@ export class MainView extends LitElement {
       align-items: center;
       justify-content: center;
       position: fixed;
+      font-size: 19px;
       bottom: 20px;
-      width: 300px;
+      width: 290px;
       height: 74px;
       border-radius: 37px;
       background: #102a4d;

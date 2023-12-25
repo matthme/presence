@@ -16,6 +16,7 @@
     "@lightningrodlabs/we-applet": "^0.12.2",
     "@lit-labs/context": "^0.2.0",
     "@lit-labs/task": "^2.0.0",
+    "@lit/localize": "0.12.1",
     "@mdi/js": "^7.2.96",
     "@shoelace-style/shoelace": "^2.3.0",
     "@msgpack/msgpack": "^2.7.2",

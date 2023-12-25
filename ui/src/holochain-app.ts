@@ -71,6 +71,7 @@ export class HolochainApp extends LitElement {
   static styles = css`
     :host {
       min-height: 100vh;
+      min-width: 100vw;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -80,7 +81,7 @@ export class HolochainApp extends LitElement {
       max-width: 960px;
       margin: 0 auto;
       text-align: center;
-      background-color: var(--lit-element-background-color);
+      background: #383b4d;
     }
 
     main {
