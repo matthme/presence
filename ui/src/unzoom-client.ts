@@ -1,6 +1,6 @@
 import { ZomeClient } from "@holochain-open-dev/utils";
-import { AgentPubKey, AppAgentClient, RoleName } from "@holochain/client";
-import { SdpOfferInput, SdpResponseInput, UnzoomSignal } from "./unzoom/unzoom/types";
+import { AgentPubKey, AppAgentClient, RoleName, encodeHashToBase64 } from "@holochain/client";
+import { InitAcceptInput, InitRequestInput, SdpDataInput, UnzoomSignal } from "./unzoom/unzoom/types";
 
 
 export class UnzoomClient extends ZomeClient<UnzoomSignal> {
@@ -20,14 +20,19 @@ export class UnzoomClient extends ZomeClient<UnzoomSignal> {
    * Ping all given agents, listening for their pong later
    */
   async ping(agentPubKeys: AgentPubKey[]): Promise<void> {
+    console.log("Pinging agents: ", agentPubKeys.map((hash) => encodeHashToBase64(hash)));
     return this.callZome("ping", agentPubKeys);
   }
 
-  async sendOffer(offer: SdpOfferInput): Promise<void> {
-    return this.callZome("send_offer", offer);
+  async sendInitRequest(payload: InitRequestInput): Promise<void> {
+    return this.callZome("send_init_request", payload);
   }
 
-  async sendResponse(response: SdpResponseInput): Promise<void> {
-    return this.callZome("send_response", response);
+  async sendInitAccept(payload: InitAcceptInput): Promise<void> {
+    return this.callZome("send_init_accept", payload);
+  }
+
+  async sendSdpData(payload: SdpDataInput): Promise<void> {
+    return this.callZome("send_sdp_data", payload);
   }
 }

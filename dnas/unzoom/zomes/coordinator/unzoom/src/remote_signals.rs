@@ -9,15 +9,18 @@ pub enum SignalPayload {
     Pong {
         from_agent: AgentPubKey,
     },
-    SdpOffer {
+    InitRequest {
         from_agent: AgentPubKey,
-        timestamp: i32,
-        offer: String,
+        connection_id: String,
     },
-    SdpResponse {
+    InitAccept {
         from_agent: AgentPubKey,
-        offer_timestamp: i32,
-        response: String,
+        connection_id: String,
+    },
+    SdpData {
+        from_agent: AgentPubKey,
+        connection_id: String,
+        data: String,
     },
 }
 
@@ -27,11 +30,13 @@ pub fn recv_remote_signal(signal: ExternIO) -> ExternResult<()> {
         .decode()
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
+    debug!("### GOT REMOTE SIGNAL ###");
     match signal_payload.clone() {
         SignalPayload::Ping { from_agent } => pong(from_agent),
         SignalPayload::Pong { .. } => emit_signal(signal_payload),
-        SignalPayload::SdpOffer { .. } => emit_signal(signal_payload),
-        SignalPayload::SdpResponse { .. } => emit_signal(signal_payload),
+        SignalPayload::InitRequest { .. } => emit_signal(signal_payload),
+        SignalPayload::InitAccept { .. } => emit_signal(signal_payload),
+        SignalPayload::SdpData { .. } => emit_signal(signal_payload),
     }
 }
 
@@ -61,40 +66,56 @@ fn pong(from_agent: AgentPubKey) -> ExternResult<()> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SdpOfferInput {
-    pub timestamp: i32, // unix epoch time in ms
-    pub offer: String,
-    pub to_agents: Vec<AgentPubKey>,
-    pub other_connected_peers: Option<Vec<AgentPubKey>>,
+pub struct InitRequestInput {
+    pub connection_id: String,
+    pub to_agent: AgentPubKey,
 }
 
 #[hdk_extern]
-pub fn send_offer(input: SdpOfferInput) -> ExternResult<()> {
-    let signal_payload = SignalPayload::SdpOffer {
+pub fn send_init_request(input: InitRequestInput) -> ExternResult<()> {
+    let signal_payload = SignalPayload::InitRequest {
         from_agent: agent_info()?.agent_initial_pubkey,
-        timestamp: input.timestamp,
-        offer: input.offer,
+        connection_id: input.connection_id,
     };
 
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, input.to_agents)
+    remote_signal(encoded_signal, vec![input.to_agent])
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SdpResponseInput {
-    pub offer_timestamp: i32, // unix epoch time in ms
-    pub response: String,
+pub struct InitAcceptInput {
+    pub connection_id: String,
     pub to_agent: AgentPubKey,
 }
 
 #[hdk_extern]
-pub fn send_response(input: SdpResponseInput) -> ExternResult<()> {
-    let signal_payload = SignalPayload::SdpResponse {
+pub fn send_init_accept(input: InitAcceptInput) -> ExternResult<()> {
+    let signal_payload = SignalPayload::InitAccept {
         from_agent: agent_info()?.agent_initial_pubkey,
-        offer_timestamp: input.offer_timestamp,
-        response: input.response,
+        connection_id: input.connection_id,
+    };
+
+    let encoded_signal = ExternIO::encode(signal_payload)
+        .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
+
+    remote_signal(encoded_signal, vec![input.to_agent])
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SdpDataInput {
+    pub to_agent: AgentPubKey,
+    pub connection_id: String,
+    pub data: String,
+}
+
+#[hdk_extern]
+pub fn send_sdp_data(input: SdpDataInput) -> ExternResult<()> {
+    let signal_payload = SignalPayload::SdpData {
+        from_agent: agent_info()?.agent_initial_pubkey,
+        connection_id: input.connection_id,
+        data: input.data,
     };
 
     let encoded_signal = ExternIO::encode(signal_payload)

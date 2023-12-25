@@ -17,12 +17,15 @@
     "@lit-labs/task": "^2.0.0",
     "@msgpack/msgpack": "^2.7.2",
     "lit": "^2.6.1",
+    "uuid": "9.0.1",
     "simple-peer": "9.11.1"
   },
   "devDependencies": {
     "@open-wc/eslint-config": "^4.3.0",
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.43.0",
+    "@types/simple-peer": "9.11.8",
+    "@types/uuid": "9.0.7",
     "bestzip": "^2.2.0",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",

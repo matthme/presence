@@ -5,13 +5,17 @@ import {
   AppAgentClient,
 } from '@holochain/client';
 import { provide } from '@lit-labs/context';
-import { WeClient, initializeHotReload, isWeContext } from '@lightningrodlabs/we-applet';
+import {
+  WeClient,
+  initializeHotReload,
+  isWeContext,
+} from '@lightningrodlabs/we-applet';
 
 import { clientContext, unzoomStoreContext } from './contexts';
 import { UnzoomStore } from './unzoom-store';
 import { UnzoomClient } from './unzoom-client';
 
-import "./main-view";
+import './main-view';
 
 @customElement('holochain-app')
 export class HolochainApp extends LitElement {
@@ -31,33 +35,37 @@ export class HolochainApp extends LitElement {
         await initializeHotReload();
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn("Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.")
+        console.warn(
+          'Could not initialize applet hot-reloading. This is only expected to work in a We context in dev mode.'
+        );
       }
     }
     if (isWeContext()) {
       const weClient = await WeClient.connect();
       if (
-        (weClient.renderInfo.type !== "applet-view")
-        || (weClient.renderInfo.view.type !== "main")
-      ) throw new Error("This Applet only implements the applet main view.");
+        weClient.renderInfo.type !== 'applet-view' ||
+        weClient.renderInfo.view.type !== 'main'
+      )
+        throw new Error('This Applet only implements the applet main view.');
       this.client = weClient.renderInfo.appletClient;
     } else {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
-      this.client = await AppAgentWebsocket.connect(new URL('https://UNUSED'), 'unzoom');
+      this.client = await AppAgentWebsocket.connect(
+        new URL('https://UNUSED'),
+        'unzoom'
+      );
     }
-    this.unzoomStore = new UnzoomStore(new UnzoomClient(this.client, "unzoom", "unzoom"));
+    this.unzoomStore = new UnzoomStore(
+      new UnzoomClient(this.client, 'unzoom', 'unzoom')
+    );
     this.loading = false;
   }
 
-  render() {
-    if (this.loading)
-      return html`
-        loading...
-      `;
 
-    return html`
-      <main-view .unzoomStore=${this.unzoomStore}></main-view>
-    `;
+  render() {
+    if (this.loading) return html` loading... `;
+
+    return html` <main-view .unzoomStore=${this.unzoomStore}></main-view> `;
   }
 
   static styles = css`

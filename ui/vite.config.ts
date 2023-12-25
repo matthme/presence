@@ -3,12 +3,17 @@ import checker from 'vite-plugin-checker';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      "simple-peer": "simple-peer/simplepeer.min.js",
+    }
+  },
   plugins: [
     checker({
       typescript: true,
-      eslint: {
-        lintCommand: 'eslint --ext .ts,.html . --ignore-path .gitignore',
-      },
+      // eslint: {
+      //   lintCommand: 'eslint --ext .ts,.html . --ignore-path .gitignore',
+      // },
     }),
   ]
 });
