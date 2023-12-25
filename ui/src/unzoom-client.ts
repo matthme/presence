@@ -20,7 +20,6 @@ export class UnzoomClient extends ZomeClient<UnzoomSignal> {
    * Ping all given agents, listening for their pong later
    */
   async ping(agentPubKeys: AgentPubKey[]): Promise<void> {
-    console.log("Pinging agents: ", agentPubKeys.map((hash) => encodeHashToBase64(hash)));
     return this.callZome("ping", agentPubKeys);
   }
 
