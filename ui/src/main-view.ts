@@ -21,6 +21,8 @@ import { localized, msg } from '@lit/localize';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
+import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
+
 import { UnzoomStore } from './unzoom-store';
 import { UnzoomSignal } from './unzoom/unzoom/types';
 
@@ -434,14 +436,27 @@ export class MainView extends LitElement {
       <div
         class="videos-container"
       >
-        <div class="video-container quartett">
-          <video id="my-own-stream" class="video-el"></video>
+        <div class="video-container double">
+          <video style="${this._camera ? '' : 'display: none;'}" id="my-own-stream" class="video-el">hello</video>
+          <sl-icon
+              style="color: #b98484; height: 30%; width: 30%;${this._camera
+                ? 'display: none;'
+                : ''}"
+              .src=${wrapPathInSvg(mdiVideoOff)}
+          ></sl-icon>
+          <div style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 5px; right: 15px; background: none;">
+            <holo-identicon
+              .size=${36}
+              hash=${encodeHashToBase64(this.unzoomStore.client.client.myPubKey)}
+            ></holo-identicon>
+            <span style="margin-left: 10px; font-size: 23px; color: #b98484;">nickname</span>
+          </div>
+          <!-- <div class="video-placeholder">Other content</div> -->
         </div>
-        <div class="video-container quartett">
-          <video id="my-own-stream2" class="video-el"></video>
-        </div>
-        <div class="video-container quartett">
-          <video id="my-own-stream2" class="video-el"></video>
+        <div class="video-container double">
+          <video id="my-own-stream2" class="video-el">This is content</video>
+
+          <!-- <div class="video-placeholder">Other content</div> -->
         </div>
         ${Object.entries(this._openConnections).map(
           ([_pubkeyB64, conn]) => html`
@@ -474,17 +489,28 @@ export class MainView extends LitElement {
     }
 
     .video-container {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
       aspect-ratio: 16 / 9;
-      /* display: flex; */
-      /* flex: 1; */
       border-radius: 20px;
       border: 2px solid #7291c9;
       margin: 5px;
       overflow: hidden;
+      background: black;
     }
 
     .video-el {
-      height: 100%;
+      max-height: 100%;
+      max-width: 100%;
+    }
+
+    .identicon canvas {
+      width: 180px;
+      height: 180px;
     }
 
     .single {
@@ -494,11 +520,23 @@ export class MainView extends LitElement {
     }
 
     .double {
-      min-width: min(48.5%, 48.5vw);
+      width: min(48.5%, 48.5vw);
+      min-width: max(280px, 48.5vw);
     }
 
     .quartett {
-      min-width: min(48.5%, 48.5vw, 84vh);
+      width: min(48.5%, 48.5vw, 84vh);
+      min-width: min(84vh, max(280px, 48.5vw));
+    }
+
+    .sextett {
+      width: min(32.5%, 32.5vw);
+      min-width: max(280px, 32.5vw);
+    }
+
+    .octett {
+      width: min(32.5%, 32.5vw, 55vh);
+      min-width: min(55vh, max(280px, 32.5vw));
     }
 
     .btn-stop {
