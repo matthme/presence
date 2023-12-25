@@ -65,7 +65,7 @@ export class HolochainApp extends LitElement {
   render() {
     if (this.loading) return html` loading... `;
 
-    return html` <main-view .unzoomStore=${this.unzoomStore}></main-view> `;
+    return html` <main-view  class="main-view" .unzoomStore=${this.unzoomStore}></main-view> `;
   }
 
   static styles = css`
@@ -79,13 +79,15 @@ export class HolochainApp extends LitElement {
       font-size: calc(10px + 2vmin);
       color: #1a2b42;
       max-width: 960px;
-      margin: 0 auto;
+      margin: 0;
       text-align: center;
       background: #383b4d;
     }
 
-    main {
-      flex-grow: 1;
+    .main-view {
+      display: flex;
+      flex: 1;
+      margin: 0;
     }
 
     .app-footer {

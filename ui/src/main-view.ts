@@ -41,7 +41,10 @@ export class MainView extends LitElement {
   );
 
   @state()
-  _mediaStream: MediaStream | undefined | null;
+  _audioStream: MediaStream | undefined | null;
+
+  @state()
+  _videoStream: MediaStream | undefined | null;
 
   @state()
   _onlineAgents: AgentPubKeyB64[] = [];
@@ -119,85 +122,80 @@ export class MainView extends LitElement {
   }
 
   async videoOn() {
-    if (this._mediaStream) {
-      this._mediaStream.getVideoTracks().forEach(track => {
+    if (this._videoStream) {
+      this._videoStream.getVideoTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = true;
       });
       this._camera = true;
     } else {
       try {
-        this._mediaStream = await navigator.mediaDevices.getUserMedia({
+        this._videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
-          audio: true,
-        });
-        // Disable audo track by default
-        this._mediaStream.getAudioTracks().forEach(track => {
-          // eslint-disable-next-line no-param-reassign
-          track.enabled = false;
         });
         const myVideo = this.shadowRoot?.getElementById(
           'my-own-stream'
         ) as HTMLVideoElement;
-        myVideo.srcObject = this._mediaStream;
+        myVideo.srcObject = this._videoStream;
         this._camera = true;
         await myVideo.play();
       } catch (e: any) {
         console.error(`Failed to get media devices: ${e.toString()}`);
       }
       Object.values(this._openConnections).forEach(conn => {
-        if (this._mediaStream) {
+        if (this._videoStream) {
           console.log('Adding media stream to connection ', conn.connectionId);
-          conn.peer.addStream(this._mediaStream);
+          conn.peer.addStream(this._videoStream);
         }
       });
     }
   }
 
   async videoOff() {
-    if (this._mediaStream) {
-      this._mediaStream.getVideoTracks().forEach(track => {
+    if (this._videoStream) {
+      this._videoStream.getVideoTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
-        track.enabled = false;
+        track.stop();
+      });
+      Object.values(this._openConnections).forEach(conn => {
+        if (this._videoStream) {
+          console.log('Adding media stream to connection ', conn.connectionId);
+          conn.peer.removeStream(this._videoStream);
+        }
       });
       this._camera = false;
+      this._videoStream = null;
     }
   }
 
   async audioOn() {
-    if (this._mediaStream) {
-      this._mediaStream.getAudioTracks().forEach(track => {
+    if (this._audioStream) {
+      this._audioStream.getAudioTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = true;
       });
       this._microphone = true;
     } else {
       try {
-        this._mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+        this._audioStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-        });
-        // Disable audo track by default
-        this._mediaStream.getVideoTracks().forEach(track => {
-          // eslint-disable-next-line no-param-reassign
-          track.enabled = false;
         });
         this._microphone = true;
       } catch (e: any) {
         console.error(`Failed to get media devices: ${e.toString()}`);
       }
       Object.values(this._openConnections).forEach(conn => {
-        if (this._mediaStream) {
+        if (this._audioStream) {
           console.log('Adding media stream to connection ', conn.connectionId);
-          conn.peer.addStream(this._mediaStream);
+          conn.peer.addStream(this._audioStream);
         }
       });
     }
   }
 
   async audioOff() {
-    if (this._mediaStream) {
-      this._mediaStream.getAudioTracks().forEach(track => {
+    if (this._audioStream) {
+      this._audioStream.getAudioTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = false;
       });
@@ -433,22 +431,23 @@ export class MainView extends LitElement {
 
   render() {
     return html`
-      <div>Open connections: ${Object.keys(this._openConnections)}</div>
-      <button @click=${() => this.videoOn()}>STREAM ON</button>
-      <button @click=${() => this.videoOff()}>STREAM OFF</button>
       <div
-        style="display: flex; flex-direction: row; align-items: center; flex-wrap: wrap;"
+        class="videos-container"
       >
-        <video
-          id="my-own-stream"
-          style="border: 2px solid black; width: 300px; height: 230px; margin: 10px;"
-        ></video>
+        <div class="video-container quartett">
+          <video id="my-own-stream" class="video-el"></video>
+        </div>
+        <div class="video-container quartett">
+          <video id="my-own-stream2" class="video-el"></video>
+        </div>
+        <div class="video-container quartett">
+          <video id="my-own-stream2" class="video-el"></video>
+        </div>
         ${Object.entries(this._openConnections).map(
           ([_pubkeyB64, conn]) => html`
-            <video
-              id="${conn.connectionId}"
-              style="border: 2px solid black; width: 300px; height: 230px; margin: 10px;"
-            ></video>
+            <div class="video-container double">
+              <video id="${conn.connectionId}" class="video-container"></video>
+            </div>
           `
         )}
       </div>
@@ -459,6 +458,47 @@ export class MainView extends LitElement {
   static styles = css`
     main {
       flex-grow: 1;
+      margin: 0;
+    }
+
+    .videos-container {
+      display: flex;
+      flex: 1;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      width: 100vw;
+      margin: 0;
+      align-content: center;
+    }
+
+    .video-container {
+      aspect-ratio: 16 / 9;
+      /* display: flex; */
+      /* flex: 1; */
+      border-radius: 20px;
+      border: 2px solid #7291c9;
+      margin: 5px;
+      overflow: hidden;
+    }
+
+    .video-el {
+      height: 100%;
+    }
+
+    .single {
+      height: min(100vh, 100%);
+      width: min(100vw, 100%);
+      border: none;
+    }
+
+    .double {
+      min-width: min(48.5%, 48.5vw);
+    }
+
+    .quartett {
+      min-width: min(48.5%, 48.5vw, 84vh);
     }
 
     .btn-stop {
@@ -488,7 +528,8 @@ export class MainView extends LitElement {
     .toggle-btn-icon {
       height: 40px;
       width: 40px;
-      color: #e7d9aa;
+      /* color: #e7d9aa; */
+      color: #facece;
     }
 
     .btn-icon-off {
@@ -527,21 +568,32 @@ export class MainView extends LitElement {
       justify-content: center;
       position: fixed;
       font-size: 19px;
-      bottom: 20px;
-      width: 290px;
+      bottom: 10px;
+      right: 10px;
+      width: 215px;
       height: 74px;
       border-radius: 37px;
       background: #102a4d;
-      left: calc(50% - 150px);
-    }
-
-    .app-footer {
-      font-size: calc(12px + 0.5vmin);
-      align-items: center;
-    }
-
-    .app-footer a {
-      margin-left: 5px;
+      /* left: calc(50% - 150px); */
     }
   `;
+}
+
+function numToLayout(num: number) {
+  if (num === 1) {
+    return 'single';
+  }
+  if (num <= 2) {
+    return "double";
+  }
+  if (num <= 4) {
+    return 'quartett';
+  }
+  if (num <= 6) {
+    return 'sextett';
+  }
+  if (num <= 8) {
+    return 'octett';
+  }
+  return 'unlimited';
 }
