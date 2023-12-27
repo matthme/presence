@@ -9,9 +9,6 @@
     <meta name="Description" content="Put your description here." />
     <base href="/" />
 
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons"
-      rel="stylesheet">
-
     <style>
       html,
       body {
@@ -20,17 +17,26 @@
         font-family: sans-serif;
         background-color: #ededed;
       }
-      
+
       :root {
-        --mdc-theme-primary: #7B1FA2;
-        --mdc-theme-secondary: #FF5722;
+        --sl-color-primary-50: rgb(249 249 252);
+        --sl-color-primary-100: rgb(234 236 245);
+        --sl-color-primary-200: rgb(219 221 238);
+        --sl-color-primary-300: rgb(201 205 230);
+        --sl-color-primary-400: rgb(179 184 220);
+        --sl-color-primary-500: rgb(149 157 206);
+        --sl-color-primary-600: rgb(118 128 191);
+        --sl-color-primary-700: rgb(90 102 179);
+        --sl-color-primary-800: rgb(68 81 168);
+        --sl-color-primary-900: rgb(42 55 138);
+        --sl-color-primary-950: rgb(26 34 85);
       }
     </style>
     <title>Unzoom</title>
   </head>
 
   <body>
-    <holochain-app></holochain-app>
+    <holochain-app style="display: flex; flex: 1;"></holochain-app>
 
     <script type="module" src="./src/holochain-app.ts"></script>
   </body>

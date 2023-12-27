@@ -30,6 +30,14 @@ export type UnzoomSignal =
       from_agent: AgentPubKey;
     }
   | {
+      type: 'PingUi';
+      from_agent: AgentPubKey;
+    }
+  | {
+      type: 'PongUi';
+      from_agent: AgentPubKey;
+    }
+  | {
       type: 'SdpData';
       from_agent: AgentPubKey;
       connection_id: string;

@@ -17,10 +17,23 @@ export class UnzoomClient extends ZomeClient<UnzoomSignal> {
   }
 
   /**
-   * Ping all given agents, listening for their pong later
+   * Ping all given agents for passive availability (i.e. not in the front-end), listening for their pong later
    */
-  async ping(agentPubKeys: AgentPubKey[]): Promise<void> {
+  async pingBackend(agentPubKeys: AgentPubKey[]): Promise<void> {
     return this.callZome("ping", agentPubKeys);
+  }
+
+  async pingFrontend(agentPubKeys: AgentPubKey[]): Promise<void> {
+    return this.callZome("ping_ui", agentPubKeys);
+  }
+
+  /**
+   * Send a pong to an agent that sent a ping_ui
+   * @param agentPubKey
+   * @returns
+   */
+  async pongFrontend(agentPubKey: AgentPubKey): Promise<void> {
+    return this.callZome("pong_ui", agentPubKey);
   }
 
   async sendInitRequest(payload: InitRequestInput): Promise<void> {
