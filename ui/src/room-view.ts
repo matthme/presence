@@ -1,9 +1,10 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import {
   encodeHashToBase64,
   AgentPubKeyB64,
   AgentPubKey,
+  decodeHashFromBase64,
 } from '@holochain/client';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
 import * as SimplePeer from 'simple-peer';
@@ -16,17 +17,17 @@ import {
 } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { localized, msg } from '@lit/localize';
-import { consume } from '@lit-labs/context';
+import { consume } from '@lit/context';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 
 import { UnzoomStore } from './unzoom-store';
 import { UnzoomSignal } from './unzoom/unzoom/types';
 import { unzoomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
+import "./avatar-with-nickname";
 
 type ConnectionId = string;
 
@@ -73,6 +74,7 @@ export class RoomView extends LitElement {
       peer: SimplePeer.Instance;
       video: boolean;
       audio: boolean;
+      connected: boolean;
     }
   > = {};
 
@@ -109,6 +111,7 @@ export class RoomView extends LitElement {
       initiator,
       config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
       objectMode: true,
+      trickle: true,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
@@ -190,9 +193,19 @@ export class RoomView extends LitElement {
       this.requestUpdate();
     });
     peer.on('connect', () => {
+      console.log("#### CONNECTED");
+      const pubKey64 = encodeHashToBase64(connectingAgent);
       const pendingInits = this._pendingInits;
-      delete pendingInits[encodeHashToBase64(connectingAgent)];
+      delete pendingInits[pubKey64];
       this._pendingInits = pendingInits;
+
+      const openConnections = this._openConnections;
+      const relevantConnection =
+        openConnections[pubKey64];
+      relevantConnection.connected = true;
+      openConnections[pubKey64] = relevantConnection;
+      this._openConnections = openConnections;
+
       peer.send(
         JSON.stringify({
           type: 'text',
@@ -365,8 +378,6 @@ export class RoomView extends LitElement {
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
           console.log('Got UI PONG from ', pubkeyB64);
-          console.log("@PONG: this._pendingInits: ", this._pendingInits);
-          console.log("@PONG: this._openConnections: ", this._openConnections);
           if (
             !Object.keys(this._openConnections).includes(pubkeyB64) &&
             !Object.keys(this._pendingInits).includes(pubkeyB64)
@@ -423,6 +434,7 @@ export class RoomView extends LitElement {
               peer: newPeer,
               video: false,
               audio: false,
+              connected: false,
             };
             this._openConnections = openConnections;
             this.requestUpdate();
@@ -434,6 +446,7 @@ export class RoomView extends LitElement {
           break;
         }
         case 'InitAccept': {
+          console.log('#### RECEIVED INIT ACCEPT');
           const pubKey64 = encodeHashToBase64(signal.from_agent);
           if (
             !Object.keys(this._openConnections).includes(pubKey64) &&
@@ -452,6 +465,7 @@ export class RoomView extends LitElement {
               peer: newPeer,
               video: false,
               audio: false,
+              connected: false,
             };
             this._openConnections = openConnections;
 
@@ -634,16 +648,7 @@ export class RoomView extends LitElement {
           <div
             style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
           >
-            <holo-identicon
-              .size=${36}
-              style="height: 36px;"
-              hash=${encodeHashToBase64(
-                this.unzoomStore.client.client.myPubKey
-              )}
-            ></holo-identicon>
-            <span style="margin-left: 10px; font-size: 23px; color: #cd9f9f;"
-              >nickname</span
-            >
+            <avatar-with-nickname .size=${36} .agentPubKey=${this.unzoomStore.client.client.myPubKey} style="height: 36px;"></avatar-with-nickname>
           </div>
           <sl-icon
             style="position: absolute; bottom: 10px; left: 10px; color: red; height: 30px; width: 30px; ${this._microphone ? 'display: none' : ''}"
@@ -652,7 +657,7 @@ export class RoomView extends LitElement {
           <!-- <div class="video-placeholder">Other content</div> -->
         </div>
         ${Object.entries(this._openConnections).map(
-          ([_pubkeyB64, conn]) => html`
+          ([pubkeyB64, conn]) => html`
             <div
               class="video-container ${numToLayout(
                 Object.keys(this._openConnections).length + 1
@@ -664,25 +669,16 @@ export class RoomView extends LitElement {
                 class="video-el"
               ></video>
               <sl-icon
-                style="color: #b98484; height: 30%; width: 30%;${conn.video
+                style="color: #b98484; height: 30%; width: 30%;${!conn.connected || conn.video
                   ? 'display: none;'
                   : ''}"
                 .src=${wrapPathInSvg(mdiVideoOff)}
               ></sl-icon>
+              <div style="color: #b98484; ${conn.connected ? 'display: none': ''}">establishing connection...</div>
               <div
                 style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
               >
-                <holo-identicon
-                  .size=${36}
-                  style="height: 36px;"
-                  hash=${encodeHashToBase64(
-                    this.unzoomStore.client.client.myPubKey
-                  )}
-                ></holo-identicon>
-                <span
-                  style="margin-left: 10px; font-size: 23px; color: #cd9f9f;"
-                  >not me</span
-                >
+                <avatar-with-nickname .size=${36} .agentPubKey=${decodeHashFromBase64(pubkeyB64)} style="height: 36px;"></avatar-with-nickname>
               </div>
             <sl-icon
               style="position: absolute; bottom: 10px; left: 10px; color: red; height: 30px; width: 30px; ${conn.audio ? 'display: none' : ''}"

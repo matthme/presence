@@ -5,7 +5,7 @@ import {
   RoleName,
 } from '@holochain/client';
 import { localized } from '@lit/localize';
-import { consume, provide } from '@lit-labs/context';
+import { consume, provide } from '@lit/context';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';

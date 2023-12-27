@@ -1,6 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ClonedCell } from '@holochain/client';
+import { ClonedCell, encodeHashToBase64 } from '@holochain/client';
 import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
@@ -31,7 +31,7 @@ export class PersonalRoomCard extends LitElement {
           <div
             style="margin-bottom: 15px; font-weight: bold;${this.clonedCell.name
               ? ''
-              : 'opacity: 0.7'}"
+              : 'opacity: 0.6'}"
           >
             ${this.clonedCell.name ? this.clonedCell.name : '(no name)'}
           </div>
@@ -64,6 +64,9 @@ export class PersonalRoomCard extends LitElement {
                     );
                   }}
                 ></sl-icon>
+              </div>
+              <div class="row" style="align-items: center; margin-top: 10px;">
+                <span style="font-size: 18px;">dna hash: &nbsp;</span><span style="font-family: sans-serif; font-size: 15px;">${encodeHashToBase64(this.clonedCell.cell_id[0])}</span>
               </div>
             </div>
           </div>
@@ -101,7 +104,7 @@ export class PersonalRoomCard extends LitElement {
         /* background: #668fc2; */
         /* background: #102a4d; */
         background: #ced5fa;
-        padding: 20px 23px;
+        padding: 15px 23px;
         border-radius: 25px;
         color: #071b31;
         font-size: 20px;
@@ -114,7 +117,7 @@ export class PersonalRoomCard extends LitElement {
         color: #fff0f0;
         border: none;
         padding: 5px 5px;
-        font-family: 'Pacifico', sans-serif;
+        font-family: 'Gabriela', sans-serif;
         font-size: 20px;
         width: 80px;
         cursor: pointer;
