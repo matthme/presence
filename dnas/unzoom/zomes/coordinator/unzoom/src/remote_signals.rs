@@ -104,6 +104,7 @@ pub fn pong_ui(agent_pub_key: AgentPubKey) -> ExternResult<()> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InitRequestInput {
+    pub connection_type: Option<String>, // e.g. "screen" for screen sharing
     pub connection_id: String,
     pub to_agent: AgentPubKey,
 }
@@ -123,6 +124,7 @@ pub fn send_init_request(input: InitRequestInput) -> ExternResult<()> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InitAcceptInput {
+    pub connection_type: Option<String>, // e.g. "screen" for screen sharing
     pub connection_id: String,
     pub to_agent: AgentPubKey,
 }
