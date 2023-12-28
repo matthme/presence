@@ -11,11 +11,13 @@ import {
 export type InitAcceptInput = {
   connection_id: string;
   to_agent: AgentPubKey;
+  connection_type?: string;
 };
 
 export type InitRequestInput = {
   connection_id: string;
   to_agent: AgentPubKey;
+  connection_type?: string;
 };
 
 export type SdpDataInput = {
@@ -45,11 +47,13 @@ export type UnzoomSignal =
     }
   | {
       type: 'InitRequest';
+      connection_type: string | undefined;
       from_agent: AgentPubKey;
       connection_id: string;
     }
   | {
       type: 'InitAccept';
+      connection_type: string | undefined;
       from_agent: AgentPubKey;
       connection_id: string;
     }

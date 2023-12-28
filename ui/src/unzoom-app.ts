@@ -46,8 +46,8 @@ enum PageView {
 
 export const weClientContext = createContext<WeClient>('we_client');
 
-@customElement('holochain-app')
-export class HolochainApp extends LitElement {
+@customElement('unzoom-app')
+export class UnzoomApp extends LitElement {
   @provide({ context: clientContext })
   @property({ type: Object })
   client!: AppAgentClient;
@@ -237,7 +237,7 @@ export class HolochainApp extends LitElement {
       case PageView.Loading:
         return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">
         <div class="entry-logo">unzoom.</div>
-          <div>...and see the bigger picture</div>
+          <div>...to see the bigger picture</div>
           <div style="position: absolute; bottom: 20px;">loading...</div>
         </div>`;
       case PageView.Home:
@@ -362,6 +362,7 @@ export class HolochainApp extends LitElement {
           </div>
         `;
       case PageView.Room:
+        if (!this._weClient) return html`loading...`;
         return html`
           <room-container
             class="room-container"

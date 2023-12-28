@@ -18,10 +18,12 @@ pub enum SignalPayload {
     InitRequest {
         from_agent: AgentPubKey,
         connection_id: String,
+        connection_type: Option<String>,
     },
     InitAccept {
         from_agent: AgentPubKey,
         connection_id: String,
+        connection_type: Option<String>,
     },
     SdpData {
         from_agent: AgentPubKey,
@@ -114,6 +116,7 @@ pub fn send_init_request(input: InitRequestInput) -> ExternResult<()> {
     let signal_payload = SignalPayload::InitRequest {
         from_agent: agent_info()?.agent_initial_pubkey,
         connection_id: input.connection_id,
+        connection_type: input.connection_type,
     };
 
     let encoded_signal = ExternIO::encode(signal_payload)
@@ -134,6 +137,7 @@ pub fn send_init_accept(input: InitAcceptInput) -> ExternResult<()> {
     let signal_payload = SignalPayload::InitAccept {
         from_agent: agent_info()?.agent_initial_pubkey,
         connection_id: input.connection_id,
+        connection_type: input.connection_type,
     };
 
     let encoded_signal = ExternIO::encode(signal_payload)
