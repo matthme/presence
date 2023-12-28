@@ -10,7 +10,7 @@ import {
   encodeHashToBase64,
   AgentPubKey,
 } from '@holochain/client';
-import { createContext, provide } from '@lit/context';
+import { provide } from '@lit/context';
 import {
   GroupProfile,
   WeClient,
@@ -37,14 +37,13 @@ import './list-online-agents';
 import { sharedStyles } from './sharedStyles';
 import { UnzoomStore } from './unzoom-store';
 import { UnzoomClient } from './unzoom-client';
+import { weClientContext } from './types';
 
 enum PageView {
   Loading,
   Home,
   Room,
 }
-
-export const weClientContext = createContext<WeClient>('we_client');
 
 @customElement('unzoom-app')
 export class UnzoomApp extends LitElement {
@@ -244,7 +243,7 @@ export class UnzoomApp extends LitElement {
       case PageView.Loading:
         return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">
         <div class="entry-logo">unzoom.</div>
-          <div>...to see the bigger picture</div>
+          <div>...and see the bigger picture</div>
           <div style="position: absolute; bottom: 20px;">loading...</div>
         </div>`;
       case PageView.Home:

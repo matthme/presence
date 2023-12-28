@@ -72,8 +72,6 @@ export class AvatarWithNickname extends LitElement {
 
   renderProfile(profile: EntryRecord<Profile> | undefined) {
     if (!profile || !profile.entry.fields.avatar) return this.renderIdenticon();
-    console.log("Got nickname: ", profile.entry);
-
     return html`
       <div class="row" style="align-items: center; margin: 0; padding: 0;">
         <img

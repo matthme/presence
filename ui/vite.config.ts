@@ -5,8 +5,9 @@ import checker from 'vite-plugin-checker';
 export default defineConfig({
   resolve: {
     alias: {
-      "simple-peer": "simple-peer/simplepeer.min.js",
-    }
+      // ...
+      'simple-peer': 'simple-peer/simplepeer.min.js',
+    },
   },
   plugins: [
     checker({
@@ -15,5 +16,5 @@ export default defineConfig({
       //   lintCommand: 'eslint --ext .ts,.html . --ignore-path .gitignore',
       // },
     }),
-  ]
+  ],
 });

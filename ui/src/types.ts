@@ -7,6 +7,10 @@ import {
   CreateLink,
   DeleteLink,
 } from '@holochain/client';
+import { WeClient } from '@lightningrodlabs/we-applet';
+import { createContext } from '@lit/context';
+
+export const weClientContext = createContext<WeClient>('we_client');
 
 export type InitAcceptInput = {
   connection_id: string;

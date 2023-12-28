@@ -1,6 +1,6 @@
 import { ZomeClient } from "@holochain-open-dev/utils";
-import { AgentPubKey, AppAgentClient, RoleName, encodeHashToBase64 } from "@holochain/client";
-import { InitAcceptInput, InitRequestInput, SdpDataInput, UnzoomSignal } from "./unzoom/unzoom/types";
+import { AgentPubKey, AppAgentClient, RoleName } from "@holochain/client";
+import { InitAcceptInput, InitRequestInput, SdpDataInput, UnzoomSignal } from "./types";
 
 
 export class UnzoomClient extends ZomeClient<UnzoomSignal> {

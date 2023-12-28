@@ -7,7 +7,7 @@ import {
   decodeHashFromBase64,
 } from '@holochain/client';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
-import * as SimplePeer from 'simple-peer';
+import SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
 import {
   mdiFullscreen,
@@ -31,7 +31,7 @@ import { UnzoomStore } from './unzoom-store';
 import { unzoomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { weClientContext } from './unzoom-app';
+import { weClientContext } from './types';
 
 type ConnectionId = string;
 
@@ -60,7 +60,7 @@ export class RoomView extends LitElement {
   @state()
   unzoomStore!: UnzoomStore;
 
-  @consume({ context: weClientContext, subscribe: true })
+  @consume({ context: weClientContext })
   @state()
   _weClient!: WeClient;
 
@@ -191,8 +191,8 @@ export class RoomView extends LitElement {
       }
     });
     peer.on('stream', stream => {
-      console.log('#### GOT STREAM. With tracks: ', stream.getTracks());
-      console.log('Open connections: ', this._openConnections);
+      console.log('#### GOT STREAM');
+      // console.log('Open connections: ', this._openConnections);
       const openConnections = this._openConnections;
       const relevantConnection =
         openConnections[encodeHashToBase64(connectingAgent)];
@@ -210,7 +210,6 @@ export class RoomView extends LitElement {
       const videoEl = this.shadowRoot?.getElementById(connectionId) as
         | HTMLVideoElement
         | undefined;
-      console.log('Got videoEl: ', videoEl);
       if (videoEl) {
         videoEl.srcObject = stream;
         videoEl.play();
@@ -383,7 +382,6 @@ export class RoomView extends LitElement {
       }
       Object.values(this._openConnections).forEach(conn => {
         if (this._videoStream) {
-          console.log('Adding media stream to connection ', conn.connectionId);
           conn.peer.addStream(this._videoStream);
         }
       });
@@ -398,7 +396,6 @@ export class RoomView extends LitElement {
       });
       Object.values(this._openConnections).forEach(conn => {
         if (this._videoStream) {
-          console.log('Adding media stream to connection ', conn.connectionId);
           conn.peer.removeStream(this._videoStream);
         }
         const msg: RTCMessage = {
@@ -421,7 +418,6 @@ export class RoomView extends LitElement {
       this._microphone = true;
       Object.values(this._openConnections).forEach(conn => {
         if (this._videoStream) {
-          console.log('Adding media stream to connection ', conn.connectionId);
           conn.peer.removeStream(this._videoStream);
         }
         const msg: RTCMessage = {
@@ -438,10 +434,6 @@ export class RoomView extends LitElement {
         this._microphone = true;
         Object.values(this._openConnections).forEach(conn => {
           if (this._audioStream) {
-            console.log(
-              'Adding media stream to connection ',
-              conn.connectionId
-            );
             conn.peer.addStream(this._audioStream);
           }
           const msg: RTCMessage = {
@@ -509,7 +501,6 @@ export class RoomView extends LitElement {
       }
       Object.values(this._screenShareConnections).forEach(conn => {
         if (this._screenShareStream) {
-          console.log('Adding media stream to connection ', conn.connectionId);
           conn.peer.addStream(this._screenShareStream);
         }
       });
@@ -553,11 +544,9 @@ export class RoomView extends LitElement {
   }
 
   async firstUpdated() {
-    console.log('Got unzoomStore: ', this.unzoomStore);
     this._unsubscribe = this.unzoomStore.client.onSignal(async signal => {
       switch (signal.type) {
         case 'PingUi': {
-          console.log('GOT PingUi');
           if (
             signal.from_agent.toString() !==
             this.unzoomStore.client.client.myPubKey.toString()
@@ -568,11 +557,6 @@ export class RoomView extends LitElement {
         }
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
-          console.log('Got UI PONG from ', pubkeyB64);
-          console.log(
-            'My own pubkey: ',
-            encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
-          );
           // Create normal connection if necessary
           if (
             !Object.keys(this._openConnections).includes(pubkeyB64) &&
@@ -613,36 +597,36 @@ export class RoomView extends LitElement {
           // For normal connections:
           const responsibleConnection =
             this._openConnections[encodeHashToBase64(signal.from_agent)];
-          console.log('responsibleConnection: ', responsibleConnection);
+          // console.log('responsibleConnection: ', responsibleConnection);
           // verify connection id
           if (
             responsibleConnection &&
             responsibleConnection.connectionId === signal.connection_id
           ) {
-            console.log(
-              '#### GOT SDP DATA for connectionId ',
-              responsibleConnection.connectionId
-            );
+            // console.log(
+            //   '#### GOT SDP DATA for connectionId ',
+            //   responsibleConnection.connectionId
+            // );
             responsibleConnection.peer.signal(JSON.parse(signal.data));
           }
           // For screen sharing connections:
           const responsibleScreenShareConnection =
             this._screenShareConnections[encodeHashToBase64(signal.from_agent)];
-          console.log('responsibleConnection: ', responsibleConnection);
-          console.log(
-            '### GOT SDP DATA. responsible screen share connection: ',
-            responsibleScreenShareConnection
-          );
+          // console.log('responsibleConnection: ', responsibleConnection);
+          // console.log(
+          //   '### GOT SDP DATA. responsible screen share connection: ',
+          //   responsibleScreenShareConnection
+          // );
           // verify connection id
           if (
             responsibleScreenShareConnection &&
             responsibleScreenShareConnection.connectionId ===
               signal.connection_id
           ) {
-            console.log(
-              '#### GOT SDP DATA for SCREEN SHARE connectionId ',
-              responsibleScreenShareConnection.connectionId
-            );
+            // console.log(
+            //   '#### GOT SDP DATA for SCREEN SHARE connectionId ',
+            //   responsibleScreenShareConnection.connectionId
+            // );
             responsibleScreenShareConnection.peer.signal(
               JSON.parse(signal.data)
             );
@@ -742,11 +726,6 @@ export class RoomView extends LitElement {
             this._pendingInits = pendingInits;
 
             this.requestUpdate();
-
-            console.log(
-              '@InitAccept: open connections: ',
-              this._openConnections
-            );
           }
           // for screen share connections
           if (
@@ -779,10 +758,10 @@ export class RoomView extends LitElement {
 
             this.requestUpdate();
 
-            console.log(
-              '@InitAccept: open screen share connections: ',
-              this._screenShareConnections
-            );
+            // console.log(
+            //   '@InitAccept: open screen share connections: ',
+            //   this._screenShareConnections
+            // );
           }
           break;
         }
@@ -800,7 +779,6 @@ export class RoomView extends LitElement {
 
   async pingAgents() {
     if (this._allAgents.value.status === 'complete') {
-      console.log('PINGING AGENTS...');
       await this.unzoomStore.client.pingFrontend(this._allAgents.value.value);
     }
   }
