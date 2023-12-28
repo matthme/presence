@@ -621,48 +621,51 @@ export class RoomView extends LitElement {
           console.log(`#### GOT ${signal.connection_type === 'screen' ? 'SCREEN SHARE ' : ''}INIT REQUEST.`);
           // Only accept init requests from agents who's pubkey is alphabetically "higher" than ours
           if (
+            signal.connection_type !== 'screen' &&
             encodeHashToBase64(signal.from_agent) >
             encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
           ) {
             console.log('#### SENDING INIT ACCEPT. signal.connection_type: ', signal.connection_type);
-
-            if (signal.connection_type !== 'screen') {
-              console.log("#### Creating normal peer");
-              const newPeer = this.createPeer(
-                signal.from_agent,
-                signal.connection_id,
-                false
-              );
-              const openConnections = this._openConnections;
-              openConnections[encodeHashToBase64(signal.from_agent)] = {
-                connectionId: signal.connection_id,
-                peer: newPeer,
-                video: false,
-                audio: false,
-                connected: false,
-                direction: "duplex",
-              };
-              this._openConnections = openConnections;
-              this.requestUpdate();
-            } else {
-              const newPeer = this.createScreenSharePeer(
-                signal.from_agent,
-                signal.connection_id,
-                false
-              );
-              const screenShareConnections = this._screenShareConnections;
-              screenShareConnections[encodeHashToBase64(signal.from_agent)] = {
-                connectionId: signal.connection_id,
-                peer: newPeer,
-                video: true,
-                audio: false,
-                connected: false,
-                direction: "incoming", // if we did not initiate the request, we're not the one's delivering the stream
-              };
-              this._screenShareConnections = screenShareConnections;
-              console.log("Added new screen share peer: ", newPeer);
-              this.requestUpdate();
-            }
+            console.log("#### Creating normal peer");
+            const newPeer = this.createPeer(
+              signal.from_agent,
+              signal.connection_id,
+              false
+            );
+            const openConnections = this._openConnections;
+            openConnections[encodeHashToBase64(signal.from_agent)] = {
+              connectionId: signal.connection_id,
+              peer: newPeer,
+              video: false,
+              audio: false,
+              connected: false,
+              direction: "duplex",
+            };
+            this._openConnections = openConnections;
+            this.requestUpdate();
+            await this.unzoomStore.client.sendInitAccept({
+              connection_id: signal.connection_id,
+              to_agent: signal.from_agent,
+            });
+          }
+          if (signal.connection_type === 'screen') {
+            const newPeer = this.createScreenSharePeer(
+              signal.from_agent,
+              signal.connection_id,
+              false
+            );
+            const screenShareConnections = this._screenShareConnections;
+            screenShareConnections[encodeHashToBase64(signal.from_agent)] = {
+              connectionId: signal.connection_id,
+              peer: newPeer,
+              video: true,
+              audio: false,
+              connected: false,
+              direction: "incoming", // if we did not initiate the request, we're not the one's delivering the stream
+            };
+            this._screenShareConnections = screenShareConnections;
+            console.log("Added new screen share peer: ", newPeer);
+            this.requestUpdate();
             await this.unzoomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
@@ -943,7 +946,7 @@ export class RoomView extends LitElement {
         <!-- My own screen first if screen sharing is enabled -->
         <div
           style="${this._screenShareStream ? '' : 'display: none;'}"
-          class="video-container ${numToLayout(
+          class="video-container screen-share ${numToLayout(
             Object.keys(this._openConnections).length +
               Object.keys(this._screenShareConnections).length +
               1
@@ -965,7 +968,7 @@ export class RoomView extends LitElement {
         ${Object.entries(this._screenShareConnections).filter(([_, conn]) => conn.direction === "incoming").map(
           ([pubkeyB64, conn]) => html`
             <div
-              class="video-container ${numToLayout(
+              class="video-container screen-share ${numToLayout(
                 Object.keys(this._openConnections).length +
                   Object.keys(this._screenShareConnections).length +
                   1
@@ -1115,6 +1118,10 @@ export class RoomView extends LitElement {
         margin: 5px;
         overflow: hidden;
         background: black;
+      }
+
+      .screen-share {
+        border: 4px solid #ffe100;
       }
 
       .video-el {
