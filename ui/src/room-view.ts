@@ -28,6 +28,8 @@ import { UnzoomSignal } from './unzoom/unzoom/types';
 import { unzoomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import "./avatar-with-nickname";
+import { weClientContext } from './holochain-app';
+import { WeClient } from '@lightningrodlabs/we-applet';
 
 type ConnectionId = string;
 
@@ -48,6 +50,10 @@ export class RoomView extends LitElement {
   @state()
   unzoomStore!: UnzoomStore;
 
+  @consume({ context: weClientContext, subscribe: true })
+  @state()
+  _weClient!: WeClient;
+
   @state()
   pingInterval: number | undefined;
 
@@ -62,6 +68,9 @@ export class RoomView extends LitElement {
 
   @state()
   _videoStream: MediaStream | undefined | null;
+
+  @state()
+  _screenShareStream: MediaStream | undefined | null;
 
   @state()
   _onlineAgents: AgentPubKeyB64[] = [];
@@ -166,7 +175,7 @@ export class RoomView extends LitElement {
       }
     });
     peer.on('stream', stream => {
-      console.log('#### GOT STREAM');
+      console.log('#### GOT STREAM. With tracks: ', stream.getTracks()) ;
       console.log('Open connections: ', this._openConnections);
       const openConnections = this._openConnections;
       const relevantConnection =
@@ -203,6 +212,15 @@ export class RoomView extends LitElement {
       const relevantConnection =
         openConnections[pubKey64];
       relevantConnection.connected = true;
+
+      // if we are already sharing video or audio, add the relevant streams
+      if (this._videoStream) {
+        relevantConnection.peer.addStream(this._videoStream);
+      }
+      if (this._audioStream) {
+        relevantConnection.peer.addStream(this._audioStream);
+      }
+
       openConnections[pubKey64] = relevantConnection;
       this._openConnections = openConnections;
 
@@ -252,8 +270,18 @@ export class RoomView extends LitElement {
       this._camera = true;
     } else {
       try {
+        // this._videoStream = await navigator.mediaDevices.getUserMedia({
+        //   video: true,
+        // });
+        const screenSource = await this._weClient.userSelectScreen();
         this._videoStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: screenSource,
+            },
+          } as any,
         });
         const myVideo = this.shadowRoot?.getElementById(
           'my-own-stream'

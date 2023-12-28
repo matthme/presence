@@ -1,3 +1,4 @@
+import '@fontsource/pacifico';
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -9,7 +10,7 @@ import {
   encodeHashToBase64,
   AgentPubKey,
 } from '@holochain/client';
-import { provide } from '@lit/context';
+import { createContext, provide } from '@lit/context';
 import {
   GroupProfile,
   WeClient,
@@ -17,12 +18,13 @@ import {
   isWeContext,
 } from '@lightningrodlabs/we-applet';
 import { generateSillyPassword } from 'silly-password-generator';
-import '@fontsource/pacifico';
 import {
   ProfilesStore,
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
 import { msg } from '@lit/localize';
+import { mdiDoor } from '@mdi/js';
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -42,11 +44,17 @@ enum PageView {
   Room,
 }
 
+export const weClientContext = createContext<WeClient>('we_client');
+
 @customElement('holochain-app')
 export class HolochainApp extends LitElement {
   @provide({ context: clientContext })
   @property({ type: Object })
   client!: AppAgentClient;
+
+  @provide({ context: weClientContext })
+  @property({ type: Object })
+  _weClient!: WeClient;
 
   @provide({ context: profilesStoreContext })
   @property({ type: Object })
@@ -88,6 +96,7 @@ export class HolochainApp extends LitElement {
   }
 
   async firstUpdated() {
+    const start = Date.now();
     if ((import.meta as any).env.DEV) {
       try {
         await initializeHotReload();
@@ -100,6 +109,7 @@ export class HolochainApp extends LitElement {
     }
     if (isWeContext()) {
       const weClient = await WeClient.connect();
+      this._weClient = weClient;
       if (
         weClient.renderInfo.type !== 'applet-view' ||
         weClient.renderInfo.view.type !== 'main'
@@ -128,11 +138,18 @@ export class HolochainApp extends LitElement {
           (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
       );
     this._personalRooms = clonedCells;
-    this._pageView = PageView.Home;
+    const loadFinished = Date.now();
+    const timeElapsed = loadFinished - start;
+    if (timeElapsed > 3000) {
+      this._pageView = PageView.Home;
+    } else {
+      setTimeout(() => {
+        this._pageView = PageView.Home;
+      }, 3000 - timeElapsed);
+    }
 
     this._unsubscribe = this._mainRoomClient.client.onSignal(async signal => {
       if (signal.type === 'PongUi') {
-        console.log('&&&& GOT PongUi');
         // This is the case if the other agent is in the main room
         const newOnlineAgentsList = this._activeMainRoomParticipants.filter(
           info => info.pubkey.toString() !== signal.from_agent.toString()
@@ -141,15 +158,7 @@ export class HolochainApp extends LitElement {
           pubkey: signal.from_agent,
           lastSeen: Date.now(),
         });
-        console.log('Now: ', Date.now());
         this._activeMainRoomParticipants = newOnlineAgentsList;
-        console.log(
-          'this._activeMainRoomParticipants: ',
-          this._activeMainRoomParticipants.map(hash => ({
-            lastSeen: hash.lastSeen,
-            pubKey: encodeHashToBase64(hash.pubkey),
-          }))
-        );
       }
     });
     await this.pingMainRoomAgents();
@@ -157,11 +166,9 @@ export class HolochainApp extends LitElement {
       await this.pingMainRoomAgents();
       // remove all agents from list that haven't responded in more than 16 seconds, i.e. they missed ~3 pings
       const now = Date.now();
-      console.log('');
       const newOnlineAgentsList = this._activeMainRoomParticipants.filter(
         info => info.lastSeen + 11000 > now
       );
-      console.log('Filtered list: ', newOnlineAgentsList);
       this._activeMainRoomParticipants = newOnlineAgentsList;
     }, 5000);
   }
@@ -228,7 +235,11 @@ export class HolochainApp extends LitElement {
   render() {
     switch (this._pageView) {
       case PageView.Loading:
-        return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">loading...</div>`;
+        return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">
+        <div class="entry-logo">unzoom.</div>
+          <div>...and see the bigger picture</div>
+          <div style="position: absolute; bottom: 20px;">loading...</div>
+        </div>`;
       case PageView.Home:
         return html`
           <div
@@ -253,7 +264,9 @@ export class HolochainApp extends LitElement {
                     this._pageView = PageView.Room;
                   }}
                 >
-                ${msg("Enter Main Room")}
+                <div class="row" style="align-items: center;">
+                  <sl-icon .src=${wrapPathInSvg(mdiDoor)} style="height: 45px; width: 45px;"></sl-icon><span>${msg("Enter Main Room")}</span>
+                </div>
                 </button>
               </div>
               ${this._profilesStore
@@ -394,6 +407,11 @@ export class HolochainApp extends LitElement {
         box-shadow: 0 0 3px 1px #f3b227;
       }
 
+      .entry-logo {
+        font-size: 100px;
+        font-family: 'Pacifico' sans-serif;
+      }
+
       h2 {
         font-weight: normal;
       }
@@ -420,7 +438,8 @@ export class HolochainApp extends LitElement {
         color: #fff0f0;
         border: none;
         padding: 10px 15px;
-        font-family: 'Gabriela', sans-serif;
+        padding-right: 25px;
+        font-family: 'Pacifico', sans-serif;
         font-size: 30px;
         cursor: pointer;
       }
@@ -448,7 +467,7 @@ export class HolochainApp extends LitElement {
         color: #081c36;
         border: none;
         padding: 5px 5px;
-        font-family: 'Gabriela', sans-serif;
+        font-family: 'Pacifico', sans-serif;
         font-size: 20px;
         width: 80px;
         cursor: pointer;
