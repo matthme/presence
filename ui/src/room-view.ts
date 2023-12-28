@@ -10,6 +10,8 @@ import { StoreSubscriber } from '@holochain-open-dev/stores';
 import * as SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  mdiFullscreen,
+  mdiFullscreenExit,
   mdiMicrophone,
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
@@ -51,7 +53,7 @@ type OpenConnectionInfo = {
   video: boolean;
   audio: boolean;
   connected: boolean;
-  direction: "outgoing" | "incoming" | "duplex"; // In which direction streams are expected
+  direction: 'outgoing' | 'incoming' | 'duplex'; // In which direction streams are expected
 };
 @localized()
 @customElement('room-view')
@@ -113,10 +115,7 @@ export class RoomView extends LitElement {
   _pendingScreenShareInits: Record<AgentPubKeyB64, ConnectionId> = {};
 
   @state()
-  _offer: UnzoomSignal | undefined;
-
-  @state()
-  _response: UnzoomSignal | undefined;
+  _maximizedVideo: string | undefined; // id of the maximized video if any
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -334,6 +333,10 @@ export class RoomView extends LitElement {
       delete screenShareConnections[encodeHashToBase64(connectingAgent)];
       this._screenShareConnections = screenShareConnections;
 
+      if (this._maximizedVideo === connectionId) {
+        this._maximizedVideo = undefined;
+      }
+
       this.requestUpdate();
     });
     peer.on('error', e => {
@@ -509,6 +512,9 @@ export class RoomView extends LitElement {
       Object.values(this._screenShareConnections).forEach(conn => {
         conn.peer.destroy();
       });
+      if (this._maximizedVideo === "my-own-screen") {
+        this._maximizedVideo = undefined;
+      }
       this._screenShareStream = null;
     }
   }
@@ -535,7 +541,10 @@ export class RoomView extends LitElement {
     this._unsubscribe = this.unzoomStore.client.onSignal(async signal => {
       switch (signal.type) {
         case 'PingUi': {
-          if (signal.from_agent.toString() !== this.unzoomStore.client.client.myPubKey.toString()) {
+          if (
+            signal.from_agent.toString() !==
+            this.unzoomStore.client.client.myPubKey.toString()
+          ) {
             await this.unzoomStore.client.pongFrontend(signal.from_agent);
           }
           break;
@@ -543,7 +552,10 @@ export class RoomView extends LitElement {
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
           console.log('Got UI PONG from ', pubkeyB64);
-          console.log("My own pubkey: ", encodeHashToBase64(this.unzoomStore.client.client.myPubKey));
+          console.log(
+            'My own pubkey: ',
+            encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
+          );
           // Create normal connection if necessary
           if (
             !Object.keys(this._openConnections).includes(pubkeyB64) &&
@@ -600,7 +612,10 @@ export class RoomView extends LitElement {
           const responsibleScreenShareConnection =
             this._screenShareConnections[encodeHashToBase64(signal.from_agent)];
           console.log('responsibleConnection: ', responsibleConnection);
-          console.log("### GOT SDP DATA. responsible screen share connection: ", responsibleScreenShareConnection);
+          console.log(
+            '### GOT SDP DATA. responsible screen share connection: ',
+            responsibleScreenShareConnection
+          );
           // verify connection id
           if (
             responsibleScreenShareConnection &&
@@ -618,15 +633,22 @@ export class RoomView extends LitElement {
           break;
         }
         case 'InitRequest': {
-          console.log(`#### GOT ${signal.connection_type === 'screen' ? 'SCREEN SHARE ' : ''}INIT REQUEST.`);
+          console.log(
+            `#### GOT ${
+              signal.connection_type === 'screen' ? 'SCREEN SHARE ' : ''
+            }INIT REQUEST.`
+          );
           // Only accept init requests from agents who's pubkey is alphabetically "higher" than ours
           if (
             signal.connection_type !== 'screen' &&
             encodeHashToBase64(signal.from_agent) >
-            encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
+              encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
           ) {
-            console.log('#### SENDING INIT ACCEPT. signal.connection_type: ', signal.connection_type);
-            console.log("#### Creating normal peer");
+            console.log(
+              '#### SENDING INIT ACCEPT. signal.connection_type: ',
+              signal.connection_type
+            );
+            console.log('#### Creating normal peer');
             const newPeer = this.createPeer(
               signal.from_agent,
               signal.connection_id,
@@ -639,7 +661,7 @@ export class RoomView extends LitElement {
               video: false,
               audio: false,
               connected: false,
-              direction: "duplex",
+              direction: 'duplex',
             };
             this._openConnections = openConnections;
             this.requestUpdate();
@@ -661,10 +683,10 @@ export class RoomView extends LitElement {
               video: true,
               audio: false,
               connected: false,
-              direction: "incoming", // if we did not initiate the request, we're not the one's delivering the stream
+              direction: 'incoming', // if we did not initiate the request, we're not the one's delivering the stream
             };
             this._screenShareConnections = screenShareConnections;
-            console.log("Added new screen share peer: ", newPeer);
+            console.log('Added new screen share peer: ', newPeer);
             this.requestUpdate();
             await this.unzoomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
@@ -694,7 +716,7 @@ export class RoomView extends LitElement {
               video: false,
               audio: false,
               connected: false,
-              direction: "duplex",
+              direction: 'duplex',
             };
             this._openConnections = openConnections;
 
@@ -730,7 +752,7 @@ export class RoomView extends LitElement {
               video: true,
               audio: false,
               connected: false,
-              direction: "outgoing", // if we initiated the request, we're the one's delivering the stream
+              direction: 'outgoing', // if we initiated the request, we're the one's delivering the stream
             };
             this._screenShareConnections = screenShareConnections;
 
@@ -778,6 +800,35 @@ export class RoomView extends LitElement {
     if (this._unsubscribe) this._unsubscribe();
   }
 
+  idToLayout(id: string) {
+    if (id === this._maximizedVideo) return 'maximized';
+    if (this._maximizedVideo) return 'hidden';
+    const screenShareNum =
+      Object.keys(this._screenShareConnections).length > 0
+        ? Object.keys(this._screenShareConnections).length
+        : this._screenShareStream
+        ? 1
+        : 0;
+    const num = Object.keys(this._openConnections).length + screenShareNum + 1;
+
+    if (num === 1) {
+      return 'single';
+    }
+    if (num <= 2) {
+      return 'double';
+    }
+    if (num <= 4) {
+      return 'quartett';
+    }
+    if (num <= 6) {
+      return 'sextett';
+    }
+    if (num <= 8) {
+      return 'octett';
+    }
+    return 'unlimited';
+  }
+
   renderToggles() {
     return html`
       <div class="toggles-panel">
@@ -807,7 +858,7 @@ export class RoomView extends LitElement {
             @mouseenter=${() => {
               this._hoverMicrophone = true;
             }}
-            @mouseout=${() => {
+            @mouseleave=${() => {
               this._hoverMicrophone = false;
             }}
             @blur=${() => {
@@ -854,7 +905,7 @@ export class RoomView extends LitElement {
             @mouseenter=${() => {
               this._hoverCamera = true;
             }}
-            @mouseout=${() => {
+            @mouseleave=${() => {
               this._hoverCamera = false;
             }}
             @blur=${() => {
@@ -901,7 +952,7 @@ export class RoomView extends LitElement {
             @mouseenter=${() => {
               this._hoverScreen = true;
             }}
-            @mouseout=${() => {
+            @mouseleave=${() => {
               this._hoverScreen = false;
             }}
             @blur=${() => {
@@ -914,10 +965,7 @@ export class RoomView extends LitElement {
               this._screenShareStream
                 ? ''
                 : 'btn-icon-off'}"
-              .src=${(this._hoverScreen && !this._screenShareStream) ||
-              this._screenShareStream
-                ? wrapPathInSvg(mdiMonitorScreenshot)
-                : wrapPathInSvg(mdiProjectorScreenOffOutline)}
+              .src=${wrapPathInSvg(mdiMonitorScreenshot)}
             ></sl-icon>
           </div>
         </sl-tooltip>
@@ -942,14 +990,25 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
+      <div
+        class="stop-share"
+        tabindex="0"
+        style="${this._screenShareStream ? '' : 'display: none'}"
+        @click=${async () => this.screenShareOff()}
+        @keypress=${async (e: KeyboardEvent) => {
+          if (e.key === "Enter") {
+            await this.screenShareOff();
+          }
+        }}
+      >
+        ${msg("Stop Screen Share")}
+      </div>
       <div class="videos-container">
         <!-- My own screen first if screen sharing is enabled -->
         <div
           style="${this._screenShareStream ? '' : 'display: none;'}"
-          class="video-container screen-share ${numToLayout(
-            Object.keys(this._openConnections).length +
-              Object.keys(this._screenShareConnections).length +
-              1
+          class="video-container screen-share ${this.idToLayout(
+            'my-own-screen'
           )}"
         >
           <video id="my-own-screen" class="video-el"></video>
@@ -962,49 +1021,91 @@ export class RoomView extends LitElement {
               style="height: 36px;"
             ></avatar-with-nickname>
           </div>
+          <sl-icon
+            .src=${this._maximizedVideo === 'my-own-screen'
+              ? wrapPathInSvg(mdiFullscreenExit)
+              : wrapPathInSvg(mdiFullscreen)}
+            tabindex="0"
+            class="maximize-icon"
+            @click=${() => {
+              if (this._maximizedVideo !== 'my-own-screen') {
+                this._maximizedVideo = 'my-own-screen';
+              } else {
+                this._maximizedVideo = undefined;
+              }
+            }}
+            @keypress=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                if (this._maximizedVideo !== 'my-own-screen') {
+                  this._maximizedVideo = 'my-own-screen';
+                } else {
+                  this._maximizedVideo = undefined;
+                }
+              }
+            }}
+          ></sl-icon>
         </div>
         <!--Then other agents' screens -->
 
-        ${Object.entries(this._screenShareConnections).filter(([_, conn]) => conn.direction === "incoming").map(
-          ([pubkeyB64, conn]) => html`
-            <div
-              class="video-container screen-share ${numToLayout(
-                Object.keys(this._openConnections).length +
-                  Object.keys(this._screenShareConnections).length +
-                  1
-              )}"
-            >
-              <video
-                style="${conn.connected ? '' : 'display: none;'}"
-                id="${conn.connectionId}"
-                class="video-el"
-              ></video>
+        ${Object.entries(this._screenShareConnections)
+          .filter(([_, conn]) => conn.direction === 'incoming')
+          .map(
+            ([pubkeyB64, conn]) => html`
               <div
-                style="color: #b98484; ${conn.connected ? 'display: none' : ''}"
+                class="video-container screen-share ${this.idToLayout(
+                  conn.connectionId
+                )}"
               >
-                establishing connection...
+                <video
+                  style="${conn.connected ? '' : 'display: none;'}"
+                  id="${conn.connectionId}"
+                  class="video-el"
+                ></video>
+                <div
+                  style="color: #b98484; ${conn.connected
+                    ? 'display: none'
+                    : ''}"
+                >
+                  establishing connection...
+                </div>
+                <div
+                  style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
+                >
+                  <avatar-with-nickname
+                    .size=${36}
+                    .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
+                    style="height: 36px;"
+                  ></avatar-with-nickname>
+                </div>
+                <sl-icon
+                  .src=${this._maximizedVideo === conn.connectionId
+                    ? wrapPathInSvg(mdiFullscreenExit)
+                    : wrapPathInSvg(mdiFullscreen)}
+                  tabindex="0"
+                  class="maximize-icon"
+                  @click=${() => {
+                    if (this._maximizedVideo !== conn.connectionId) {
+                      this._maximizedVideo = conn.connectionId;
+                    } else {
+                      this._maximizedVideo = undefined;
+                    }
+                  }}
+                  @keypress=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      if (this._maximizedVideo !== conn.connectionId) {
+                        this._maximizedVideo = conn.connectionId;
+                      } else {
+                        this._maximizedVideo = undefined;
+                      }
+                    }
+                  }}
+                ></sl-icon>
               </div>
-              <div
-                style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
-              >
-                <avatar-with-nickname
-                  .size=${36}
-                  .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
-                  style="height: 36px;"
-                ></avatar-with-nickname>
-              </div>
-            </div>
-          `
-        )}
+            `
+          )}
 
         <!-- My own video stream -->
-        <div
-          class="video-container ${numToLayout(
-            Object.keys(this._openConnections).length +
-              Object.keys(this._screenShareConnections).length +
-              1
-          )}"
-        >
+        <div class="video-container ${this.idToLayout('my-own-stream')}">
           <video
             style="${this._camera ? '' : 'display: none;'}"
             id="my-own-stream"
@@ -1037,13 +1138,7 @@ export class RoomView extends LitElement {
         <!-- Video stream of others -->
         ${Object.entries(this._openConnections).map(
           ([pubkeyB64, conn]) => html`
-            <div
-              class="video-container ${numToLayout(
-                Object.keys(this._openConnections).length +
-                  Object.keys(this._screenShareConnections).length +
-                  1
-              )}"
-            >
+            <div class="video-container ${this.idToLayout(conn.connectionId)}">
               <video
                 style="${conn.video ? '' : 'display: none;'}"
                 id="${conn.connectionId}"
@@ -1093,6 +1188,30 @@ export class RoomView extends LitElement {
         background: #383b4d;
       }
 
+      .stop-share {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 10px;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        color: white;
+        background: #b60606;
+        border-radius: 10px;
+        font-family: sans-serif;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 0 2px white;
+        z-index: 1;
+        cursor: pointer;
+      }
+
+      .stop-share:hover {
+        background: #fd5959;
+      }
+
       .videos-container {
         display: flex;
         flex: 1;
@@ -1120,6 +1239,34 @@ export class RoomView extends LitElement {
         background: black;
       }
 
+      .maximized {
+        height: 98.5vh;
+        width: 98.5vw;
+        margin: 0;
+      }
+
+      .maximize-icon {
+        position: absolute;
+        bottom: 5px;
+        left: 5px;
+        color: #facece;
+        height: 40px;
+        width: 40px;
+        cursor: pointer;
+      }
+
+      .maximize-icon:hover {
+        color: white;
+      }
+
+      .maximize-icon:focus {
+        color: white;
+      }
+
+      .hidden {
+        display: none;
+      }
+
       .screen-share {
         border: 4px solid #ffe100;
       }
@@ -1135,8 +1282,9 @@ export class RoomView extends LitElement {
       }
 
       .single {
-        height: min(100vh, 100%);
-        width: min(100vw, 100%);
+        height: min(98vh, 100%);
+        width: min(98vw, 100%);
+        max-height: 98vh;
         border: none;
       }
 
@@ -1238,23 +1386,4 @@ export class RoomView extends LitElement {
       }
     `,
   ];
-}
-
-function numToLayout(num: number) {
-  if (num === 1) {
-    return 'single';
-  }
-  if (num <= 2) {
-    return 'double';
-  }
-  if (num <= 4) {
-    return 'quartett';
-  }
-  if (num <= 6) {
-    return 'sextett';
-  }
-  if (num <= 8) {
-    return 'octett';
-  }
-  return 'unlimited';
 }
