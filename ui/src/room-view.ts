@@ -15,7 +15,6 @@ import {
   mdiMicrophone,
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
-  mdiProjectorScreenOffOutline,
   mdiVideo,
   mdiVideoOff,
 } from '@mdi/js';
@@ -29,7 +28,6 @@ import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import { WeClient } from '@lightningrodlabs/we-applet';
 
 import { UnzoomStore } from './unzoom-store';
-import { UnzoomSignal } from './unzoom/unzoom/types';
 import { unzoomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
@@ -118,7 +116,17 @@ export class RoomView extends LitElement {
   _maximizedVideo: string | undefined; // id of the maximized video if any
 
   @state()
+  _displayError: string | undefined;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
+
+  notifyError(msg: string) {
+    this._displayError = msg;
+    setTimeout(() => {
+      this._displayError = undefined;
+    }, 4000);
+  }
 
   createPeer(
     connectingAgent: AgentPubKey,
@@ -472,6 +480,14 @@ export class RoomView extends LitElement {
         track.enabled = true;
       });
     } else {
+      if (Object.keys(this._screenShareConnections).length > 0) {
+        this.notifyError(
+          'You are already connected to the screen share of someone else.'
+        );
+        throw new Error(
+          'You are already connected to the screen share of someone else.'
+        );
+      }
       try {
         const screenSource = await this._weClient.userSelectScreen();
         this._screenShareStream = await navigator.mediaDevices.getUserMedia({
@@ -512,7 +528,7 @@ export class RoomView extends LitElement {
       Object.values(this._screenShareConnections).forEach(conn => {
         conn.peer.destroy();
       });
-      if (this._maximizedVideo === "my-own-screen") {
+      if (this._maximizedVideo === 'my-own-screen') {
         this._maximizedVideo = undefined;
       }
       this._screenShareStream = null;
@@ -541,6 +557,7 @@ export class RoomView extends LitElement {
     this._unsubscribe = this.unzoomStore.client.onSignal(async signal => {
       switch (signal.type) {
         case 'PingUi': {
+          console.log('GOT PingUi');
           if (
             signal.from_agent.toString() !==
             this.unzoomStore.client.client.myPubKey.toString()
@@ -782,16 +799,9 @@ export class RoomView extends LitElement {
   }
 
   async pingAgents() {
-    console.log('SENDING PINGS');
     if (this._allAgents.value.status === 'complete') {
-      await this.unzoomStore.client.pingFrontend(
-        this._allAgents.value.value.filter(
-          pubkey =>
-            !Object.keys(this._openConnections).includes(
-              encodeHashToBase64(pubkey)
-            )
-        )
-      );
+      console.log('PINGING AGENTS...');
+      await this.unzoomStore.client.pingFrontend(this._allAgents.value.value);
     }
   }
 
@@ -996,12 +1006,18 @@ export class RoomView extends LitElement {
         style="${this._screenShareStream ? '' : 'display: none'}"
         @click=${async () => this.screenShareOff()}
         @keypress=${async (e: KeyboardEvent) => {
-          if (e.key === "Enter") {
+          if (e.key === 'Enter') {
             await this.screenShareOff();
           }
         }}
       >
-        ${msg("Stop Screen Share")}
+        ${msg('Stop Screen Share')}
+      </div>
+      <div
+        class="error-message"
+        style="${this._displayError ? '' : 'display: none;'}"
+      >
+        ${this._displayError}
       </div>
       <div class="videos-container">
         <!-- My own screen first if screen sharing is enabled -->
@@ -1210,6 +1226,22 @@ export class RoomView extends LitElement {
 
       .stop-share:hover {
         background: #fd5959;
+      }
+
+      .stop-share:focus {
+        background: #fd5959;
+      }
+
+      .error-message {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        padding: 5px 10px;
+        border-radius: 10px;
+        color: white;
+        background: #b60606;
+        box-shadow: 0 0 2px white;
+        font-family: sans-serif;
       }
 
       .videos-container {

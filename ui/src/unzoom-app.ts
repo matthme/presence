@@ -204,6 +204,7 @@ export class UnzoomApp extends LitElement {
       name: roomNameInput.value,
     });
     this._personalRooms = [clonedCell, ...this._personalRooms];
+    roomNameInput.value = '';
   }
 
   async joinRoom() {
@@ -222,6 +223,10 @@ export class UnzoomApp extends LitElement {
     ) as HTMLInputElement | null | undefined;
     if (!roomNameInput2)
       throw new Error('Room name input field 2 not found in DOM.');
+    if (roomNameInput2.value === '') {
+      this.notifyError('Error: Secret words must not be empty.');
+      throw new Error('Room name must not be empty.');
+    }
     const clonedCell = await this.client.createCloneCell({
       role_name: 'unzoom',
       modifiers: {
@@ -230,6 +235,8 @@ export class UnzoomApp extends LitElement {
       name: roomNameInput2.value,
     });
     this._personalRooms = [clonedCell, ...this._personalRooms];
+    roomNameInput2.value = '';
+    secretWordsInput.value = '';
   }
 
   render() {
@@ -253,7 +260,7 @@ export class UnzoomApp extends LitElement {
             style="align-items: center; display: flex; flex: 1; width: 100vw;"
           >
             <div class="column top-panel">
-              <div style="position: absolute; top: 0; right: 10px;">
+              <div style="position: absolute; top: 0; right: 20px;">
                 unzoom.
               </div>
               <div style="margin-top: 120px; margin-bottom: 20px;">
@@ -296,7 +303,7 @@ export class UnzoomApp extends LitElement {
                   <input
                     id="room-name-input"
                     class="input-field"
-                    placeholder="room name (optional, not seen by others)"
+                    placeholder="room name (not seen by others)"
                     type="text"
                   />
                   <button
@@ -316,7 +323,7 @@ export class UnzoomApp extends LitElement {
                     id="room-name-input2"
                     class="input-field"
                     style="margin-bottom: 10px;"
-                    placeholder="room name (optional, not seen by others)"
+                    placeholder="room name (not seen by others)"
                     type="text"
                   />
                   <input

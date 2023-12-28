@@ -65,8 +65,9 @@ export class PersonalRoomCard extends LitElement {
                   }}
                 ></sl-icon>
               </div>
-              <div class="row" style="align-items: center; margin-top: 10px;">
-                <span style="font-size: 18px;">dna hash: &nbsp;</span><span style="font-family: sans-serif; font-size: 15px;">${encodeHashToBase64(this.clonedCell.cell_id[0])}</span>
+              <div class="column" style="align-items: flex-start; margin-top: 10px;">
+                <div style="font-size: 18px;">dna hash:</div>
+                <div style="font-family: sans-serif; font-size: 15px;">${encodeHashToBase64(this.clonedCell.cell_id[0])}</div>
               </div>
             </div>
           </div>
@@ -117,7 +118,7 @@ export class PersonalRoomCard extends LitElement {
         color: #fff0f0;
         border: none;
         padding: 5px 5px;
-        font-family: 'Gabriela', sans-serif;
+        font-family: 'Pacifico', sans-serif;
         font-size: 20px;
         width: 80px;
         cursor: pointer;
@@ -139,7 +140,7 @@ export class PersonalRoomCard extends LitElement {
         background: #fff0f0;
         padding: 3px 8px;
         border-radius: 5px;
-        min-width: 450px;
+        min-width: 400px;
         text-align: center;
       }
 
