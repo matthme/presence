@@ -191,7 +191,7 @@ export class RoomView extends LitElement {
       }
     });
     peer.on('stream', async stream => {
-      console.log('#### GOT STREAM');
+      console.log('#### GOT STREAM with tracks: ', stream.getTracks());
       // console.log('Open connections: ', this._openConnections);
       const openConnections = this._openConnections;
       const relevantConnection =
@@ -417,9 +417,6 @@ export class RoomView extends LitElement {
       });
       this._microphone = true;
       Object.values(this._openConnections).forEach(conn => {
-        if (this._videoStream) {
-          conn.peer.removeStream(this._videoStream);
-        }
         const msg: RTCMessage = {
           type: 'action',
           message: 'audio-on',
