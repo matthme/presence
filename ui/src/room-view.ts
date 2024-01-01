@@ -190,7 +190,7 @@ export class RoomView extends LitElement {
         );
       }
     });
-    peer.on('stream', stream => {
+    peer.on('stream', async stream => {
       console.log('#### GOT STREAM');
       // console.log('Open connections: ', this._openConnections);
       const openConnections = this._openConnections;
@@ -212,7 +212,7 @@ export class RoomView extends LitElement {
         | undefined;
       if (videoEl) {
         videoEl.srcObject = stream;
-        videoEl.play();
+        await videoEl.play();
       }
       this.requestUpdate();
     });
@@ -283,7 +283,7 @@ export class RoomView extends LitElement {
         data: JSON.stringify(data),
       });
     });
-    peer.on('stream', stream => {
+    peer.on('stream', async stream => {
       console.log(
         '#### GOT SCREEN SHARE STREAM. With tracks: ',
         stream.getTracks()
@@ -307,7 +307,7 @@ export class RoomView extends LitElement {
         | undefined;
       if (videoEl) {
         videoEl.srcObject = stream;
-        videoEl.play();
+        await videoEl.play();
       }
       this.requestUpdate();
     });
