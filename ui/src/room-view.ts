@@ -137,7 +137,7 @@ export class RoomView extends LitElement {
       initiator,
       config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
       objectMode: true,
-      trickle: true,
+      trickle: false,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
@@ -273,7 +273,7 @@ export class RoomView extends LitElement {
       initiator,
       config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
       objectMode: true,
-      trickle: true,
+      trickle: false,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
