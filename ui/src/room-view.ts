@@ -137,7 +137,7 @@ export class RoomView extends LitElement {
       initiator,
       config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
       objectMode: true,
-      trickle: false,
+      trickle: true,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
@@ -273,7 +273,7 @@ export class RoomView extends LitElement {
       initiator,
       config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
       objectMode: true,
-      trickle: false,
+      trickle: true,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
@@ -396,7 +396,11 @@ export class RoomView extends LitElement {
       });
       Object.values(this._openConnections).forEach(conn => {
         if (this._videoStream) {
-          conn.peer.removeStream(this._videoStream);
+          try {
+            conn.peer.removeStream(this._videoStream);
+          } catch (e) {
+            console.warn("Could not remove stream from peer: ", e);
+          }
         }
         const msg: RTCMessage = {
           type: 'action',
@@ -554,6 +558,7 @@ export class RoomView extends LitElement {
         }
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+          console.log("Got PongUI from ", pubkeyB64);
           // Create normal connection if necessary
           if (
             !Object.keys(this._openConnections).includes(pubkeyB64) &&
