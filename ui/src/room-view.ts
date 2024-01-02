@@ -135,7 +135,12 @@ export class RoomView extends LitElement {
   ): SimplePeer.Instance {
     const options: SimplePeer.Options = {
       initiator,
-      config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
+      config: {
+        iceServers: [
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          { urls: 'stun:stun.l.google.com:19302' },
+        ],
+      },
       objectMode: true,
       trickle: true,
     };
@@ -371,6 +376,11 @@ export class RoomView extends LitElement {
         this._videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
+      } catch (e: any) {
+        console.error(`Failed to get media devices (video): ${e.toString()}`);
+        return;
+      }
+      try {
         const myVideo = this.shadowRoot?.getElementById(
           'my-own-stream'
         ) as HTMLVideoElement;
@@ -378,7 +388,7 @@ export class RoomView extends LitElement {
         this._camera = true;
         await myVideo.play();
       } catch (e: any) {
-        console.error(`Failed to get media devices: ${e.toString()}`);
+        console.error(`Failed to play video stream: ${e.toString()}`);
       }
       Object.values(this._openConnections).forEach(conn => {
         if (this._videoStream) {
@@ -399,7 +409,7 @@ export class RoomView extends LitElement {
           try {
             conn.peer.removeStream(this._videoStream);
           } catch (e) {
-            console.warn("Could not remove stream from peer: ", e);
+            console.warn('Could not remove stream from peer: ', e);
           }
         }
         const msg: RTCMessage = {
@@ -433,19 +443,23 @@ export class RoomView extends LitElement {
           audio: true,
         });
         this._microphone = true;
-        Object.values(this._openConnections).forEach(conn => {
-          if (this._audioStream) {
-            conn.peer.addStream(this._audioStream);
-          }
-          const msg: RTCMessage = {
-            type: 'action',
-            message: 'audio-on',
-          };
-          conn.peer.send(JSON.stringify(msg));
-        });
       } catch (e: any) {
-        console.error(`Failed to get media devices: ${e.toString()}`);
+        console.error(`Failed to get media devices (audio): ${e.toString()}`);
       }
+      Object.values(this._openConnections).forEach(conn => {
+        if (this._audioStream) {
+          conn.peer.addStream(this._audioStream);
+        }
+        const msg: RTCMessage = {
+          type: 'action',
+          message: 'audio-on',
+        };
+        try {
+          conn.peer.send(JSON.stringify(msg));
+        } catch (e: any) {
+          console.warn(`Failed to send audio-on message: ${e.toString()}`);
+        }
+      });
     }
   }
 
@@ -492,13 +506,21 @@ export class RoomView extends LitElement {
             },
           } as any,
         });
+      } catch (e: any) {
+        console.error(
+          `Failed to get media devices (screen share): ${e.toString()}`
+        );
+      }
+      try {
         const myScreenVideo = this.shadowRoot?.getElementById(
           'my-own-screen'
         ) as HTMLVideoElement;
-        myScreenVideo.srcObject = this._screenShareStream;
+        myScreenVideo.srcObject = this._screenShareStream!;
         await myScreenVideo.play();
       } catch (e: any) {
-        console.error(`Failed to get media devices: ${e.toString()}`);
+        console.error(
+          `Failed to play screen share video: ${e.toString()}`
+        );
       }
       Object.values(this._screenShareConnections).forEach(conn => {
         if (this._screenShareStream) {
@@ -558,7 +580,7 @@ export class RoomView extends LitElement {
         }
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
-          console.log("Got PongUI from ", pubkeyB64);
+          console.log('Got PongUI from ', pubkeyB64);
           // Create normal connection if necessary
           if (
             !Object.keys(this._openConnections).includes(pubkeyB64) &&
@@ -596,6 +618,7 @@ export class RoomView extends LitElement {
           break;
         }
         case 'SdpData': {
+          console.log("## Got SDP Data: ", signal.data);
           // For normal connections:
           const responsibleConnection =
             this._openConnections[encodeHashToBase64(signal.from_agent)];
