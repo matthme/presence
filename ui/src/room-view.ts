@@ -33,6 +33,11 @@ import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
 import { weClientContext } from './types';
 
+const ICE_CONFIG = [
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  { urls: 'stun:stun.l.google.com:19302' },
+];
+
 type ConnectionId = string;
 
 type RTCMessage =
@@ -136,10 +141,7 @@ export class RoomView extends LitElement {
     const options: SimplePeer.Options = {
       initiator,
       config: {
-        iceServers: [
-          { urls: 'stun:global.stun.twilio.com:3478' },
-          { urls: 'stun:stun.l.google.com:19302' },
-        ],
+        iceServers: ICE_CONFIG,
       },
       objectMode: true,
       trickle: true,
@@ -276,7 +278,7 @@ export class RoomView extends LitElement {
   ): SimplePeer.Instance {
     const options: SimplePeer.Options = {
       initiator,
-      config: { iceServers: [{ urls: 'stun:turn.holo.host' }] },
+      config: { iceServers: ICE_CONFIG },
       objectMode: true,
       trickle: true,
     };
