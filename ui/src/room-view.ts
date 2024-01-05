@@ -1151,7 +1151,6 @@ export class RoomView extends LitElement {
                 )}"
               >
                 <video
-                  muted
                   style="${conn.connected ? '' : 'display: none;'}"
                   id="${conn.connectionId}"
                   class="video-el"
@@ -1236,7 +1235,6 @@ export class RoomView extends LitElement {
           ([pubkeyB64, conn]) => html`
             <div class="video-container ${this.idToLayout(conn.connectionId)}">
               <video
-                muted
                 style="${conn.video ? '' : 'display: none;'}"
                 id="${conn.connectionId}"
                 class="video-el"
