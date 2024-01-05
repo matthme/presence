@@ -130,12 +130,12 @@ export class UnzoomApp extends LitElement {
     );
     // Get all personal rooms
     const appInfo = await this.client.appInfo();
-    const clonedCells = appInfo.cell_info.unzoom
+    const clonedCells = appInfo.cell_info.unzoom ? appInfo.cell_info.unzoom
       .filter(cellInfo => CellType.Cloned in cellInfo)
       .map(
         cellInfo =>
           (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
-      );
+      ) : [];
     this._personalRooms = clonedCells;
     const loadFinished = Date.now();
     const timeElapsed = loadFinished - start;

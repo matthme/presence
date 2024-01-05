@@ -209,17 +209,21 @@ export class RoomView extends LitElement {
         }
         if (stream.getVideoTracks().length > 0) {
           relevantConnection.video = true;
+          try {
+            const videoEl = this.shadowRoot?.getElementById(connectionId) as
+              | HTMLVideoElement
+              | undefined;
+            if (videoEl) {
+              videoEl.autoplay = true;
+              videoEl.srcObject = stream;
+            }
+          } catch (e) {
+            console.error('Failed to play video: ', e);
+          }
         }
         openConnections[encodeHashToBase64(connectingAgent)] =
           relevantConnection;
         this._openConnections = openConnections;
-      }
-      const videoEl = this.shadowRoot?.getElementById(connectionId) as
-        | HTMLVideoElement
-        | undefined;
-      if (videoEl) {
-        videoEl.srcObject = stream;
-        await videoEl.play();
       }
       this.requestUpdate();
     });
@@ -313,8 +317,8 @@ export class RoomView extends LitElement {
         | HTMLVideoElement
         | undefined;
       if (videoEl) {
+        videoEl.autoplay = true;
         videoEl.srcObject = stream;
-        await videoEl.play();
       }
       this.requestUpdate();
     });
@@ -386,9 +390,9 @@ export class RoomView extends LitElement {
         const myVideo = this.shadowRoot?.getElementById(
           'my-own-stream'
         ) as HTMLVideoElement;
+        myVideo.autoplay = true;
         myVideo.srcObject = this._videoStream;
         this._camera = true;
-        await myVideo.play();
       } catch (e: any) {
         console.error(`Failed to play video stream: ${e.toString()}`);
       }
@@ -517,12 +521,10 @@ export class RoomView extends LitElement {
         const myScreenVideo = this.shadowRoot?.getElementById(
           'my-own-screen'
         ) as HTMLVideoElement;
+        myScreenVideo.autoplay = true;
         myScreenVideo.srcObject = this._screenShareStream!;
-        await myScreenVideo.play();
       } catch (e: any) {
-        console.error(
-          `Failed to play screen share video: ${e.toString()}`
-        );
+        console.error(`Failed to play screen share video: ${e.toString()}`);
       }
       Object.values(this._screenShareConnections).forEach(conn => {
         if (this._screenShareStream) {
@@ -620,7 +622,7 @@ export class RoomView extends LitElement {
           break;
         }
         case 'SdpData': {
-          console.log("## Got SDP Data: ", signal.data);
+          console.log('## Got SDP Data: ', signal.data);
           // For normal connections:
           const responsibleConnection =
             this._openConnections[encodeHashToBase64(signal.from_agent)];
