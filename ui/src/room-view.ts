@@ -79,10 +79,7 @@ export class RoomView extends LitElement {
   );
 
   @state()
-  _audioStream: MediaStream | undefined | null;
-
-  @state()
-  _videoStream: MediaStream | undefined | null;
+  _mainStream: MediaStream | undefined | null;
 
   @state()
   _screenShareStream: MediaStream | undefined | null;
@@ -197,7 +194,7 @@ export class RoomView extends LitElement {
         );
       }
     });
-    peer.on('stream', async stream => {
+    peer.on('stream', stream => {
       console.log('#### GOT STREAM with tracks: ', stream.getTracks());
       // console.log('Open connections: ', this._openConnections);
       const openConnections = this._openConnections;
@@ -213,14 +210,36 @@ export class RoomView extends LitElement {
         openConnections[encodeHashToBase64(connectingAgent)] =
           relevantConnection;
         this._openConnections = openConnections;
+        try {
+          const videoEl = this.shadowRoot?.getElementById(connectionId) as
+            | HTMLVideoElement
+            | undefined;
+          if (videoEl) {
+            videoEl.autoplay = true;
+            videoEl.srcObject = stream;
+          }
+        } catch (e) {
+          console.error('Failed to play video: ', e);
+        }
       }
-      const videoEl = this.shadowRoot?.getElementById(connectionId) as
-        | HTMLVideoElement
-        | undefined;
-      if (videoEl) {
-        videoEl.srcObject = stream;
-        await videoEl.play();
+      this.requestUpdate();
+    });
+    peer.on('track', track => {
+      console.log(
+        '#### GOT TRACK: ', track
+      );
+      const openConnections = this._openConnections;
+      const relevantConnection =
+        openConnections[encodeHashToBase64(connectingAgent)];
+      if (track.kind === "audio") {
+          relevantConnection.audio = true;
       }
+      if (track.kind === "video") {
+        relevantConnection.video = true;
+      }
+      openConnections[encodeHashToBase64(connectingAgent)] =
+        relevantConnection;
+      this._openConnections = openConnections;
       this.requestUpdate();
     });
     peer.on('connect', () => {
@@ -235,11 +254,8 @@ export class RoomView extends LitElement {
       relevantConnection.connected = true;
 
       // if we are already sharing video or audio, add the relevant streams
-      if (this._videoStream) {
-        relevantConnection.peer.addStream(this._videoStream);
-      }
-      if (this._audioStream) {
-        relevantConnection.peer.addStream(this._audioStream);
+      if (this._mainStream) {
+        relevantConnection.peer.addStream(this._mainStream);
       }
 
       openConnections[pubKey64] = relevantConnection;
@@ -290,7 +306,7 @@ export class RoomView extends LitElement {
         data: JSON.stringify(data),
       });
     });
-    peer.on('stream', async stream => {
+    peer.on('stream', stream => {
       console.log(
         '#### GOT SCREEN SHARE STREAM. With tracks: ',
         stream.getTracks()
@@ -313,8 +329,8 @@ export class RoomView extends LitElement {
         | HTMLVideoElement
         | undefined;
       if (videoEl) {
+        videoEl.autoplay = true;
         videoEl.srcObject = stream;
-        await videoEl.play();
       }
       this.requestUpdate();
     });
@@ -367,119 +383,179 @@ export class RoomView extends LitElement {
   }
 
   async videoOn() {
-    if (this._videoStream) {
-      this._videoStream.getVideoTracks().forEach(track => {
-        // eslint-disable-next-line no-param-reassign
-        track.enabled = true;
-      });
-      this._camera = true;
+    if (this._mainStream) {
+      if (this._mainStream.getVideoTracks()[0]) {
+        console.log("### CASE A");
+        this._mainStream.getVideoTracks()[0].enabled = true;
+        this._camera = true;
+      } else {
+        console.log("### CASE B");
+        let videoStream: MediaStream | undefined;
+        try {
+          videoStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+        } catch (e: any) {
+          console.error(`Failed to get media devices (video): ${e.toString()}`);
+          return;
+        }
+        this._mainStream.addTrack(videoStream!.getVideoTracks()[0]);
+        const myVideo = this.shadowRoot?.getElementById(
+          'my-own-stream'
+        ) as HTMLVideoElement;
+        myVideo.autoplay = true;
+        myVideo.srcObject = this._mainStream;
+        this._camera = true;
+        try {
+          Object.values(this._openConnections).forEach(conn => {
+            conn.peer.addTrack(
+              videoStream!.getVideoTracks()[0],
+              this._mainStream!
+            );
+          });
+        } catch (e: any) {
+          console.error(`Failed to add video track: ${e.toString()}`);
+        }
+      }
     } else {
       try {
-        this._videoStream = await navigator.mediaDevices.getUserMedia({
+        this._mainStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
       } catch (e: any) {
         console.error(`Failed to get media devices (video): ${e.toString()}`);
         return;
       }
+      const myVideo = this.shadowRoot?.getElementById(
+        'my-own-stream'
+      ) as HTMLVideoElement;
+      myVideo.autoplay = true;
+      myVideo.srcObject = this._mainStream;
+      this._camera = true;
       try {
-        const myVideo = this.shadowRoot?.getElementById(
-          'my-own-stream'
-        ) as HTMLVideoElement;
-        myVideo.srcObject = this._videoStream;
-        this._camera = true;
-        await myVideo.play();
+        Object.values(this._openConnections).forEach(conn => {
+          conn.peer.addStream(this._mainStream!);
+        });
       } catch (e: any) {
-        console.error(`Failed to play video stream: ${e.toString()}`);
+        console.error(`Failed to add video track: ${e.toString()}`);
       }
-      Object.values(this._openConnections).forEach(conn => {
-        if (this._videoStream) {
-          conn.peer.addStream(this._videoStream);
-        }
-      });
     }
   }
 
   async videoOff() {
-    if (this._videoStream) {
-      this._videoStream.getVideoTracks().forEach(track => {
+    if (this._mainStream) {
+      this._mainStream.getVideoTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.stop();
       });
       Object.values(this._openConnections).forEach(conn => {
-        if (this._videoStream) {
-          try {
-            conn.peer.removeStream(this._videoStream);
-          } catch (e) {
-            console.warn('Could not remove stream from peer: ', e);
-          }
+        try {
+          this._mainStream!.getVideoTracks().forEach(track => {
+            conn.peer.removeTrack(track, this._mainStream!);
+          });
+        } catch (e) {
+          console.warn('Could not remove video track from peer: ', e);
         }
         const msg: RTCMessage = {
           type: 'action',
           message: 'video-off',
         };
-        conn.peer.send(JSON.stringify(msg));
+        try {
+          conn.peer.send(JSON.stringify(msg));
+        } catch (e) {
+          console.warn('Could not send video-off message to peer: ', e);
+        }
+      });
+      this._mainStream.getVideoTracks().forEach(track => {
+        this._mainStream!.removeTrack(track);
       });
       this._camera = false;
-      this._videoStream = null;
     }
   }
 
   async audioOn() {
-    if (this._audioStream) {
-      this._audioStream.getAudioTracks().forEach(track => {
-        // eslint-disable-next-line no-param-reassign
-        track.enabled = true;
-      });
-      this._microphone = true;
-      Object.values(this._openConnections).forEach(conn => {
-        const msg: RTCMessage = {
-          type: 'action',
-          message: 'audio-on',
-        };
-        conn.peer.send(JSON.stringify(msg));
-      });
+    if (this._mainStream) {
+      if (this._mainStream.getAudioTracks()[0]) {
+        this._mainStream.getAudioTracks()[0].enabled = true;
+      } else {
+        let audioStream: MediaStream | undefined;
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+        } catch (e: any) {
+          console.error(`Failed to get media devices (audio): ${e.toString()}`);
+          return;
+        }
+        try {
+          this._mainStream.addTrack(audioStream!.getAudioTracks()[0]);
+          Object.values(this._openConnections).forEach(conn => {
+            conn.peer.addTrack(
+              audioStream!.getAudioTracks()[0],
+              this._mainStream!
+            );
+          });
+        } catch (e: any) {
+          console.error(`Failed to add video track: ${e.toString()}`);
+        }
+      }
     } else {
       try {
-        this._audioStream = await navigator.mediaDevices.getUserMedia({
+        this._mainStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
         });
         this._microphone = true;
       } catch (e: any) {
         console.error(`Failed to get media devices (audio): ${e.toString()}`);
       }
+      const audioTrack = this._mainStream?.getAudioTracks()[0];
       Object.values(this._openConnections).forEach(conn => {
-        if (this._audioStream) {
-          conn.peer.addStream(this._audioStream);
-        }
+        conn.peer.addStream(this._mainStream!);
+      });
+    }
+    this._microphone = true;
+    Object.values(this._openConnections).forEach(conn => {
+      const msg: RTCMessage = {
+        type: 'action',
+        message: 'audio-on',
+      };
+      try {
+        conn.peer.send(JSON.stringify(msg));
+      } catch (e: any) {
+        console.error(
+          "Failed to send 'audio-on' message to peer: ",
+          e.toString()
+        );
+      }
+    });
+  }
+
+  async audioOff() {
+    console.log('### AUDIO OFF');
+    console.log("this._mainStream.getTracks(): ", this._mainStream?.getTracks());
+    if (this._mainStream) {
+      console.log("### DISABLING ALL AUDIO TRACKS");
+      this._mainStream.getAudioTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
+        console.log('### DISABLED AUDIO TRACK: ', track);
+      });
+      Object.values(this._openConnections).forEach(conn => {
         const msg: RTCMessage = {
           type: 'action',
-          message: 'audio-on',
+          message: 'audio-off',
         };
         try {
           conn.peer.send(JSON.stringify(msg));
         } catch (e: any) {
-          console.warn(`Failed to send audio-on message: ${e.toString()}`);
+          console.error(
+            'Failed to send audio-off message to peer: ',
+            e.toString()
+          );
         }
-      });
-    }
-  }
-
-  async audioOff() {
-    if (this._audioStream) {
-      this._audioStream.getAudioTracks().forEach(track => {
-        // eslint-disable-next-line no-param-reassign
-        track.enabled = false;
       });
       this._microphone = false;
     }
-    Object.values(this._openConnections).forEach(conn => {
-      const msg: RTCMessage = {
-        type: 'action',
-        message: 'audio-off',
-      };
-      conn.peer.send(JSON.stringify(msg));
-    });
   }
 
   async screenShareOn() {
@@ -517,12 +593,10 @@ export class RoomView extends LitElement {
         const myScreenVideo = this.shadowRoot?.getElementById(
           'my-own-screen'
         ) as HTMLVideoElement;
+        myScreenVideo.autoplay = true;
         myScreenVideo.srcObject = this._screenShareStream!;
-        await myScreenVideo.play();
       } catch (e: any) {
-        console.error(
-          `Failed to play screen share video: ${e.toString()}`
-        );
+        console.error(`Failed to play screen share video: ${e.toString()}`);
       }
       Object.values(this._screenShareConnections).forEach(conn => {
         if (this._screenShareStream) {
@@ -558,8 +632,7 @@ export class RoomView extends LitElement {
     this.videoOff();
     this.audioOff();
     this.screenShareOff();
-    this._videoStream = null;
-    this._audioStream = null;
+    this._mainStream = null;
     this._screenShareStream = null;
     this._openConnections = {};
     this._screenShareConnections = {};
@@ -620,7 +693,7 @@ export class RoomView extends LitElement {
           break;
         }
         case 'SdpData': {
-          console.log("## Got SDP Data: ", signal.data);
+          console.log('## Got SDP Data: ', signal.data);
           // For normal connections:
           const responsibleConnection =
             this._openConnections[encodeHashToBase64(signal.from_agent)];
@@ -848,7 +921,7 @@ export class RoomView extends LitElement {
     return html`
       <div class="toggles-panel">
         <sl-tooltip
-          content="${this._camera ? msg('Voice Off') : msg('Voice On')}"
+          content="${this._microphone ? msg('Voice Off') : msg('Voice On')}"
           hoist
         >
           <div
@@ -1032,7 +1105,7 @@ export class RoomView extends LitElement {
             'my-own-screen'
           )}"
         >
-          <video id="my-own-screen" class="video-el"></video>
+          <video muted id="my-own-screen" class="video-el"></video>
           <div
             style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
           >
@@ -1128,6 +1201,7 @@ export class RoomView extends LitElement {
         <!-- My own video stream -->
         <div class="video-container ${this.idToLayout('my-own-stream')}">
           <video
+            muted
             style="${this._camera ? '' : 'display: none;'}"
             id="my-own-stream"
             class="video-el"
