@@ -21,7 +21,7 @@ pub fn add_agent_to_anchor(_: ()) -> ExternResult<()> {
     match action {
         Action::CreateLink(link) => {
             debug!(
-                "Adding agent to anchor with pubkey: {:?}\nbase_address: {:?}\naction author: {:?}\ntarget_address: {:?}",
+                "\nAdded agent to anchor with\n    pubkey: {:?}\n    base_address: {:?}\n    action author: {:?}\n    target_address: {:?}",
                 agent_info()?.agent_initial_pubkey,
                 all_agents_anchor,
                 action.author(),

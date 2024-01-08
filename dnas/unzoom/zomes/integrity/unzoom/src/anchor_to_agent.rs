@@ -15,7 +15,7 @@ pub fn validate_create_link_anchor_to_agent(
         }
     };
     debug!(
-        "action.author: {:?}\ntarget_pubkey: {:?}\naction.target_address: {:?}\ntarget_address: {:?}\nbase_address: {:?}",
+        "\nValidating CreateLink:\n    action.author: {:?}\n    target_pubkey: {:?}\n    action.target_address: {:?}\n    target_address: {:?}\n    base_address: {:?}",
         action.author, target_pubkey, action.target_address, target_address, base_address
     );
     // Validate that the author of the Create action matches the link target
