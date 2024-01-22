@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import checker from 'vite-plugin-checker';
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -16,5 +17,13 @@ export default defineConfig({
       //   lintCommand: 'eslint --ext .ts,.html . --ignore-path .gitignore',
       // },
     }),
+    viteStaticCopy({
+      targets: [
+        {
+          src: "icon.png",
+          dest: ".",
+        }
+      ]
+    })
   ],
 });
