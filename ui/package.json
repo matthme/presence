@@ -1,6 +1,6 @@
 {
   "name": "ui",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "scripts": {
     "start": "vite --port $UI_PORT --clearScreen false",
     "build": "vite build",
@@ -16,7 +16,7 @@
     "@holochain-open-dev/profiles": "^0.17.3",
     "@holochain-open-dev/stores": "^0.8.9",
     "@holochain-open-dev/utils": "^0.16.3",
-    "@lightningrodlabs/we-applet": "^0.12.3",
+    "@lightningrodlabs/we-applet": "^0.14.0",
     "@lit/context": "^1.1.0",
     "@lit/task": "^1.0.0",
     "@lit/localize": "0.12.1",

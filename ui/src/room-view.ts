@@ -481,7 +481,10 @@ export class RoomView extends LitElement {
         let audioStream: MediaStream | undefined;
         try {
           audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
+            audio: {
+              noiseSuppression: true,
+              echoCancellation: true,
+            },
           });
         } catch (e: any) {
           console.error(`Failed to get media devices (audio): ${e.toString()}`);
