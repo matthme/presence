@@ -9,8 +9,7 @@ name = "unzoom"
 
 [dependencies]
 hdk = { workspace = true }
-holochain_integrity_types = { workspace = true }
 
 serde = { workspace = true }
 
-unzoom_integrity = { workspace = true } 
+unzoom_integrity = { workspace = true }

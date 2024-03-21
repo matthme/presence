@@ -9,6 +9,7 @@
     "start": "AGENTS=1 npm run network",
     "network": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm start -w ui\" \"npm run launch:happ\"",
     "test": "npm run build:zomes && hc app pack workdir --recursive && npm t -w tests",
+    "applet-dev": "concurrently \"UI_PORT=8888 npm run start -w ui\" \"we-dev-cli --agent-idx 1 --dev-config ./we.dev.config.ts\" \"sleep 10 && we-dev-cli --agent-idx 2 --dev-config ./we.dev.config.ts\"",
     "launch:happ": "concurrently \"hc run-local-services --bootstrap-port 9998 --signal-port 9999\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/unzoom.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:9998 webrtc ws://127.0.0.1:9999\"",
     "package": "npm run build:happ && npm run package -w ui && hc web-app pack workdir --recursive",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
+    "@lightningrodlabs/we-dev-cli": "0.11.0-dev.0",
     "concurrently": "^6.2.1",
     "rimraf": "^3.0.2"
   },

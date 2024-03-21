@@ -120,22 +120,22 @@ export class UnzoomApp extends LitElement {
       );
     } else {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
-      this.client = await AppAgentWebsocket.connect(
-        new URL('https://UNUSED'),
-        'unzoom'
-      );
+      this.client = await AppAgentWebsocket.connect('unzoom');
     }
     this._mainRoomClient = new UnzoomStore(
       new UnzoomClient(this.client, 'unzoom', 'unzoom')
     );
     // Get all personal rooms
     const appInfo = await this.client.appInfo();
-    const clonedCells = appInfo.cell_info.unzoom ? appInfo.cell_info.unzoom
-      .filter(cellInfo => CellType.Cloned in cellInfo)
-      .map(
-        cellInfo =>
-          (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
-      ) : [];
+    if (!appInfo) throw new Error("AppInfo is null");
+    const clonedCells = appInfo.cell_info.unzoom
+      ? appInfo.cell_info.unzoom
+          .filter(cellInfo => CellType.Cloned in cellInfo)
+          .map(
+            cellInfo =>
+              (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
+          )
+      : [];
     this._personalRooms = clonedCells;
     const loadFinished = Date.now();
     const timeElapsed = loadFinished - start;
@@ -241,8 +241,11 @@ export class UnzoomApp extends LitElement {
   render() {
     switch (this._pageView) {
       case PageView.Loading:
-        return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">
-        <div class="entry-logo">presence.</div>
+        return html`<div
+          class="column center-content"
+          style="color: #c8ddf9; height: 100vh;"
+        >
+          <div class="entry-logo">presence.</div>
           <!-- <div>...and see the bigger picture</div> -->
           <div style="position: absolute; bottom: 20px;">loading...</div>
         </div>`;
@@ -258,7 +261,10 @@ export class UnzoomApp extends LitElement {
             class="column"
             style="align-items: center; display: flex; flex: 1; width: 100vw;"
           >
-            <span style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;">v0.2.0</span>
+            <span
+              style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;"
+              >v0.2.0</span
+            >
             <div class="column top-panel">
               <div style="position: absolute; top: 0; right: 20px;">
                 presence.
@@ -271,16 +277,22 @@ export class UnzoomApp extends LitElement {
                     this._pageView = PageView.Room;
                   }}
                 >
-                <div class="row" style="align-items: center;">
-                  <sl-icon .src=${wrapPathInSvg(mdiDoor)} style="height: 45px; width: 45px;"></sl-icon><span>${msg("Enter Main Room")}</span>
-                </div>
+                  <div class="row" style="align-items: center;">
+                    <sl-icon
+                      .src=${wrapPathInSvg(mdiDoor)}
+                      style="height: 45px; width: 45px;"
+                    ></sl-icon
+                    ><span>${msg('Enter Main Room')}</span>
+                  </div>
                 </button>
               </div>
               ${this._profilesStore
                 ? this._activeMainRoomParticipants.length === 0
-                  ? html`${msg("The main room is empty.")}`
+                  ? html`${msg('The main room is empty.')}`
                   : html`<div class="row" style="align-items: center;">
-                  <span style="margin-right: 10px;">${msg("Currently in the main room: ")}</span>
+                      <span style="margin-right: 10px;"
+                        >${msg('Currently in the main room: ')}</span
+                      >
                       <list-online-agents
                         .agents=${this._activeMainRoomParticipants.map(
                           info => info.pubkey
@@ -290,7 +302,7 @@ export class UnzoomApp extends LitElement {
                 : html``}
             </div>
             <div class="column bottom-panel">
-              <h2>${msg("Personal Rooms:")}</h2>
+              <h2>${msg('Personal Rooms:')}</h2>
               <div
                 class="row"
                 style="flex-wrap: wrap; justify-content: center; align-items: center;"
@@ -299,7 +311,7 @@ export class UnzoomApp extends LitElement {
                   class="column"
                   style="margin: 0 10px; align-items: center;"
                 >
-                  <div>${msg("+ Create New Room")}</div>
+                  <div>${msg('+ Create New Room')}</div>
                   <input
                     id="room-name-input"
                     class="input-field"
@@ -311,14 +323,14 @@ export class UnzoomApp extends LitElement {
                     style="margin-top: 10px;"
                     @click=${async () => this.createRoom()}
                   >
-                    ${msg("Create")}
+                    ${msg('Create')}
                   </button>
                 </div>
                 <div
                   class="column"
                   style="margin: 0 10px; align-items: center;"
                 >
-                  <div>${msg("Join Room")}</div>
+                  <div>${msg('Join Room')}</div>
                   <input
                     id="room-name-input2"
                     class="input-field"
@@ -337,7 +349,7 @@ export class UnzoomApp extends LitElement {
                     style="margin-top: 10px;"
                     @click=${async () => this.joinRoom()}
                   >
-                  ${msg("Join")}
+                    ${msg('Join')}
                   </button>
                 </div>
               </div>

@@ -41,7 +41,11 @@ pub fn get_all_agents(_: ()) -> ExternResult<Vec<AgentPubKey>> {
         ALL_AGENTS.into(),
         ALL_AGENTS.into(),
     )?;
-    let links = get_links(all_agents_anchor, LinkTypes::AnchorToAgent, None)?;
+
+    let links = get_links(
+        GetLinksInputBuilder::try_new(all_agents_anchor, LinkTypes::AnchorToAgent)?.build(),
+    )?;
+
     Ok(links
         .into_iter()
         .map(|link| AgentPubKey::try_from(link.target).ok())
