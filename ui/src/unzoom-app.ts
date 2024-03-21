@@ -242,8 +242,8 @@ export class UnzoomApp extends LitElement {
     switch (this._pageView) {
       case PageView.Loading:
         return html`<div class="column center-content" style="color: #c8ddf9; height: 100vh;">
-        <div class="entry-logo">unzoom.</div>
-          <div>...and see the bigger picture</div>
+        <div class="entry-logo">presence.</div>
+          <!-- <div>...and see the bigger picture</div> -->
           <div style="position: absolute; bottom: 20px;">loading...</div>
         </div>`;
       case PageView.Home:
@@ -261,7 +261,7 @@ export class UnzoomApp extends LitElement {
             <span style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;">v0.2.0</span>
             <div class="column top-panel">
               <div style="position: absolute; top: 0; right: 20px;">
-                unzoom.
+                presence.
               </div>
               <div style="margin-top: 120px; margin-bottom: 20px;">
                 <button
