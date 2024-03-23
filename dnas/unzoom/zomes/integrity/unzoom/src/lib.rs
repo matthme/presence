@@ -5,6 +5,7 @@ use hdi::prelude::*;
 #[hdk_link_types]
 pub enum LinkTypes {
     AnchorToAgent,
+    AgentAnchor,
 }
 #[hdk_extern]
 pub fn genesis_self_check(_data: GenesisSelfCheckData) -> ExternResult<ValidateCallbackResult> {
@@ -65,6 +66,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 );
                 validate_create_link_anchor_to_agent(action, base_address, target_address, tag)
             }
+            LinkTypes::AgentAnchor => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterDeleteLink {
             link_type,
@@ -81,6 +83,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 target_address,
                 tag,
             ),
+            LinkTypes::AgentAnchor => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::StoreRecord(store_record) => match store_record {
             OpRecord::CreateEntry { app_entry, action } => Ok(ValidateCallbackResult::Invalid(
@@ -111,6 +114,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 LinkTypes::AnchorToAgent => {
                     validate_create_link_anchor_to_agent(action, base_address, target_address, tag)
                 }
+                LinkTypes::AgentAnchor => Ok(ValidateCallbackResult::Valid),
             },
             OpRecord::DeleteLink {
                 original_action_hash,
@@ -143,6 +147,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                         create_link.target_address,
                         create_link.tag,
                     ),
+                    LinkTypes::AgentAnchor => Ok(ValidateCallbackResult::Valid),
                 }
             }
             OpRecord::CreatePrivateEntry { .. } => Ok(ValidateCallbackResult::Valid),

@@ -5,11 +5,7 @@ pub const ALL_AGENTS: &str = "ALL_AGENTS";
 
 #[hdk_extern]
 pub fn add_agent_to_anchor(_: ()) -> ExternResult<()> {
-    let all_agents_anchor = anchor(
-        LinkTypes::AnchorToAgent,
-        ALL_AGENTS.into(),
-        ALL_AGENTS.into(),
-    )?;
+    let all_agents_anchor = anchor(LinkTypes::AgentAnchor, ALL_AGENTS.into(), ALL_AGENTS.into())?;
     let action_hash = create_link(
         all_agents_anchor.clone(),
         agent_info()?.agent_initial_pubkey,
@@ -36,11 +32,7 @@ pub fn add_agent_to_anchor(_: ()) -> ExternResult<()> {
 
 #[hdk_extern]
 pub fn get_all_agents(_: ()) -> ExternResult<Vec<AgentPubKey>> {
-    let all_agents_anchor = anchor(
-        LinkTypes::AnchorToAgent,
-        ALL_AGENTS.into(),
-        ALL_AGENTS.into(),
-    )?;
+    let all_agents_anchor = anchor(LinkTypes::AgentAnchor, ALL_AGENTS.into(), ALL_AGENTS.into())?;
 
     let links = get_links(
         GetLinksInputBuilder::try_new(all_agents_anchor, LinkTypes::AnchorToAgent)?.build(),

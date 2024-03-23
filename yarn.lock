@@ -629,17 +629,26 @@
     "@msgpack/msgpack" "^2.8.0"
     js-base64 "^3.7.2"
 
-"@lightningrodlabs/we-dev-cli@0.11.0-dev.0":
-  version "0.11.0-dev.0"
-  resolved "https://registry.npmjs.org/@lightningrodlabs/we-dev-cli/-/we-dev-cli-0.11.0-dev.0.tgz"
-  integrity sha512-9SrRBKtrogiDtPrRcyYqIseQ9EfRWVrjbC+IgvJVUCHJvDUWH18e1dh+s0NcTtw/uNmsiZellIvUM70dcp+Oaw==
+"@lightningrodlabs/we-applet@0.16.0":
+  version "0.16.0"
+  resolved "https://registry.npmjs.org/@lightningrodlabs/we-applet/-/we-applet-0.16.0.tgz"
+  integrity sha512-UYWVpew6ttt9oRxKpzyZ02rBIRemeRqkp64SIaczyxEuTJUhy01U8sCUTh+XCK2aCUBD2Gz1yXw53J5QJ0dRxw==
+  dependencies:
+    "@holochain/client" "^0.17.0-dev.7"
+    "@msgpack/msgpack" "^2.8.0"
+    js-base64 "^3.7.2"
+
+"@lightningrodlabs/we-dev-cli@0.11.0":
+  version "0.11.0"
+  resolved "https://registry.npmjs.org/@lightningrodlabs/we-dev-cli/-/we-dev-cli-0.11.0.tgz"
+  integrity sha512-fSGo8ZpgiRCdyOw7KLqFPDUwkGFolBSI99TsEx6fbfeS+xqVTw2pNehz75lP3cEDK3rLx94TF/BdKjVE049CGQ==
   dependencies:
     "@electron-toolkit/preload" "^2.0.0"
     "@electron-toolkit/utils" "^2.0.0"
     "@holochain-open-dev/utils" "0.300.0-dev.0"
     "@holochain/client" "^0.17.0-dev.7"
-    "@lightningrodlabs/we-applet" "0.16.0-dev.0"
-    "@lightningrodlabs/we-rust-utils" "0.300.0"
+    "@lightningrodlabs/we-applet" "0.16.0"
+    "@lightningrodlabs/we-rust-utils" "0.300.1-dev.2"
     bufferutil "4.0.8"
     commander "11.1.0"
     electron-context-menu "3.6.1"
@@ -649,20 +658,20 @@
     ts-node "10.9.2"
     winston "3.11.0"
 
-"@lightningrodlabs/we-rust-utils-linux-x64-gnu@0.300.0":
-  version "0.300.0"
-  resolved "https://registry.npmjs.org/@lightningrodlabs/we-rust-utils-linux-x64-gnu/-/we-rust-utils-linux-x64-gnu-0.300.0.tgz"
-  integrity sha512-jyLuGAURndRxBxRALrUIj1C1rbpYk2nlTw/iiCkOrEHvJrAs9ngM+QHM1ZMZaCIIVlvqCrqc9bBIlL3+DpUyCQ==
+"@lightningrodlabs/we-rust-utils-linux-x64-gnu@0.300.1-dev.2":
+  version "0.300.1-dev.2"
+  resolved "https://registry.npmjs.org/@lightningrodlabs/we-rust-utils-linux-x64-gnu/-/we-rust-utils-linux-x64-gnu-0.300.1-dev.2.tgz"
+  integrity sha512-0G5lADOq+e6dQUToOo5nxBH4lzFS6GWcbDHLLFcSx0XRfLfua3Lefe4U77YzEqU1Lgj1H8sQFxQWtyB1wctB+w==
 
-"@lightningrodlabs/we-rust-utils@0.300.0":
-  version "0.300.0"
-  resolved "https://registry.npmjs.org/@lightningrodlabs/we-rust-utils/-/we-rust-utils-0.300.0.tgz"
-  integrity sha512-BVzoMZAfQyLqeZBqnXJg+9IT/ri7j6W3ZVqC3fKPK13BvnC6RPavheWje3EjSeLA/gmHQKj15b9sXHo1sQ4P3g==
+"@lightningrodlabs/we-rust-utils@0.300.1-dev.2":
+  version "0.300.1-dev.2"
+  resolved "https://registry.npmjs.org/@lightningrodlabs/we-rust-utils/-/we-rust-utils-0.300.1-dev.2.tgz"
+  integrity sha512-i6x9DI82FsD0RhF0pRFj3+k2NuQL8YICpc9y4LKg3vIRhEDVygzwpVcA5ZTfpGLIHZtzt8Nqv9exYfVHLOhlPQ==
   optionalDependencies:
-    "@lightningrodlabs/we-rust-utils-darwin-arm64" "0.300.0"
-    "@lightningrodlabs/we-rust-utils-darwin-x64" "0.300.0"
-    "@lightningrodlabs/we-rust-utils-linux-x64-gnu" "0.300.0"
-    "@lightningrodlabs/we-rust-utils-win32-x64-msvc" "0.300.0"
+    "@lightningrodlabs/we-rust-utils-darwin-arm64" "0.300.1-dev.2"
+    "@lightningrodlabs/we-rust-utils-darwin-x64" "0.300.1-dev.2"
+    "@lightningrodlabs/we-rust-utils-linux-x64-gnu" "0.300.1-dev.2"
+    "@lightningrodlabs/we-rust-utils-win32-x64-msvc" "0.300.1-dev.2"
 
 "@lit-labs/ssr-dom-shim@^1.0.0", "@lit-labs/ssr-dom-shim@^1.1.0", "@lit-labs/ssr-dom-shim@^1.2.0":
   version "1.2.0"
