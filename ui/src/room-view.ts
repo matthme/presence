@@ -411,7 +411,10 @@ export class RoomView extends LitElement {
       relevantConnection.connected = true;
 
       // if we are already sharing the screen, add the relevant stream
-      if (this._screenShareStream && relevantConnection.direction === "outgoing") {
+      if (
+        this._screenShareStream &&
+        relevantConnection.direction === 'outgoing'
+      ) {
         relevantConnection.peer.addStream(this._screenShareStream);
       }
 
@@ -945,7 +948,9 @@ export class RoomView extends LitElement {
                 .map(pendingInit => pendingInit.connectionId)
                 .includes(signal.connection_id)
             ) {
-              console.log('#### RECEIVED INIT ACCEPT AND CEATING INITIATING PEER.');
+              console.log(
+                '#### RECEIVED INIT ACCEPT AND CEATING INITIATING PEER.'
+              );
               const newPeer = this.createPeer(
                 signal.from_agent,
                 signal.connection_id,
@@ -1029,8 +1034,11 @@ export class RoomView extends LitElement {
           /**
            * Normal video/audio connections
            */
-          const maybeOpenConnection = this._openConnections[pubkeyB64]
-          if (maybeOpenConnection && maybeOpenConnection.connectionId === signal.connection_id) {
+          const maybeOpenConnection = this._openConnections[pubkeyB64];
+          if (
+            maybeOpenConnection &&
+            maybeOpenConnection.connectionId === signal.connection_id
+          ) {
             maybeOpenConnection.peer.signal(JSON.parse(signal.data));
           } else {
             /**
@@ -1048,7 +1056,9 @@ export class RoomView extends LitElement {
               );
               if (maybePendingAccept) {
                 maybePendingAccept.peer.signal(JSON.parse(signal.data));
-                console.log("#### FOUND PENDING ACCEPT! Moving to open connections...");
+                console.log(
+                  '#### FOUND PENDING ACCEPT! Moving to open connections...'
+                );
                 const openConnections = this._openConnections;
                 openConnections[pubkeyB64] = {
                   connectionId: signal.connection_id,
@@ -1078,17 +1088,31 @@ export class RoomView extends LitElement {
           /**
            * Outgoing Screen Share connections
            */
-          const maybeOutgoingScreenShareConnection = this._screenShareConnectionsOutgoing[pubkeyB64];
-          if (maybeOutgoingScreenShareConnection && maybeOutgoingScreenShareConnection.connectionId === signal.connection_id) {
-            maybeOutgoingScreenShareConnection.peer.signal(JSON.parse(signal.data));
+          const maybeOutgoingScreenShareConnection =
+            this._screenShareConnectionsOutgoing[pubkeyB64];
+          if (
+            maybeOutgoingScreenShareConnection &&
+            maybeOutgoingScreenShareConnection.connectionId ===
+              signal.connection_id
+          ) {
+            maybeOutgoingScreenShareConnection.peer.signal(
+              JSON.parse(signal.data)
+            );
           }
 
           /**
            * Incoming Screen Share connections
            */
-          const maybeIncomingScreenShareConnection = this._screenShareConnectionsIncoming[pubkeyB64];
-          if (maybeIncomingScreenShareConnection && maybeIncomingScreenShareConnection.connectionId === signal.connection_id) {
-            maybeIncomingScreenShareConnection.peer.signal(JSON.parse(signal.data));
+          const maybeIncomingScreenShareConnection =
+            this._screenShareConnectionsIncoming[pubkeyB64];
+          if (
+            maybeIncomingScreenShareConnection &&
+            maybeIncomingScreenShareConnection.connectionId ===
+              signal.connection_id
+          ) {
+            maybeIncomingScreenShareConnection.peer.signal(
+              JSON.parse(signal.data)
+            );
           } else {
             /**
              * If there's no open connection but a PendingAccept then move that
@@ -1107,7 +1131,8 @@ export class RoomView extends LitElement {
               );
               if (maybePendingAccept) {
                 maybePendingAccept.peer.signal(JSON.parse(signal.data));
-                const screenShareConnectionsIncoming = this._screenShareConnectionsIncoming;
+                const screenShareConnectionsIncoming =
+                  this._screenShareConnectionsIncoming;
                 screenShareConnectionsIncoming[pubkeyB64] = {
                   connectionId: signal.connection_id,
                   peer: maybePendingAccept.peer,
@@ -1116,7 +1141,8 @@ export class RoomView extends LitElement {
                   connected: false,
                   direction: 'incoming',
                 };
-                this._screenShareConnectionsIncoming = screenShareConnectionsIncoming;
+                this._screenShareConnectionsIncoming =
+                  screenShareConnectionsIncoming;
                 const otherPendingAccepts = pendingScreenShareAccepts.filter(
                   pendingAccept =>
                     pendingAccept.connectionId !== signal.connection_id
@@ -1148,6 +1174,14 @@ export class RoomView extends LitElement {
   async pingAgents() {
     if (this._allAgents.value.status === 'complete') {
       await this.unzoomStore.client.pingFrontend(this._allAgents.value.value);
+    }
+  }
+
+  toggleMaximized(id: string) {
+    if (this._maximizedVideo !== id) {
+      this._maximizedVideo = id;
+    } else {
+      this._maximizedVideo = undefined;
     }
   }
 
@@ -1374,6 +1408,7 @@ export class RoomView extends LitElement {
           class="video-container screen-share ${this.idToLayout(
             'my-own-screen'
           )}"
+          @dblclick=${() => this.toggleMaximized('my-own-screen')}
         >
           <video muted id="my-own-screen" class="video-el"></video>
           <div
@@ -1386,25 +1421,20 @@ export class RoomView extends LitElement {
             ></avatar-with-nickname>
           </div>
           <sl-icon
+            title="${this._maximizedVideo === 'my-own-screen'
+              ? 'minimize'
+              : 'maximize'}"
             .src=${this._maximizedVideo === 'my-own-screen'
               ? wrapPathInSvg(mdiFullscreenExit)
               : wrapPathInSvg(mdiFullscreen)}
             tabindex="0"
             class="maximize-icon"
             @click=${() => {
-              if (this._maximizedVideo !== 'my-own-screen') {
-                this._maximizedVideo = 'my-own-screen';
-              } else {
-                this._maximizedVideo = undefined;
-              }
+              this.toggleMaximized('my-own-screen');
             }}
             @keypress=${(e: KeyboardEvent) => {
               if (e.key === 'Enter') {
-                if (this._maximizedVideo !== 'my-own-screen') {
-                  this._maximizedVideo = 'my-own-screen';
-                } else {
-                  this._maximizedVideo = undefined;
-                }
+                this.toggleMaximized('my-own-screen');
               }
             }}
           ></sl-icon>
@@ -1419,6 +1449,7 @@ export class RoomView extends LitElement {
                 class="video-container screen-share ${this.idToLayout(
                   conn.connectionId
                 )}"
+                @dblclick=${() => this.toggleMaximized(conn.connectionId)}
               >
                 <video
                   style="${conn.connected ? '' : 'display: none;'}"
@@ -1442,25 +1473,20 @@ export class RoomView extends LitElement {
                   ></avatar-with-nickname>
                 </div>
                 <sl-icon
+                  title="${this._maximizedVideo === conn.connectionId
+                    ? 'minimize'
+                    : 'maximize'}"
                   .src=${this._maximizedVideo === conn.connectionId
                     ? wrapPathInSvg(mdiFullscreenExit)
                     : wrapPathInSvg(mdiFullscreen)}
                   tabindex="0"
                   class="maximize-icon"
                   @click=${() => {
-                    if (this._maximizedVideo !== conn.connectionId) {
-                      this._maximizedVideo = conn.connectionId;
-                    } else {
-                      this._maximizedVideo = undefined;
-                    }
+                    this.toggleMaximized(conn.connectionId);
                   }}
                   @keypress=${(e: KeyboardEvent) => {
                     if (e.key === 'Enter') {
-                      if (this._maximizedVideo !== conn.connectionId) {
-                        this._maximizedVideo = conn.connectionId;
-                      } else {
-                        this._maximizedVideo = undefined;
-                      }
+                      this.toggleMaximized(conn.connectionId);
                     }
                   }}
                 ></sl-icon>
@@ -1469,7 +1495,10 @@ export class RoomView extends LitElement {
           )}
 
         <!-- My own video stream -->
-        <div class="video-container ${this.idToLayout('my-own-stream')}">
+        <div
+          class="video-container ${this.idToLayout('my-own-stream')}"
+          @dblclick=${() => this.toggleMaximized('my-own-stream')}
+        >
           <video
             muted
             style="${this._camera ? '' : 'display: none;'}"
@@ -1503,7 +1532,10 @@ export class RoomView extends LitElement {
         <!-- Video stream of others -->
         ${Object.entries(this._openConnections).map(
           ([pubkeyB64, conn]) => html`
-            <div class="video-container ${this.idToLayout(conn.connectionId)}">
+            <div
+              class="video-container ${this.idToLayout(conn.connectionId)}"
+              @dblclick=${() => this.toggleMaximized(conn.connectionId)}
+            >
               <video
                 style="${conn.video ? '' : 'display: none;'}"
                 id="${conn.connectionId}"
