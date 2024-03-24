@@ -1501,7 +1501,7 @@ export class RoomView extends LitElement {
         >
           <video
             muted
-            style="${this._camera ? '' : 'display: none;'}"
+            style="${this._camera ? '' : 'display: none;'}; transform: scaleX(-1);"
             id="my-own-stream"
             class="video-el"
           ></video>
