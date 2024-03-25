@@ -189,6 +189,12 @@ export class RoomView extends LitElement {
   _displayError: string | undefined;
 
   @state()
+  _joinAudio = new Audio('doorbell.mp3');
+
+  @state()
+  _leaveAudio = new Audio('closing-metal-door.mp3');
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   notifyError(msg: string) {
@@ -307,7 +313,7 @@ export class RoomView extends LitElement {
       this._openConnections = openConnections;
       this.requestUpdate();
     });
-    peer.on('connect', () => {
+    peer.on('connect', async () => {
       console.log('#### CONNECTED');
       const pubKey64 = encodeHashToBase64(connectingAgent);
       const pendingInits = this._pendingInits;
@@ -327,8 +333,9 @@ export class RoomView extends LitElement {
       this._openConnections = openConnections;
 
       this.requestUpdate();
+      await this._joinAudio.play();
     });
-    peer.on('close', () => {
+    peer.on('close', async () => {
       console.log('#### GOT CLOSE EVENT ####');
 
       peer.destroy();
@@ -336,8 +343,8 @@ export class RoomView extends LitElement {
       const openConnections = this._openConnections;
       delete openConnections[encodeHashToBase64(connectingAgent)];
       this._openConnections = openConnections;
-
       this.requestUpdate();
+      await this._leaveAudio.play();
     });
     peer.on('error', e => {
       console.log('#### GOT ERROR EVENT ####: ', e);
