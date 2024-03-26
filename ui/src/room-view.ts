@@ -38,6 +38,11 @@ const ICE_CONFIG = [
   { urls: 'stun:stun.l.google.com:19302' },
 ];
 
+/**
+ * If an InitRequest does not succeed within this duration (ms) another InitRequest will be sent
+ */
+const INIT_RETRY_THRESHOLD = 5000;
+
 type ConnectionId = string;
 
 type RTCMessage =
@@ -51,13 +56,38 @@ type RTCMessage =
     };
 
 type OpenConnectionInfo = {
-  connectionId: string;
+  connectionId: ConnectionId;
   peer: SimplePeer.Instance;
   video: boolean;
   audio: boolean;
   connected: boolean;
   direction: 'outgoing' | 'incoming' | 'duplex'; // In which direction streams are expected
 };
+
+type PendingInit = {
+  /**
+   * UUID to identify the connection
+   */
+  connectionId: ConnectionId;
+  /**
+   * Timestamp when init was sent. If InitAccept is not received within a certain duration
+   * after t0, a next InitRequest is sent.
+   */
+  t0: number;
+};
+
+type PendingAccept = {
+  /**
+   * UUID to identify the connection
+   */
+  connectionId: ConnectionId;
+  /**
+   * Peer instance that was created with this accept. Gets destroyed if another Peer object makes it through
+   * to connected state instead for a connection with the same Agent.
+   */
+  peer: SimplePeer.Instance;
+};
+
 @localized()
 @customElement('room-view')
 export class RoomView extends LitElement {
@@ -79,19 +109,63 @@ export class RoomView extends LitElement {
   );
 
   @state()
+  _onlineAgents: AgentPubKeyB64[] = [];
+
+  /**
+   * Our own video/audio stream
+   */
+  @state()
   _mainStream: MediaStream | undefined | null;
 
+  /**
+   * Our own screen share stream
+   */
   @state()
   _screenShareStream: MediaStream | undefined | null;
 
-  @state()
-  _onlineAgents: AgentPubKeyB64[] = [];
-
+  /**
+   * Connections where the Init/Accept handshake succeeded
+   */
   @state()
   _openConnections: Record<AgentPubKeyB64, OpenConnectionInfo> = {};
 
+  /**
+   * Connections where we are sharing our own screen and the Init/Accept handshake succeeded
+   */
   @state()
-  _screenShareConnections: Record<AgentPubKeyB64, OpenConnectionInfo> = {};
+  _screenShareConnectionsOutgoing: Record<AgentPubKeyB64, OpenConnectionInfo> =
+    {};
+
+  /**
+   * Connections where others are sharing their screen and the Init/Accept handshake succeeded
+   */
+  @state()
+  _screenShareConnectionsIncoming: Record<AgentPubKeyB64, OpenConnectionInfo> =
+    {};
+
+  /**
+   * Pending Init requests
+   */
+  @state()
+  _pendingInits: Record<AgentPubKeyB64, PendingInit[]> = {};
+
+  /**
+   * Pending Accepts
+   */
+  @state()
+  _pendingAccepts: Record<AgentPubKeyB64, PendingAccept[]> = {};
+
+  /**
+   * Pending Init requests for screen sharing
+   */
+  @state()
+  _pendingScreenShareInits: Record<AgentPubKeyB64, PendingInit[]> = {};
+
+  /**
+   * Pending Init Accepts for screen sharing
+   */
+  @state()
+  _pendingScreenShareAccepts: Record<AgentPubKeyB64, PendingAccept[]> = {};
 
   @state()
   _microphone = false;
@@ -109,16 +183,16 @@ export class RoomView extends LitElement {
   _hoverScreen = false;
 
   @state()
-  _pendingInits: Record<AgentPubKeyB64, ConnectionId> = {};
-
-  @state()
-  _pendingScreenShareInits: Record<AgentPubKeyB64, ConnectionId> = {};
-
-  @state()
   _maximizedVideo: string | undefined; // id of the maximized video if any
 
   @state()
   _displayError: string | undefined;
+
+  @state()
+  _joinAudio = new Audio('doorbell.mp3');
+
+  @state()
+  _leaveAudio = new Audio('closing-metal-door.mp3');
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -225,24 +299,21 @@ export class RoomView extends LitElement {
       this.requestUpdate();
     });
     peer.on('track', track => {
-      console.log(
-        '#### GOT TRACK: ', track
-      );
+      console.log('#### GOT TRACK: ', track);
       const openConnections = this._openConnections;
       const relevantConnection =
         openConnections[encodeHashToBase64(connectingAgent)];
-      if (track.kind === "audio") {
-          relevantConnection.audio = true;
+      if (track.kind === 'audio') {
+        relevantConnection.audio = true;
       }
-      if (track.kind === "video") {
+      if (track.kind === 'video') {
         relevantConnection.video = true;
       }
-      openConnections[encodeHashToBase64(connectingAgent)] =
-        relevantConnection;
+      openConnections[encodeHashToBase64(connectingAgent)] = relevantConnection;
       this._openConnections = openConnections;
       this.requestUpdate();
     });
-    peer.on('connect', () => {
+    peer.on('connect', async () => {
       console.log('#### CONNECTED');
       const pubKey64 = encodeHashToBase64(connectingAgent);
       const pendingInits = this._pendingInits;
@@ -262,8 +333,9 @@ export class RoomView extends LitElement {
       this._openConnections = openConnections;
 
       this.requestUpdate();
+      await this._joinAudio.play();
     });
-    peer.on('close', () => {
+    peer.on('close', async () => {
       console.log('#### GOT CLOSE EVENT ####');
 
       peer.destroy();
@@ -271,8 +343,8 @@ export class RoomView extends LitElement {
       const openConnections = this._openConnections;
       delete openConnections[encodeHashToBase64(connectingAgent)];
       this._openConnections = openConnections;
-
       this.requestUpdate();
+      await this._leaveAudio.play();
     });
     peer.on('error', e => {
       console.log('#### GOT ERROR EVENT ####: ', e);
@@ -311,7 +383,7 @@ export class RoomView extends LitElement {
         '#### GOT SCREEN SHARE STREAM. With tracks: ',
         stream.getTracks()
       );
-      const screenShareConnections = this._screenShareConnections;
+      const screenShareConnections = this._screenShareConnectionsIncoming;
       const relevantConnection =
         screenShareConnections[encodeHashToBase64(connectingAgent)];
       if (relevantConnection) {
@@ -323,7 +395,7 @@ export class RoomView extends LitElement {
         }
         screenShareConnections[encodeHashToBase64(connectingAgent)] =
           relevantConnection;
-        this._screenShareConnections = screenShareConnections;
+        this._screenShareConnectionsIncoming = screenShareConnections;
       }
       const videoEl = this.shadowRoot?.getElementById(connectionId) as
         | HTMLVideoElement
@@ -337,21 +409,29 @@ export class RoomView extends LitElement {
     peer.on('connect', () => {
       console.log('#### SCREEN SHARE CONNECTED');
       const pubKey64 = encodeHashToBase64(connectingAgent);
-      const pendingScreenShareInits = this._pendingScreenShareInits;
-      delete pendingScreenShareInits[pubKey64];
-      this._pendingScreenShareInits = pendingScreenShareInits;
 
-      const screenShareConnections = this._screenShareConnections;
+      const screenShareConnections = initiator
+        ? this._screenShareConnectionsOutgoing
+        : this._screenShareConnectionsIncoming;
       const relevantConnection = screenShareConnections[pubKey64];
+
       relevantConnection.connected = true;
 
       // if we are already sharing the screen, add the relevant stream
-      if (this._screenShareStream) {
+      if (
+        this._screenShareStream &&
+        relevantConnection.direction === 'outgoing'
+      ) {
         relevantConnection.peer.addStream(this._screenShareStream);
       }
 
       screenShareConnections[pubKey64] = relevantConnection;
-      this._screenShareConnections = screenShareConnections;
+
+      if (initiator) {
+        this._screenShareConnectionsOutgoing = screenShareConnections;
+      } else {
+        this._screenShareConnectionsIncoming = screenShareConnections;
+      }
       this.requestUpdate();
     });
     peer.on('close', () => {
@@ -359,9 +439,17 @@ export class RoomView extends LitElement {
 
       peer.destroy();
 
-      const screenShareConnections = this._screenShareConnections;
-      delete screenShareConnections[encodeHashToBase64(connectingAgent)];
-      this._screenShareConnections = screenShareConnections;
+      const pubkeyB64 = encodeHashToBase64(connectingAgent);
+
+      if (initiator) {
+        const screenShareConnections = this._screenShareConnectionsOutgoing;
+        delete screenShareConnections[pubkeyB64];
+        this._screenShareConnectionsOutgoing = screenShareConnections;
+      } else {
+        const screenShareConnections = this._screenShareConnectionsIncoming;
+        delete screenShareConnections[pubkeyB64];
+        this._screenShareConnectionsIncoming = screenShareConnections;
+      }
 
       if (this._maximizedVideo === connectionId) {
         this._maximizedVideo = undefined;
@@ -373,9 +461,17 @@ export class RoomView extends LitElement {
       console.log('#### GOT SCREEN SHARE ERROR EVENT ####: ', e);
       peer.destroy();
 
-      const screenShareConnections = this._screenShareConnections;
-      delete screenShareConnections[encodeHashToBase64(connectingAgent)];
-      this._screenShareConnections = screenShareConnections;
+      const pubkeyB64 = encodeHashToBase64(connectingAgent);
+
+      if (initiator) {
+        const screenShareConnections = this._screenShareConnectionsOutgoing;
+        delete screenShareConnections[pubkeyB64];
+        this._screenShareConnectionsOutgoing = screenShareConnections;
+      } else {
+        const screenShareConnections = this._screenShareConnectionsIncoming;
+        delete screenShareConnections[pubkeyB64];
+        this._screenShareConnectionsIncoming = screenShareConnections;
+      }
 
       this.requestUpdate();
     });
@@ -385,11 +481,11 @@ export class RoomView extends LitElement {
   async videoOn() {
     if (this._mainStream) {
       if (this._mainStream.getVideoTracks()[0]) {
-        console.log("### CASE A");
+        console.log('### CASE A');
         this._mainStream.getVideoTracks()[0].enabled = true;
         this._camera = true;
       } else {
-        console.log("### CASE B");
+        console.log('### CASE B');
         let videoStream: MediaStream | undefined;
         try {
           videoStream = await navigator.mediaDevices.getUserMedia({
@@ -535,9 +631,12 @@ export class RoomView extends LitElement {
 
   async audioOff() {
     console.log('### AUDIO OFF');
-    console.log("this._mainStream.getTracks(): ", this._mainStream?.getTracks());
+    console.log(
+      'this._mainStream.getTracks(): ',
+      this._mainStream?.getTracks()
+    );
     if (this._mainStream) {
-      console.log("### DISABLING ALL AUDIO TRACKS");
+      console.log('### DISABLING ALL AUDIO TRACKS');
       this._mainStream.getAudioTracks().forEach(track => {
         // eslint-disable-next-line no-param-reassign
         track.enabled = false;
@@ -568,14 +667,6 @@ export class RoomView extends LitElement {
         track.enabled = true;
       });
     } else {
-      if (Object.keys(this._screenShareConnections).length > 0) {
-        this.notifyError(
-          'You are already connected to the screen share of someone else.'
-        );
-        throw new Error(
-          'You are already connected to the screen share of someone else.'
-        );
-      }
       try {
         const screenSource = await this._weClient.userSelectScreen();
         this._screenShareStream = await navigator.mediaDevices.getUserMedia({
@@ -601,7 +692,7 @@ export class RoomView extends LitElement {
       } catch (e: any) {
         console.error(`Failed to play screen share video: ${e.toString()}`);
       }
-      Object.values(this._screenShareConnections).forEach(conn => {
+      Object.values(this._screenShareConnectionsOutgoing).forEach(conn => {
         if (this._screenShareStream) {
           conn.peer.addStream(this._screenShareStream);
         }
@@ -618,7 +709,7 @@ export class RoomView extends LitElement {
         // eslint-disable-next-line no-param-reassign
         track.stop();
       });
-      Object.values(this._screenShareConnections).forEach(conn => {
+      Object.values(this._screenShareConnectionsOutgoing).forEach(conn => {
         conn.peer.destroy();
       });
       if (this._maximizedVideo === 'my-own-screen') {
@@ -638,7 +729,10 @@ export class RoomView extends LitElement {
     this._mainStream = null;
     this._screenShareStream = null;
     this._openConnections = {};
-    this._screenShareConnections = {};
+    this._screenShareConnectionsOutgoing = {};
+    this._screenShareConnectionsIncoming = {};
+    this._pendingAccepts = {};
+    this._pendingInits = {};
     this.dispatchEvent(
       new CustomEvent('quit-room', { bubbles: true, composed: true })
     );
@@ -656,96 +750,127 @@ export class RoomView extends LitElement {
           }
           break;
         }
+
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+          const now = Date.now();
           console.log('Got PongUI from ', pubkeyB64);
-          // Create normal connection if necessary
+
+          /**
+           * Normal video/audio stream
+           *
+           * If our agent puglic key is alphabetically "higher" than the agent public key
+           * sending the pong and there is no open connection yet with this and there is
+           * no pending InitRequest from less than 5 seconds ago (and we therefore have to
+           * assume that a remote signal got lost), send an InitRequest.
+           */
+          const alreadyOpen = Object.keys(this._openConnections).includes(
+            pubkeyB64
+          );
+          const pendingInits = this._pendingInits[pubkeyB64];
           if (
-            !Object.keys(this._openConnections).includes(pubkeyB64) &&
-            !Object.keys(this._pendingInits).includes(pubkeyB64)
-          ) {
-            // Only initialize connections with agents who's public key is alphabetically lower than ours
-            if (
-              pubkeyB64 <
+            !alreadyOpen &&
+            pubkeyB64 <
               encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
-            ) {
-              console.log('#### SENDING INIT REQUEST.');
+          ) {
+            if (!pendingInits) {
+              console.log('#### SENDING FIRST INIT REQUEST.');
               const newConnectionId = uuidv4();
-              this._pendingInits[pubkeyB64] = newConnectionId;
+              this._pendingInits[pubkeyB64] = [
+                { connectionId: newConnectionId, t0: now },
+              ];
               await this.unzoomStore.client.sendInitRequest({
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
               });
+            } else {
+              console.log(
+                `#--# SENDING INIT REQUEST NUMBER ${pendingInits.length + 1}.`
+              );
+              const latestInit = pendingInits.sort(
+                (init_a, init_b) => init_b.t0 - init_a.t0
+              )[0];
+              if (now - latestInit.t0 > INIT_RETRY_THRESHOLD) {
+                const newConnectionId = uuidv4();
+                pendingInits.push({ connectionId: newConnectionId, t0: now });
+                this._pendingInits[pubkeyB64] = pendingInits;
+                await this.unzoomStore.client.sendInitRequest({
+                  connection_id: newConnectionId,
+                  to_agent: signal.from_agent,
+                });
+              }
             }
           }
-          // Create screen share connection if necessary
-          if (
-            this._screenShareStream &&
-            !Object.keys(this._screenShareConnections).includes(pubkeyB64) &&
-            !Object.keys(this._pendingScreenShareInits).includes(pubkeyB64)
-          ) {
-            console.log('#### SENDING SCREEN SHARE INIT REQUEST.');
-            const newConnectionId = uuidv4();
-            this._pendingScreenShareInits[pubkeyB64] = newConnectionId;
-            await this.unzoomStore.client.sendInitRequest({
-              connection_type: 'screen',
-              connection_id: newConnectionId,
-              to_agent: signal.from_agent,
-            });
+
+          /**
+           * Outgoing screen share stream
+           *
+           * If our screen share stream is active and there is no open outgoing
+           * screen share connection yet with this agent and there is no pending
+           * InitRequest from less than 5 seconds ago (and we therefore have to
+           * assume that a remote signal got lost), send an InitRequest.
+           */
+          const alreadyOpenScreenShareOutgoing = Object.keys(
+            this._screenShareConnectionsOutgoing
+          ).includes(pubkeyB64);
+          const pendingScreenShareInits = this._pendingInits[pubkeyB64];
+          if (this._screenShareStream && !alreadyOpenScreenShareOutgoing) {
+            if (!pendingScreenShareInits) {
+              console.log('#### SENDING FIRST SCREEN SHARE INIT REQUEST.');
+              const newConnectionId = uuidv4();
+              this._pendingScreenShareInits[pubkeyB64] = [
+                { connectionId: newConnectionId, t0: now },
+              ];
+              await this.unzoomStore.client.sendInitRequest({
+                connection_type: 'screen',
+                connection_id: newConnectionId,
+                to_agent: signal.from_agent,
+              });
+            } else {
+              console.log(
+                `#--# SENDING SCREEN SHARE INIT REQUEST NUMBER ${
+                  pendingScreenShareInits.length + 1
+                }.`
+              );
+              const latestInit = pendingScreenShareInits.sort(
+                (init_a, init_b) => init_b.t0 - init_a.t0
+              )[0];
+              if (now - latestInit.t0 > INIT_RETRY_THRESHOLD) {
+                const newConnectionId = uuidv4();
+                pendingScreenShareInits.push({
+                  connectionId: newConnectionId,
+                  t0: now,
+                });
+                this._pendingScreenShareInits[pubkeyB64] =
+                  pendingScreenShareInits;
+                await this.unzoomStore.client.sendInitRequest({
+                  connection_type: 'screen',
+                  connection_id: newConnectionId,
+                  to_agent: signal.from_agent,
+                });
+              }
+            }
           }
           break;
         }
-        case 'SdpData': {
-          console.log('## Got SDP Data: ', signal.data);
-          // For normal connections:
-          const responsibleConnection =
-            this._openConnections[encodeHashToBase64(signal.from_agent)];
-          // console.log('responsibleConnection: ', responsibleConnection);
-          // verify connection id
-          if (
-            responsibleConnection &&
-            responsibleConnection.connectionId === signal.connection_id
-          ) {
-            // console.log(
-            //   '#### GOT SDP DATA for connectionId ',
-            //   responsibleConnection.connectionId
-            // );
-            responsibleConnection.peer.signal(JSON.parse(signal.data));
-          }
-          // For screen sharing connections:
-          const responsibleScreenShareConnection =
-            this._screenShareConnections[encodeHashToBase64(signal.from_agent)];
-          // console.log('responsibleConnection: ', responsibleConnection);
-          // console.log(
-          //   '### GOT SDP DATA. responsible screen share connection: ',
-          //   responsibleScreenShareConnection
-          // );
-          // verify connection id
-          if (
-            responsibleScreenShareConnection &&
-            responsibleScreenShareConnection.connectionId ===
-              signal.connection_id
-          ) {
-            // console.log(
-            //   '#### GOT SDP DATA for SCREEN SHARE connectionId ',
-            //   responsibleScreenShareConnection.connectionId
-            // );
-            responsibleScreenShareConnection.peer.signal(
-              JSON.parse(signal.data)
-            );
-          }
-          break;
-        }
+
         case 'InitRequest': {
+          const pubKey64 = encodeHashToBase64(signal.from_agent);
+
           console.log(
             `#### GOT ${
               signal.connection_type === 'screen' ? 'SCREEN SHARE ' : ''
             }INIT REQUEST.`
           );
-          // Only accept init requests from agents who's pubkey is alphabetically "higher" than ours
+
+          /**
+           * InitRequests for normal audio/video stream
+           *
+           * Only accept init requests from agents who's pubkey is alphabetically  "higher" than ours
+           */
           if (
             signal.connection_type !== 'screen' &&
-            encodeHashToBase64(signal.from_agent) >
+            pubKey64 >
               encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
           ) {
             console.log(
@@ -758,40 +883,49 @@ export class RoomView extends LitElement {
               signal.connection_id,
               false
             );
-            const openConnections = this._openConnections;
-            openConnections[encodeHashToBase64(signal.from_agent)] = {
+            const accept: PendingAccept = {
               connectionId: signal.connection_id,
               peer: newPeer,
-              video: false,
-              audio: false,
-              connected: false,
-              direction: 'duplex',
             };
-            this._openConnections = openConnections;
-            this.requestUpdate();
+            const allPendingAccepts = this._pendingAccepts;
+            const pendingAcceptsForAgent = allPendingAccepts[pubKey64];
+            const newPendingAcceptsForAgent: PendingAccept[] =
+              pendingAcceptsForAgent
+                ? [...pendingAcceptsForAgent, accept]
+                : [accept];
+            allPendingAccepts[pubKey64] = newPendingAcceptsForAgent;
+            this._pendingAccepts = allPendingAccepts;
+
             await this.unzoomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
           }
+
+          /**
+           * InitRequests for incoming screen shares
+           */
           if (signal.connection_type === 'screen') {
             const newPeer = this.createScreenSharePeer(
               signal.from_agent,
               signal.connection_id,
               false
             );
-            const screenShareConnections = this._screenShareConnections;
-            screenShareConnections[encodeHashToBase64(signal.from_agent)] = {
+            const accept: PendingAccept = {
               connectionId: signal.connection_id,
               peer: newPeer,
-              video: true,
-              audio: false,
-              connected: false,
-              direction: 'incoming', // if we did not initiate the request, we're not the one's delivering the stream
             };
-            this._screenShareConnections = screenShareConnections;
-            console.log('Added new screen share peer: ', newPeer);
-            this.requestUpdate();
+            const allPendingAccepts = this._pendingScreenShareAccepts;
+            const pendingAcceptsForAgent =
+              allPendingAccepts[encodeHashToBase64(signal.from_agent)];
+            const newPendingAcceptsForAgent: PendingAccept[] =
+              pendingAcceptsForAgent
+                ? [...pendingAcceptsForAgent, accept]
+                : [accept];
+            allPendingAccepts[encodeHashToBase64(signal.from_agent)] =
+              newPendingAcceptsForAgent;
+            this._pendingScreenShareAccepts = allPendingAccepts;
+
             await this.unzoomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
@@ -799,72 +933,236 @@ export class RoomView extends LitElement {
           }
           break;
         }
+
         case 'InitAccept': {
           const pubKey64 = encodeHashToBase64(signal.from_agent);
-          // for normal connections
+
+          /**
+           * For normal video/audio connections
+           *
+           * If there is no open connection with this agent yet and the connectionId
+           * is one matching an InitRequest we sent earlier, create a Simple Peer
+           * Instance and add it to open connections, then delete all PendingInits
+           * for this agent
+           */
+          const agentPendingInits = this._pendingInits[pubKey64];
           if (
             !Object.keys(this._openConnections).includes(pubKey64) &&
-            this._pendingInits[pubKey64] === signal.connection_id
+            agentPendingInits
           ) {
-            console.log('#### RECEIVED INIT ACCEPT AND INITIATING PEER.');
-            const newPeer = this.createPeer(
-              signal.from_agent,
-              signal.connection_id,
-              true
-            );
+            if (
+              agentPendingInits
+                .map(pendingInit => pendingInit.connectionId)
+                .includes(signal.connection_id)
+            ) {
+              console.log(
+                '#### RECEIVED INIT ACCEPT AND CEATING INITIATING PEER.'
+              );
+              const newPeer = this.createPeer(
+                signal.from_agent,
+                signal.connection_id,
+                true
+              );
 
-            const openConnections = this._openConnections;
-            openConnections[encodeHashToBase64(signal.from_agent)] = {
-              connectionId: signal.connection_id,
-              peer: newPeer,
-              video: false,
-              audio: false,
-              connected: false,
-              direction: 'duplex',
-            };
-            this._openConnections = openConnections;
+              const openConnections = this._openConnections;
+              openConnections[pubKey64] = {
+                connectionId: signal.connection_id,
+                peer: newPeer,
+                video: false,
+                audio: false,
+                connected: false,
+                direction: 'duplex',
+              };
+              this._openConnections = openConnections;
 
-            const pendingInits = this._pendingInits;
-            delete pendingInits[pubKey64];
-            this._pendingInits = pendingInits;
-
-            this.requestUpdate();
+              const pendingInits = this._pendingInits;
+              delete pendingInits[pubKey64];
+              this._pendingInits = pendingInits;
+              this.requestUpdate(); // reload rendered video containers
+            }
           }
-          // for screen share connections
+
+          /**
+           * For screen share connections
+           *
+           * If there is no open connection with this agent yet and the connectionId
+           * is one matching an InitRequest we sent earlier, create a Simple Peer
+           * Instance and add it to open connections, then delete all PendingInits
+           * for this agent
+           */
+          const agentPendingScreenShareInits =
+            this._pendingScreenShareInits[pubKey64];
           if (
-            !Object.keys(this._screenShareConnections).includes(pubKey64) &&
-            this._pendingScreenShareInits[pubKey64] === signal.connection_id
+            !Object.keys(this._screenShareConnectionsOutgoing).includes(
+              pubKey64
+            ) &&
+            agentPendingScreenShareInits
           ) {
-            console.log(
-              '#### RECEIVED INIT ACCEPT FOR SCREEN SHARING AND INITIATING PEER.'
+            if (
+              agentPendingScreenShareInits
+                .map(pendingInit => pendingInit.connectionId)
+                .includes(signal.connection_id)
+            ) {
+              console.log(
+                '#### RECEIVED INIT ACCEPT FOR SCREEN SHARING AND INITIATING PEER.'
+              );
+              const newPeer = this.createScreenSharePeer(
+                signal.from_agent,
+                signal.connection_id,
+                true
+              );
+
+              const screenShareConnectionsOutgoing =
+                this._screenShareConnectionsOutgoing;
+              screenShareConnectionsOutgoing[pubKey64] = {
+                connectionId: signal.connection_id,
+                peer: newPeer,
+                video: true,
+                audio: false,
+                connected: false,
+                direction: 'outgoing', // if we initiated the request, we're the one's delivering the stream
+              };
+              this._screenShareConnectionsOutgoing =
+                screenShareConnectionsOutgoing;
+
+              const pendingScreenShareInits = this._pendingScreenShareInits;
+              delete pendingScreenShareInits[pubKey64];
+              this._pendingScreenShareInits = pendingScreenShareInits;
+              this.requestUpdate(); // reload rendered video containers
+            }
+          }
+          break;
+        }
+
+        case 'SdpData': {
+          console.log('## Got SDP Data: ', signal.data);
+          const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+
+          /**
+           * Normal video/audio connections
+           */
+          const maybeOpenConnection = this._openConnections[pubkeyB64];
+          if (
+            maybeOpenConnection &&
+            maybeOpenConnection.connectionId === signal.connection_id
+          ) {
+            maybeOpenConnection.peer.signal(JSON.parse(signal.data));
+          } else {
+            /**
+             * If there's no open connection but a PendingAccept then move that
+             * PendingAccept to the open connections and destroy all other
+             * Peer Instances for PendingAccepts of this agent and delete the
+             * PendingAccepts
+             */
+            const allPendingAccepts = this._pendingAccepts;
+            const pendingAccepts = allPendingAccepts[pubkeyB64];
+            if (pendingAccepts) {
+              const maybePendingAccept = pendingAccepts.find(
+                pendingAccept =>
+                  pendingAccept.connectionId === signal.connection_id
+              );
+              if (maybePendingAccept) {
+                maybePendingAccept.peer.signal(JSON.parse(signal.data));
+                console.log(
+                  '#### FOUND PENDING ACCEPT! Moving to open connections...'
+                );
+                const openConnections = this._openConnections;
+                openConnections[pubkeyB64] = {
+                  connectionId: signal.connection_id,
+                  peer: maybePendingAccept.peer,
+                  video: false,
+                  audio: false,
+                  connected: false,
+                  direction: 'duplex',
+                };
+                this._openConnections = openConnections;
+                const otherPendingAccepts = pendingAccepts.filter(
+                  pendingAccept =>
+                    pendingAccept.connectionId !== signal.connection_id
+                );
+                otherPendingAccepts.forEach(pendingAccept =>
+                  pendingAccept.peer.destroy()
+                );
+
+                delete allPendingAccepts[pubkeyB64];
+                this._pendingAccepts = allPendingAccepts;
+                this.requestUpdate();
+                break;
+              }
+            }
+          }
+
+          /**
+           * Outgoing Screen Share connections
+           */
+          const maybeOutgoingScreenShareConnection =
+            this._screenShareConnectionsOutgoing[pubkeyB64];
+          if (
+            maybeOutgoingScreenShareConnection &&
+            maybeOutgoingScreenShareConnection.connectionId ===
+              signal.connection_id
+          ) {
+            maybeOutgoingScreenShareConnection.peer.signal(
+              JSON.parse(signal.data)
             );
-            const newPeer = this.createScreenSharePeer(
-              signal.from_agent,
-              signal.connection_id,
-              true
+          }
+
+          /**
+           * Incoming Screen Share connections
+           */
+          const maybeIncomingScreenShareConnection =
+            this._screenShareConnectionsIncoming[pubkeyB64];
+          if (
+            maybeIncomingScreenShareConnection &&
+            maybeIncomingScreenShareConnection.connectionId ===
+              signal.connection_id
+          ) {
+            maybeIncomingScreenShareConnection.peer.signal(
+              JSON.parse(signal.data)
             );
+          } else {
+            /**
+             * If there's no open connection but a PendingAccept then move that
+             * PendingAccept to the open connections and destroy all other
+             * Peer Instances for PendingAccepts of this agent and delete the
+             * PendingAccepts
+             */
+            const allPendingScreenShareAccepts =
+              this._pendingScreenShareAccepts;
+            const pendingScreenShareAccepts =
+              allPendingScreenShareAccepts[pubkeyB64];
+            if (pendingScreenShareAccepts) {
+              const maybePendingAccept = pendingScreenShareAccepts.find(
+                pendingAccept =>
+                  pendingAccept.connectionId === signal.connection_id
+              );
+              if (maybePendingAccept) {
+                maybePendingAccept.peer.signal(JSON.parse(signal.data));
+                const screenShareConnectionsIncoming =
+                  this._screenShareConnectionsIncoming;
+                screenShareConnectionsIncoming[pubkeyB64] = {
+                  connectionId: signal.connection_id,
+                  peer: maybePendingAccept.peer,
+                  video: false,
+                  audio: false,
+                  connected: false,
+                  direction: 'incoming',
+                };
+                this._screenShareConnectionsIncoming =
+                  screenShareConnectionsIncoming;
+                const otherPendingAccepts = pendingScreenShareAccepts.filter(
+                  pendingAccept =>
+                    pendingAccept.connectionId !== signal.connection_id
+                );
+                otherPendingAccepts.forEach(pendingAccept =>
+                  pendingAccept.peer.destroy()
+                );
 
-            const screenShareConnections = this._screenShareConnections;
-            screenShareConnections[encodeHashToBase64(signal.from_agent)] = {
-              connectionId: signal.connection_id,
-              peer: newPeer,
-              video: true,
-              audio: false,
-              connected: false,
-              direction: 'outgoing', // if we initiated the request, we're the one's delivering the stream
-            };
-            this._screenShareConnections = screenShareConnections;
-
-            const pendingScreenShareInits = this._pendingScreenShareInits;
-            delete pendingScreenShareInits[pubKey64];
-            this._pendingScreenShareInits = pendingScreenShareInits;
-
-            this.requestUpdate();
-
-            // console.log(
-            //   '@InitAccept: open screen share connections: ',
-            //   this._screenShareConnections
-            // );
+                delete allPendingScreenShareAccepts[pubkeyB64];
+                this._pendingScreenShareAccepts = allPendingScreenShareAccepts;
+                this.requestUpdate();
+              }
+            }
           }
           break;
         }
@@ -886,6 +1184,14 @@ export class RoomView extends LitElement {
     }
   }
 
+  toggleMaximized(id: string) {
+    if (this._maximizedVideo !== id) {
+      this._maximizedVideo = id;
+    } else {
+      this._maximizedVideo = undefined;
+    }
+  }
+
   disconnectedCallback(): void {
     if (this.pingInterval) window.clearInterval(this.pingInterval);
     if (this._unsubscribe) this._unsubscribe();
@@ -894,13 +1200,15 @@ export class RoomView extends LitElement {
   idToLayout(id: string) {
     if (id === this._maximizedVideo) return 'maximized';
     if (this._maximizedVideo) return 'hidden';
-    const screenShareNum =
-      Object.keys(this._screenShareConnections).length > 0
-        ? Object.keys(this._screenShareConnections).length
-        : this._screenShareStream
-        ? 1
-        : 0;
-    const num = Object.keys(this._openConnections).length + screenShareNum + 1;
+    const incomingScreenShareNum = Object.keys(
+      this._screenShareConnectionsIncoming
+    ).length;
+    const ownScreenShareNum = this._screenShareStream ? 1 : 0;
+    const num =
+      Object.keys(this._openConnections).length +
+      incomingScreenShareNum +
+      ownScreenShareNum +
+      1;
 
     if (num === 1) {
       return 'single';
@@ -1107,6 +1415,7 @@ export class RoomView extends LitElement {
           class="video-container screen-share ${this.idToLayout(
             'my-own-screen'
           )}"
+          @dblclick=${() => this.toggleMaximized('my-own-screen')}
         >
           <video muted id="my-own-screen" class="video-el"></video>
           <div
@@ -1119,32 +1428,27 @@ export class RoomView extends LitElement {
             ></avatar-with-nickname>
           </div>
           <sl-icon
+            title="${this._maximizedVideo === 'my-own-screen'
+              ? 'minimize'
+              : 'maximize'}"
             .src=${this._maximizedVideo === 'my-own-screen'
               ? wrapPathInSvg(mdiFullscreenExit)
               : wrapPathInSvg(mdiFullscreen)}
             tabindex="0"
             class="maximize-icon"
             @click=${() => {
-              if (this._maximizedVideo !== 'my-own-screen') {
-                this._maximizedVideo = 'my-own-screen';
-              } else {
-                this._maximizedVideo = undefined;
-              }
+              this.toggleMaximized('my-own-screen');
             }}
             @keypress=${(e: KeyboardEvent) => {
               if (e.key === 'Enter') {
-                if (this._maximizedVideo !== 'my-own-screen') {
-                  this._maximizedVideo = 'my-own-screen';
-                } else {
-                  this._maximizedVideo = undefined;
-                }
+                this.toggleMaximized('my-own-screen');
               }
             }}
           ></sl-icon>
         </div>
         <!--Then other agents' screens -->
 
-        ${Object.entries(this._screenShareConnections)
+        ${Object.entries(this._screenShareConnectionsIncoming)
           .filter(([_, conn]) => conn.direction === 'incoming')
           .map(
             ([pubkeyB64, conn]) => html`
@@ -1152,6 +1456,7 @@ export class RoomView extends LitElement {
                 class="video-container screen-share ${this.idToLayout(
                   conn.connectionId
                 )}"
+                @dblclick=${() => this.toggleMaximized(conn.connectionId)}
               >
                 <video
                   style="${conn.connected ? '' : 'display: none;'}"
@@ -1175,25 +1480,20 @@ export class RoomView extends LitElement {
                   ></avatar-with-nickname>
                 </div>
                 <sl-icon
+                  title="${this._maximizedVideo === conn.connectionId
+                    ? 'minimize'
+                    : 'maximize'}"
                   .src=${this._maximizedVideo === conn.connectionId
                     ? wrapPathInSvg(mdiFullscreenExit)
                     : wrapPathInSvg(mdiFullscreen)}
                   tabindex="0"
                   class="maximize-icon"
                   @click=${() => {
-                    if (this._maximizedVideo !== conn.connectionId) {
-                      this._maximizedVideo = conn.connectionId;
-                    } else {
-                      this._maximizedVideo = undefined;
-                    }
+                    this.toggleMaximized(conn.connectionId);
                   }}
                   @keypress=${(e: KeyboardEvent) => {
                     if (e.key === 'Enter') {
-                      if (this._maximizedVideo !== conn.connectionId) {
-                        this._maximizedVideo = conn.connectionId;
-                      } else {
-                        this._maximizedVideo = undefined;
-                      }
+                      this.toggleMaximized(conn.connectionId);
                     }
                   }}
                 ></sl-icon>
@@ -1202,10 +1502,13 @@ export class RoomView extends LitElement {
           )}
 
         <!-- My own video stream -->
-        <div class="video-container ${this.idToLayout('my-own-stream')}">
+        <div
+          class="video-container ${this.idToLayout('my-own-stream')}"
+          @dblclick=${() => this.toggleMaximized('my-own-stream')}
+        >
           <video
             muted
-            style="${this._camera ? '' : 'display: none;'}"
+            style="${this._camera ? '' : 'display: none;'}; transform: scaleX(-1);"
             id="my-own-stream"
             class="video-el"
           ></video>
@@ -1236,7 +1539,10 @@ export class RoomView extends LitElement {
         <!-- Video stream of others -->
         ${Object.entries(this._openConnections).map(
           ([pubkeyB64, conn]) => html`
-            <div class="video-container ${this.idToLayout(conn.connectionId)}">
+            <div
+              class="video-container ${this.idToLayout(conn.connectionId)}"
+              @dblclick=${() => this.toggleMaximized(conn.connectionId)}
+            >
               <video
                 style="${conn.video ? '' : 'display: none;'}"
                 id="${conn.connectionId}"
