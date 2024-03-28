@@ -6,15 +6,15 @@ import {
   InitAcceptInput,
   InitRequestInput,
   RoomInfo,
+  RoomSignal,
   SdpDataInput,
-  UnzoomSignal,
 } from './types';
 
-export class UnzoomClient extends ZomeClient<UnzoomSignal> {
+export class RoomClient extends ZomeClient<RoomSignal> {
   constructor(
     public client: AppAgentClient,
     public roleName: RoleName,
-    public zomeName = 'unzoom'
+    public zomeName = 'room'
   ) {
     super(client, roleName, zomeName);
   }

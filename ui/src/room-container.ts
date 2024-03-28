@@ -12,9 +12,9 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import './room-view';
 
-import { UnzoomStore } from './unzoom-store';
-import { clientContext, unzoomStoreContext } from './contexts';
-import { UnzoomClient } from './unzoom-client';
+import { RoomStore } from './room-store';
+import { clientContext, roomStoreContext } from './contexts';
+import { RoomClient } from './room-client';
 import { sharedStyles } from './sharedStyles';
 
 
@@ -22,9 +22,9 @@ import { sharedStyles } from './sharedStyles';
 @customElement('room-container')
 export class RoomContainer extends LitElement {
 
-  @provide({ context: unzoomStoreContext })
+  @provide({ context: roomStoreContext })
   @property({ type: Object })
-  unzoomStore!: UnzoomStore;
+  roomStore!: RoomStore;
 
   @consume({ context: clientContext })
   @state()
@@ -38,8 +38,8 @@ export class RoomContainer extends LitElement {
   pingInterval: number | undefined;
 
   async firstUpdated() {
-    this.unzoomStore = new UnzoomStore(
-      new UnzoomClient(this.client, this.roleName, 'unzoom')
+    this.roomStore = new RoomStore(
+      new RoomClient(this.client, this.roleName, 'unzoom')
     );
   }
 

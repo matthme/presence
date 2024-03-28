@@ -27,11 +27,11 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import { WeClient } from '@lightningrodlabs/we-applet';
 
-import { UnzoomStore } from './unzoom-store';
-import { unzoomStoreContext } from './contexts';
+import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
 import { weClientContext } from './types';
+import { RoomStore } from './room-store';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -91,9 +91,9 @@ type PendingAccept = {
 @localized()
 @customElement('room-view')
 export class RoomView extends LitElement {
-  @consume({ context: unzoomStoreContext, subscribe: true })
+  @consume({ context: roomStoreContext, subscribe: true })
   @state()
-  unzoomStore!: UnzoomStore;
+  roomStore!: RoomStore;
 
   @consume({ context: weClientContext })
   @state()
@@ -104,8 +104,8 @@ export class RoomView extends LitElement {
 
   _allAgents = new StoreSubscriber(
     this,
-    () => this.unzoomStore.allAgents,
-    () => [this.unzoomStore]
+    () => this.roomStore.allAgents,
+    () => [this.roomStore]
   );
 
   @state()
@@ -219,7 +219,7 @@ export class RoomView extends LitElement {
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
-      this.unzoomStore.client.sendSdpData({
+      this.roomStore.client.sendSdpData({
         to_agent: connectingAgent,
         connection_id: connectionId,
         data: JSON.stringify(data),
@@ -372,7 +372,7 @@ export class RoomView extends LitElement {
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
-      this.unzoomStore.client.sendSdpData({
+      this.roomStore.client.sendSdpData({
         to_agent: connectingAgent,
         connection_id: connectionId,
         data: JSON.stringify(data),
@@ -739,14 +739,14 @@ export class RoomView extends LitElement {
   }
 
   async firstUpdated() {
-    this._unsubscribe = this.unzoomStore.client.onSignal(async signal => {
+    this._unsubscribe = this.roomStore.client.onSignal(async signal => {
       switch (signal.type) {
         case 'PingUi': {
           if (
             signal.from_agent.toString() !==
-            this.unzoomStore.client.client.myPubKey.toString()
+            this.roomStore.client.client.myPubKey.toString()
           ) {
-            await this.unzoomStore.client.pongFrontend(signal.from_agent);
+            await this.roomStore.client.pongFrontend(signal.from_agent);
           }
           break;
         }
@@ -771,7 +771,7 @@ export class RoomView extends LitElement {
           if (
             !alreadyOpen &&
             pubkeyB64 <
-              encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
+              encodeHashToBase64(this.roomStore.client.client.myPubKey)
           ) {
             if (!pendingInits) {
               console.log('#### SENDING FIRST INIT REQUEST.');
@@ -779,7 +779,7 @@ export class RoomView extends LitElement {
               this._pendingInits[pubkeyB64] = [
                 { connectionId: newConnectionId, t0: now },
               ];
-              await this.unzoomStore.client.sendInitRequest({
+              await this.roomStore.client.sendInitRequest({
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
               });
@@ -794,7 +794,7 @@ export class RoomView extends LitElement {
                 const newConnectionId = uuidv4();
                 pendingInits.push({ connectionId: newConnectionId, t0: now });
                 this._pendingInits[pubkeyB64] = pendingInits;
-                await this.unzoomStore.client.sendInitRequest({
+                await this.roomStore.client.sendInitRequest({
                   connection_id: newConnectionId,
                   to_agent: signal.from_agent,
                 });
@@ -821,7 +821,7 @@ export class RoomView extends LitElement {
               this._pendingScreenShareInits[pubkeyB64] = [
                 { connectionId: newConnectionId, t0: now },
               ];
-              await this.unzoomStore.client.sendInitRequest({
+              await this.roomStore.client.sendInitRequest({
                 connection_type: 'screen',
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
@@ -843,7 +843,7 @@ export class RoomView extends LitElement {
                 });
                 this._pendingScreenShareInits[pubkeyB64] =
                   pendingScreenShareInits;
-                await this.unzoomStore.client.sendInitRequest({
+                await this.roomStore.client.sendInitRequest({
                   connection_type: 'screen',
                   connection_id: newConnectionId,
                   to_agent: signal.from_agent,
@@ -871,7 +871,7 @@ export class RoomView extends LitElement {
           if (
             signal.connection_type !== 'screen' &&
             pubKey64 >
-              encodeHashToBase64(this.unzoomStore.client.client.myPubKey)
+              encodeHashToBase64(this.roomStore.client.client.myPubKey)
           ) {
             console.log(
               '#### SENDING INIT ACCEPT. signal.connection_type: ',
@@ -896,7 +896,7 @@ export class RoomView extends LitElement {
             allPendingAccepts[pubKey64] = newPendingAcceptsForAgent;
             this._pendingAccepts = allPendingAccepts;
 
-            await this.unzoomStore.client.sendInitAccept({
+            await this.roomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
@@ -926,7 +926,7 @@ export class RoomView extends LitElement {
               newPendingAcceptsForAgent;
             this._pendingScreenShareAccepts = allPendingAccepts;
 
-            await this.unzoomStore.client.sendInitAccept({
+            await this.roomStore.client.sendInitAccept({
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
@@ -1180,7 +1180,7 @@ export class RoomView extends LitElement {
 
   async pingAgents() {
     if (this._allAgents.value.status === 'complete') {
-      await this.unzoomStore.client.pingFrontend(this._allAgents.value.value);
+      await this.roomStore.client.pingFrontend(this._allAgents.value.value);
     }
   }
 
@@ -1423,7 +1423,7 @@ export class RoomView extends LitElement {
           >
             <avatar-with-nickname
               .size=${36}
-              .agentPubKey=${this.unzoomStore.client.client.myPubKey}
+              .agentPubKey=${this.roomStore.client.client.myPubKey}
               style="height: 36px;"
             ></avatar-with-nickname>
           </div>
@@ -1523,7 +1523,7 @@ export class RoomView extends LitElement {
           >
             <avatar-with-nickname
               .size=${36}
-              .agentPubKey=${this.unzoomStore.client.client.myPubKey}
+              .agentPubKey=${this.roomStore.client.client.myPubKey}
               style="height: 36px;"
             ></avatar-with-nickname>
           </div>

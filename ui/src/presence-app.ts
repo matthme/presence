@@ -35,9 +35,9 @@ import './room-container';
 import './personal-room-card';
 import './list-online-agents';
 import { sharedStyles } from './sharedStyles';
-import { UnzoomStore } from './unzoom-store';
-import { UnzoomClient } from './unzoom-client';
+import { RoomClient } from './room-client';
 import { weClientContext } from './types';
+import { RoomStore } from './room-store';
 
 enum PageView {
   Loading,
@@ -45,8 +45,8 @@ enum PageView {
   Room,
 }
 
-@customElement('unzoom-app')
-export class UnzoomApp extends LitElement {
+@customElement('presence-app')
+export class PresenceApp extends LitElement {
   @provide({ context: clientContext })
   @property({ type: Object })
   client!: AppAgentClient;
@@ -75,7 +75,10 @@ export class UnzoomApp extends LitElement {
   _groupProfile: GroupProfile | undefined;
 
   @state()
-  _mainRoomClient: UnzoomStore | undefined;
+  _mainRoomClient: RoomStore | undefined;
+
+  @state()
+  _showGroupRooms = false;
 
   @state()
   _activeMainRoomParticipants: {
@@ -120,14 +123,14 @@ export class UnzoomApp extends LitElement {
       );
     } else {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
-      this.client = await AppAgentWebsocket.connect('unzoom');
+      this.client = await AppAgentWebsocket.connect('presence');
     }
-    this._mainRoomClient = new UnzoomStore(
-      new UnzoomClient(this.client, 'unzoom', 'unzoom')
+    this._mainRoomClient = new RoomStore(
+      new RoomClient(this.client, 'presence', 'room')
     );
     // Get all personal rooms
     const appInfo = await this.client.appInfo();
-    if (!appInfo) throw new Error("AppInfo is null");
+    if (!appInfo) throw new Error('AppInfo is null');
     const clonedCells = appInfo.cell_info.unzoom
       ? appInfo.cell_info.unzoom
           .filter(cellInfo => CellType.Cloned in cellInfo)
@@ -136,7 +139,9 @@ export class UnzoomApp extends LitElement {
               (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
           )
       : [];
-    this._personalRooms = clonedCells;
+    this._personalRooms = clonedCells.filter(
+      cell => !cell.dna_modifiers.network_seed.startsWith('groupRoom#')
+    );
     const loadFinished = Date.now();
     const timeElapsed = loadFinished - start;
     if (timeElapsed > 3000) {
@@ -186,7 +191,7 @@ export class UnzoomApp extends LitElement {
     }, 4000);
   }
 
-  async createRoom() {
+  async createPersonalRoom() {
     if (this._pageView !== PageView.Home) return;
     const roomNameInput = this.shadowRoot?.getElementById('room-name-input') as
       | HTMLInputElement
@@ -202,9 +207,35 @@ export class UnzoomApp extends LitElement {
       },
       name: roomNameInput.value,
     });
+    const roomClient = new RoomClient(this.client, clonedCell.clone_id);
+    await roomClient.setRoomInfo({
+      name: roomNameInput.value,
+      icon_src: undefined,
+      meta_data: undefined,
+    });
     this._personalRooms = [clonedCell, ...this._personalRooms];
     roomNameInput.value = '';
   }
+
+  // async createGroupRoom() {
+  //   if (this._pageView !== PageView.Home) return;
+  //   const roomNameInput = this.shadowRoot?.getElementById('room-name-input') as
+  //     | HTMLInputElement
+  //     | null
+  //     | undefined;
+  //   if (!roomNameInput)
+  //     throw new Error('Room name input field not found in DOM.');
+  //   const networkSeed = generateSillyPassword({ wordCount: 5 });
+  //   const clonedCell = await this.client.createCloneCell({
+  //     role_name: 'unzoom',
+  //     modifiers: {
+  //       network_seed: networkSeed,
+  //     },
+  //     name: roomNameInput.value,
+  //   });
+  //   this._personalRooms = [clonedCell, ...this._personalRooms];
+  //   roomNameInput.value = '';
+  // }
 
   async joinRoom() {
     if (this._pageView !== PageView.Home) return;
@@ -236,6 +267,80 @@ export class UnzoomApp extends LitElement {
     this._personalRooms = [clonedCell, ...this._personalRooms];
     roomNameInput2.value = '';
     secretWordsInput.value = '';
+  }
+
+  renderPersonalRooms() {
+    return html`
+      <h2>${msg('Personal Rooms:')}</h2>
+      <div
+        class="row"
+        style="flex-wrap: wrap; justify-content: center; align-items: center;"
+      >
+        <div class="column" style="margin: 0 10px; align-items: center;">
+          <div>${msg('+ Create New Room')}</div>
+          <input
+            id="room-name-input"
+            class="input-field"
+            placeholder="room name (not seen by others)"
+            type="text"
+          />
+          <button
+            class="btn"
+            style="margin-top: 10px;"
+            @click=${async () => this.createPersonalRoom()}
+          >
+            ${msg('Create')}
+          </button>
+        </div>
+        <div class="column" style="margin: 0 10px; align-items: center;">
+          <div>${msg('Join Room')}</div>
+          <input
+            id="room-name-input2"
+            class="input-field"
+            style="margin-bottom: 10px;"
+            placeholder="room name (not seen by others)"
+            type="text"
+          />
+          <input
+            id="secret-words-input"
+            class="input-field"
+            placeholder="secret words"
+            type="text"
+          />
+          <button
+            class="btn"
+            style="margin-top: 10px;"
+            @click=${async () => this.joinRoom()}
+          >
+            ${msg('Join')}
+          </button>
+        </div>
+      </div>
+      <div
+        class="column"
+        style="margin-top: 40px; align-items: center; margin-bottom: 80px;"
+      >
+        ${this._personalRooms
+          .sort((cell_a, cell_b) =>
+            encodeHashToBase64(cell_b.cell_id[0]).localeCompare(
+              encodeHashToBase64(cell_a.cell_id[0])
+            )
+          )
+          .map(
+            clonedCell => html`
+              <personal-room-card
+                .clonedCell=${clonedCell}
+                @request-open-room=${(e: CustomEvent) => {
+                  this._selectedRoleName = e.detail.cloneId;
+                  this._pageView = PageView.Room;
+                }}
+                style="margin: 7px 0;"
+              ></personal-room-card>
+            `
+          )}
+      </div>
+      <span style="display: flex; flex: 1;"></span>
+    `;
   }
 
   render() {
@@ -302,81 +407,7 @@ export class UnzoomApp extends LitElement {
                 : html``}
             </div>
             <div class="column bottom-panel">
-              <h2>${msg('Personal Rooms:')}</h2>
-              <div
-                class="row"
-                style="flex-wrap: wrap; justify-content: center; align-items: center;"
-              >
-                <div
-                  class="column"
-                  style="margin: 0 10px; align-items: center;"
-                >
-                  <div>${msg('+ Create New Room')}</div>
-                  <input
-                    id="room-name-input"
-                    class="input-field"
-                    placeholder="room name (not seen by others)"
-                    type="text"
-                  />
-                  <button
-                    class="btn"
-                    style="margin-top: 10px;"
-                    @click=${async () => this.createRoom()}
-                  >
-                    ${msg('Create')}
-                  </button>
-                </div>
-                <div
-                  class="column"
-                  style="margin: 0 10px; align-items: center;"
-                >
-                  <div>${msg('Join Room')}</div>
-                  <input
-                    id="room-name-input2"
-                    class="input-field"
-                    style="margin-bottom: 10px;"
-                    placeholder="room name (not seen by others)"
-                    type="text"
-                  />
-                  <input
-                    id="secret-words-input"
-                    class="input-field"
-                    placeholder="secret words"
-                    type="text"
-                  />
-                  <button
-                    class="btn"
-                    style="margin-top: 10px;"
-                    @click=${async () => this.joinRoom()}
-                  >
-                    ${msg('Join')}
-                  </button>
-                </div>
-              </div>
-              <div
-                class="column"
-                style="margin-top: 40px; align-items: center; margin-bottom: 80px;"
-              >
-                ${this._personalRooms
-                  .sort((cell_a, cell_b) =>
-                    encodeHashToBase64(cell_b.cell_id[0]).localeCompare(
-                      encodeHashToBase64(cell_a.cell_id[0])
-                    )
-                  )
-                  .map(
-                    clonedCell => html`
-                      <personal-room-card
-                        .clonedCell=${clonedCell}
-                        @request-open-room=${(e: CustomEvent) => {
-                          this._selectedRoleName = e.detail.cloneId;
-                          this._pageView = PageView.Room;
-                        }}
-                        style="margin: 7px 0;"
-                      ></personal-room-card>
-                    `
-                  )}
-              </div>
-              <span style="display: flex; flex: 1;"></span>
+              ${this._showGroupRooms ? html`` : this.renderPersonalRooms()}
             </div>
           </div>
         `;

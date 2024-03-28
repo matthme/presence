@@ -3,8 +3,8 @@ use hdi::prelude::*;
 #[derive(Clone, PartialEq)]
 pub struct RoomInfo {
     pub name: String,
-    pub icon_src: String,
-    pub meta_data: String,
+    pub icon_src: Option<String>,
+    pub meta_data: Option<String>,
 }
 pub fn validate_create_room_info(
     _action: EntryCreationAction,

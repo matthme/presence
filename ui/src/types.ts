@@ -15,8 +15,8 @@ export const weClientContext = createContext<WeClient>('we_client');
 
 export type RoomInfo = {
   name: string;
-  icon_src: string;
-  meta_data: string;
+  icon_src: string | undefined;
+  meta_data: string | undefined;
 }
 
 export type Attachment = {
@@ -47,7 +47,7 @@ export type SdpDataInput = {
   data: string;
 };
 
-export type UnzoomSignal =
+export type RoomSignal =
   | {
       type: 'Pong';
       from_agent: AgentPubKey;

@@ -1,11 +1,10 @@
 import { asyncDerived, lazyLoadAndPoll } from '@holochain-open-dev/stores';
-import { LazyHoloHashMap } from '@holochain-open-dev/utils';
-import { ActionHash, encodeHashToBase64 } from '@holochain/client';
+import { encodeHashToBase64 } from '@holochain/client';
 
-import { UnzoomClient } from './unzoom-client.js';
+import { RoomClient } from './room-client.js';
 
-export class UnzoomStore {
-  constructor(public client: UnzoomClient) {}
+export class RoomStore {
+  constructor(public client: RoomClient) {}
 
   /** Post */
   allAgents = lazyLoadAndPoll(async () => {
