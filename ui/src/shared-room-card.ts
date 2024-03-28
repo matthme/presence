@@ -1,6 +1,10 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ClonedCell, encodeHashToBase64 } from '@holochain/client';
+import {
+  AppAgentClient,
+  ClonedCell,
+  encodeHashToBase64,
+} from '@holochain/client';
 import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
@@ -8,7 +12,11 @@ import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
 
 import './room-container';
+import { consume } from '@lit/context';
 import { sharedStyles } from './sharedStyles';
+import { clientContext } from './contexts';
+import { RoomClient } from './room-client';
+import { RoomInfo } from './types';
 
 enum PageView {
   Loading,
@@ -18,11 +26,26 @@ enum PageView {
 
 @customElement('personal-room-card')
 export class PersonalRoomCard extends LitElement {
+  @consume({ context: clientContext })
+  @state()
+  client!: AppAgentClient;
+
   @property()
   clonedCell!: ClonedCell;
 
   @state()
   _showSecretWords = false;
+
+  @state()
+  _roomInfo: RoomInfo | undefined;
+
+  async firstUpdated() {
+    const roomClient = new RoomClient(this.client, this.clonedCell.clone_id);
+    const roomInfo = await roomClient.getRoomInfo();
+    if (roomInfo) {
+      this._roomInfo = roomInfo;
+    }
+  }
 
   render() {
     return html`
@@ -33,7 +56,7 @@ export class PersonalRoomCard extends LitElement {
               ? ''
               : 'opacity: 0.6'}"
           >
-            ${this.clonedCell.name ? this.clonedCell.name : '(no name)'}
+            ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
           </div>
           <div class="row" style="align-items: center">
             <div class="column" style="align-items: flex-start;">
@@ -65,9 +88,14 @@ export class PersonalRoomCard extends LitElement {
                   }}
                 ></sl-icon>
               </div>
-              <div class="column" style="align-items: flex-start; margin-top: 10px;">
+              <div
+                class="column"
+                style="align-items: flex-start; margin-top: 10px;"
+              >
                 <div style="font-size: 18px;">dna hash:</div>
-                <div style="font-family: sans-serif; font-size: 15px;">${encodeHashToBase64(this.clonedCell.cell_id[0])}</div>
+                <div style="font-family: sans-serif; font-size: 15px;">
+                  ${encodeHashToBase64(this.clonedCell.cell_id[0])}
+                </div>
               </div>
             </div>
           </div>
@@ -88,7 +116,10 @@ export class PersonalRoomCard extends LitElement {
               )}
             class="enter-room-btn"
           >
-            Join
+            <div class="row center-content">
+              <img src="door.png" alt="icon of a door" style="height: 25px; margin-right: 6px; transform: scaleX(-1);" />
+              <span> Enter</span>
+            </div>
           </button>
         </div>
       </div>
@@ -117,10 +148,9 @@ export class PersonalRoomCard extends LitElement {
         border-radius: 10px;
         color: #fff0f0;
         border: none;
-        padding: 5px 5px;
+        padding: 5px 10px;
         font-family: 'Pacifico', sans-serif;
         font-size: 20px;
-        width: 80px;
         cursor: pointer;
       }
 

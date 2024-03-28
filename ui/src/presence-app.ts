@@ -9,6 +9,7 @@ import {
   RoleName,
   encodeHashToBase64,
   AgentPubKey,
+  ProvisionedCell,
 } from '@holochain/client';
 import { provide } from '@lit/context';
 import {
@@ -23,8 +24,7 @@ import {
   profilesStoreContext,
 } from '@holochain-open-dev/profiles';
 import { msg } from '@lit/localize';
-import { mdiDoor } from '@mdi/js';
-import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { v4 as uuidv4 } from 'uuid';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -32,7 +32,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon';
 import { clientContext } from './contexts';
 
 import './room-container';
-import './personal-room-card';
+import './private-room-card';
 import './list-online-agents';
 import { sharedStyles } from './sharedStyles';
 import { RoomClient } from './room-client';
@@ -66,6 +66,9 @@ export class PresenceApp extends LitElement {
   _personalRooms: ClonedCell[] = [];
 
   @state()
+  _groupRooms: ClonedCell[] = [];
+
+  @state()
   _selectedRoleName: RoleName | undefined;
 
   @state()
@@ -75,10 +78,13 @@ export class PresenceApp extends LitElement {
   _groupProfile: GroupProfile | undefined;
 
   @state()
-  _mainRoomClient: RoomStore | undefined;
+  _mainRoomStore: RoomStore | undefined;
 
   @state()
-  _showGroupRooms = false;
+  _showGroupRooms = true;
+
+  @state()
+  _provisionedCell: ProvisionedCell | undefined;
 
   @state()
   _activeMainRoomParticipants: {
@@ -125,20 +131,39 @@ export class PresenceApp extends LitElement {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
       this.client = await AppAgentWebsocket.connect('presence');
     }
-    this._mainRoomClient = new RoomStore(
+    this._mainRoomStore = new RoomStore(
       new RoomClient(this.client, 'presence', 'room')
     );
     // Get all personal rooms
     const appInfo = await this.client.appInfo();
     if (!appInfo) throw new Error('AppInfo is null');
-    const clonedCells = appInfo.cell_info.unzoom
-      ? appInfo.cell_info.unzoom
+
+    const provisionedCell = appInfo.cell_info.presence.find(
+      cellInfo => CellType.Provisioned in cellInfo
+    );
+
+    if (provisionedCell) {
+      this._provisionedCell = (
+        provisionedCell as {
+          [CellType.Provisioned]: ProvisionedCell;
+        }
+      )[CellType.Provisioned];
+    }
+
+    const clonedCells = appInfo.cell_info.presence
+      ? appInfo.cell_info.presence
           .filter(cellInfo => CellType.Cloned in cellInfo)
           .map(
             cellInfo =>
               (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
           )
       : [];
+
+
+    this._groupRooms = clonedCells.filter(
+      cell => cell.dna_modifiers.network_seed.startsWith('groupRoom#')
+    );
+
     this._personalRooms = clonedCells.filter(
       cell => !cell.dna_modifiers.network_seed.startsWith('groupRoom#')
     );
@@ -152,7 +177,7 @@ export class PresenceApp extends LitElement {
       }, 3000 - timeElapsed);
     }
 
-    this._unsubscribe = this._mainRoomClient.client.onSignal(async signal => {
+    this._unsubscribe = this._mainRoomStore.client.onSignal(async signal => {
       if (signal.type === 'PongUi') {
         // This is the case if the other agent is in the main room
         const newOnlineAgentsList = this._activeMainRoomParticipants.filter(
@@ -178,9 +203,9 @@ export class PresenceApp extends LitElement {
   }
 
   async pingMainRoomAgents() {
-    if (this._mainRoomClient) {
-      const allAgents = await this._mainRoomClient.client.getAllAgents();
-      await this._mainRoomClient?.client.pingFrontend(allAgents);
+    if (this._mainRoomStore) {
+      const allAgents = await this._mainRoomStore.client.getAllAgents();
+      await this._mainRoomStore?.client.pingFrontend(allAgents);
     }
   }
 
@@ -193,10 +218,9 @@ export class PresenceApp extends LitElement {
 
   async createPersonalRoom() {
     if (this._pageView !== PageView.Home) return;
-    const roomNameInput = this.shadowRoot?.getElementById('room-name-input') as
-      | HTMLInputElement
-      | null
-      | undefined;
+    const roomNameInput = this.shadowRoot?.getElementById(
+      'private-room-name-input'
+    ) as HTMLInputElement | null | undefined;
     if (!roomNameInput)
       throw new Error('Room name input field not found in DOM.');
     const networkSeed = generateSillyPassword({ wordCount: 5 });
@@ -205,7 +229,6 @@ export class PresenceApp extends LitElement {
       modifiers: {
         network_seed: networkSeed,
       },
-      name: roomNameInput.value,
     });
     const roomClient = new RoomClient(this.client, clonedCell.clone_id);
     await roomClient.setRoomInfo({
@@ -217,25 +240,46 @@ export class PresenceApp extends LitElement {
     roomNameInput.value = '';
   }
 
-  // async createGroupRoom() {
-  //   if (this._pageView !== PageView.Home) return;
-  //   const roomNameInput = this.shadowRoot?.getElementById('room-name-input') as
-  //     | HTMLInputElement
-  //     | null
-  //     | undefined;
-  //   if (!roomNameInput)
-  //     throw new Error('Room name input field not found in DOM.');
-  //   const networkSeed = generateSillyPassword({ wordCount: 5 });
-  //   const clonedCell = await this.client.createCloneCell({
-  //     role_name: 'presence',
-  //     modifiers: {
-  //       network_seed: networkSeed,
-  //     },
-  //     name: roomNameInput.value,
-  //   });
-  //   this._personalRooms = [clonedCell, ...this._personalRooms];
-  //   roomNameInput.value = '';
-  // }
+  async createGroupRoom() {
+    if (this._pageView !== PageView.Home) return;
+    const roomNameInput = this.shadowRoot?.getElementById(
+      'group-room-name-input'
+    ) as HTMLInputElement | null | undefined;
+    if (!roomNameInput)
+      if (!roomNameInput)
+        throw new Error('Group room name input field not found in DOM.');
+    if (roomNameInput.value === '') {
+      this.notifyError('Error: Room name input field must not be empty.');
+      throw new Error('Room name must not be empty.');
+    }
+
+    if (!this._provisionedCell) throw new Error("Provisioned cell not defined.");
+    if (!this._mainRoomStore) throw new Error("Main Room Store is not defined.");
+    // network seed is composed of
+    const uuid = uuidv4();
+    const appletNetworkSeed = this._provisionedCell.dna_modifiers.network_seed;
+    const networkSeed = `groupRoom#${appletNetworkSeed}#${uuid}`;
+    const clonedCell = await this.client.createCloneCell({
+      role_name: 'presence',
+      modifiers: {
+        network_seed: networkSeed,
+      },
+      name: roomNameInput.value,
+    });
+
+    // register it in the main room
+    await this._mainRoomStore.client.createDescendentRoom(uuid);
+
+    const roomClient = new RoomClient(this.client, clonedCell.clone_id);
+    await roomClient.setRoomInfo({
+      name: roomNameInput.value,
+      icon_src: undefined,
+      meta_data: undefined,
+    });
+
+    this._groupRooms = [clonedCell, ...this._groupRooms];
+    roomNameInput.value = '';
+  }
 
   async joinRoom() {
     if (this._pageView !== PageView.Home) return;
@@ -248,28 +292,17 @@ export class PresenceApp extends LitElement {
       this.notifyError('Error: Secret words must not be empty.');
       throw new Error('Secret words must not be empty.');
     }
-    const roomNameInput2 = this.shadowRoot?.getElementById(
-      'room-name-input2'
-    ) as HTMLInputElement | null | undefined;
-    if (!roomNameInput2)
-      throw new Error('Room name input field 2 not found in DOM.');
-    if (roomNameInput2.value === '') {
-      this.notifyError('Error: Secret words must not be empty.');
-      throw new Error('Room name must not be empty.');
-    }
     const clonedCell = await this.client.createCloneCell({
       role_name: 'presence',
       modifiers: {
         network_seed: secretWordsInput.value,
       },
-      name: roomNameInput2.value,
     });
     this._personalRooms = [clonedCell, ...this._personalRooms];
-    roomNameInput2.value = '';
     secretWordsInput.value = '';
   }
 
-  renderPersonalRooms() {
+  renderPrivateRooms() {
     return html`
       <h2>${msg('Personal Rooms:')}</h2>
       <div
@@ -279,9 +312,9 @@ export class PresenceApp extends LitElement {
         <div class="column" style="margin: 0 10px; align-items: center;">
           <div>${msg('+ Create New Room')}</div>
           <input
-            id="room-name-input"
+            id="private-room-name-input"
             class="input-field"
-            placeholder="room name (not seen by others)"
+            placeholder="room name"
             type="text"
           />
           <button
@@ -294,13 +327,6 @@ export class PresenceApp extends LitElement {
         </div>
         <div class="column" style="margin: 0 10px; align-items: center;">
           <div>${msg('Join Room')}</div>
-          <input
-            id="room-name-input2"
-            class="input-field"
-            style="margin-bottom: 10px;"
-            placeholder="room name (not seen by others)"
-            type="text"
-          />
           <input
             id="secret-words-input"
             class="input-field"
@@ -343,6 +369,57 @@ export class PresenceApp extends LitElement {
     `;
   }
 
+  renderGroupRooms() {
+    return html`
+      <h2>${msg('Shared Rooms:')}</h2>
+      <div
+        class="row"
+        style="flex-wrap: wrap; justify-content: center; align-items: center;"
+      >
+        <div class="column" style="margin: 0 10px; align-items: center;">
+          <div>${msg('+ Create New Shared Room')}</div>
+          <input
+            id="group-room-name-input"
+            class="input-field"
+            placeholder="room name"
+            type="text"
+          />
+          <button
+            class="btn"
+            style="margin-top: 10px;"
+            @click=${async () => this.createGroupRoom()}
+          >
+            ${msg('Create')}
+          </button>
+        </div>
+      </div>
+      <div
+        class="column"
+        style="margin-top: 40px; align-items: center; margin-bottom: 80px;"
+      >
+        ${this._groupRooms
+          .sort((cell_a, cell_b) =>
+            encodeHashToBase64(cell_b.cell_id[0]).localeCompare(
+              encodeHashToBase64(cell_a.cell_id[0])
+            )
+          )
+          .map(
+            clonedCell => html`
+              <private-room-card
+                .clonedCell=${clonedCell}
+                @request-open-room=${(e: CustomEvent) => {
+                  this._selectedRoleName = e.detail.cloneId;
+                  this._pageView = PageView.Room;
+                }}
+                style="margin: 7px 0;"
+              ></private-room-card>
+            `
+          )}
+      </div>
+      <span style="display: flex; flex: 1;"></span>
+    `;
+  }
+
   render() {
     switch (this._pageView) {
       case PageView.Loading:
@@ -368,7 +445,7 @@ export class PresenceApp extends LitElement {
           >
             <span
               style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;"
-              >v0.2.0</span
+              >v0.5.0</span
             >
             <div class="column top-panel">
               <div style="position: absolute; top: 0; right: 20px;">
@@ -383,11 +460,12 @@ export class PresenceApp extends LitElement {
                   }}
                 >
                   <div class="row" style="align-items: center;">
-                    <sl-icon
-                      .src=${wrapPathInSvg(mdiDoor)}
-                      style="height: 45px; width: 45px;"
-                    ></sl-icon
-                    ><span>${msg('Enter Main Room')}</span>
+                    <img
+                      src="door.png"
+                      alt="icon of a door"
+                      style="height: 45px; margin-right: 10px; margin-left: 10px; transform: scaleX(-1);"
+                    />
+                    <span>${msg('Enter Main Room')}</span>
                   </div>
                 </button>
               </div>
@@ -407,7 +485,7 @@ export class PresenceApp extends LitElement {
                 : html``}
             </div>
             <div class="column bottom-panel">
-              ${this._showGroupRooms ? html`` : this.renderPersonalRooms()}
+              ${this._showGroupRooms ? this.renderGroupRooms() : this.renderPrivateRooms()}
             </div>
           </div>
         `;

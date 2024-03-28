@@ -1,5 +1,5 @@
 import { EntryRecord, ZomeClient } from '@holochain-open-dev/utils';
-import { AgentPubKey, AppAgentClient, RoleName, Record } from '@holochain/client';
+import { AgentPubKey, AppAgentClient, RoleName, Record, ActionHash } from '@holochain/client';
 import {
   Attachment,
   DescendentRoom,
@@ -34,6 +34,10 @@ export class RoomClient extends ZomeClient<RoomSignal> {
 
   async getAllDescendentRooms(): Promise<Array<DescendentRoom>> {
     return this.callZome('get_all_descendent_rooms', null);
+  }
+
+  async createDescendentRoom(networkSeedAppendix: string): Promise<ActionHash> {
+    return this.callZome('create_descendent_room', networkSeedAppendix)
   }
 
   async getRoomInfo(): Promise<RoomInfo | undefined> {

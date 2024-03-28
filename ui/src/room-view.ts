@@ -192,7 +192,7 @@ export class RoomView extends LitElement {
   _joinAudio = new Audio('doorbell.mp3');
 
   @state()
-  _leaveAudio = new Audio('closing-metal-door.mp3');
+  _leaveAudio = new Audio('percussive-drum-hit.mp3');
 
   @state()
   _unsubscribe: (() => void) | undefined;
