@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
-    "@lightningrodlabs/we-dev-cli": "0.11.0",
+    "@lightningrodlabs/we-dev-cli": "0.11.4",
     "concurrently": "^6.2.1",
     "rimraf": "^3.0.2"
   },
