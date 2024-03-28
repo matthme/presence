@@ -12,8 +12,8 @@ hdi = { version = "0.4.0-beta-dev.31" }
 hdk = { version = "0.3.0-beta-dev.35" }
 serde = "1"
 
-[workspace.dependencies.unzoom]
-path = "dnas/unzoom/zomes/coordinator/unzoom"
+[workspace.dependencies.room]
+path = "dnas/presence/zomes/coordinator/room"
 
-[workspace.dependencies.unzoom_integrity]
-path = "dnas/unzoom/zomes/integrity/unzoom"
+[workspace.dependencies.room_integrity]
+path = "dnas/presence/zomes/integrity/room"

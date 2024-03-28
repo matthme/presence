@@ -1581,6 +1581,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "room"
+version = "0.0.1"
+dependencies = [
+ "hdk",
+ "room_integrity",
+ "serde",
+]
+
+[[package]]
+name = "room_integrity"
+version = "0.0.1"
+dependencies = [
+ "hdi",
+ "serde",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2049,23 +2066,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "unzoom"
-version = "0.0.1"
-dependencies = [
- "hdk",
- "serde",
- "unzoom_integrity",
-]
-
-[[package]]
-name = "unzoom_integrity"
-version = "0.0.1"
-dependencies = [
- "hdi",
- "serde",
 ]
 
 [[package]]

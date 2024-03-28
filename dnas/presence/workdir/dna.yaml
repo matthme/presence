@@ -1,0 +1,21 @@
+---
+manifest_version: "1"
+name: presence
+integrity:
+  network_seed: ~
+  properties: ~
+  origin_time: 1703354068450069
+  zomes:
+    - name: room_integrity
+      hash: ~
+      bundled: "../../../target/wasm32-unknown-unknown/release/room_integrity.wasm"
+      dependencies: ~
+      dylib: ~
+coordinator:
+  zomes:
+    - name: room
+      hash: ~
+      bundled: "../../../target/wasm32-unknown-unknown/release/room.wasm"
+      dependencies:
+        - name: room_integrity
+      dylib: ~

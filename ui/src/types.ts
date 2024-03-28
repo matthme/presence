@@ -6,11 +6,28 @@ import {
   Delete,
   CreateLink,
   DeleteLink,
+  ActionHash,
 } from '@holochain/client';
 import { WeClient } from '@lightningrodlabs/we-applet';
 import { createContext } from '@lit/context';
 
 export const weClientContext = createContext<WeClient>('we_client');
+
+export type RoomInfo = {
+  name: string;
+  icon_src: string;
+  meta_data: string;
+}
+
+export type Attachment = {
+  wal: string;
+}
+
+export type DescendentRoom = {
+  creator: AgentPubKey,
+  network_seed_appendix: String,
+  link_action_hash: ActionHash,
+}
 
 export type InitAcceptInput = {
   connection_id: string;

@@ -1,15 +1,15 @@
 [package]
-name = "unzoom"
+name = "room"
 version = "0.0.1"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "unzoom"
+name = "room"
 
 [dependencies]
 hdk = { workspace = true }
 
 serde = { workspace = true }
 
-unzoom_integrity = { workspace = true }
+room_integrity = { workspace = true } 
