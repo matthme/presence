@@ -36,6 +36,19 @@ export class UnzoomClient extends ZomeClient<UnzoomSignal> {
     return this.callZome('get_all_descendent_rooms', null);
   }
 
+  async getRoomInfo(): Promise<RoomInfo | undefined> {
+    const maybeRoomInfoRecord: Record | undefined = await this.callZome('get_room_info', null);
+    if (maybeRoomInfoRecord) {
+      const entryRecord = new EntryRecord<RoomInfo>(maybeRoomInfoRecord);
+      return entryRecord.entry;
+    }
+    return undefined;
+  }
+
+  async setRoomInfo(roomInfo: RoomInfo): Promise<void> {
+    return this.callZome('set_room_info', roomInfo);
+  }
+
   /**
    * Ping all given agents for passive availability (i.e. not in the front-end), listening for their pong later
    */

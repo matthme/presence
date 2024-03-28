@@ -18,7 +18,9 @@ pub fn validate_update_room_info(
     _original_action: EntryCreationAction,
     _original_room_info: RoomInfo,
 ) -> ExternResult<ValidateCallbackResult> {
-    Ok(ValidateCallbackResult::Valid)
+    Ok(ValidateCallbackResult::Invalid(
+        "Updating a RoomInfo entry is not allowed.".into(),
+    ))
 }
 pub fn validate_delete_room_info(
     _action: Delete,
