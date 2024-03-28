@@ -1,8 +1,6 @@
 use hdk::prelude::*;
 use room_integrity::*;
 
-const ROOM_INFO: &str = "ROOM_INFO";
-
 // If this function returns None, it means that we haven't synced up yet
 #[hdk_extern]
 pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {

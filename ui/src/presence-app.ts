@@ -201,7 +201,7 @@ export class PresenceApp extends LitElement {
       throw new Error('Room name input field not found in DOM.');
     const networkSeed = generateSillyPassword({ wordCount: 5 });
     const clonedCell = await this.client.createCloneCell({
-      role_name: 'unzoom',
+      role_name: 'presence',
       modifiers: {
         network_seed: networkSeed,
       },
@@ -227,7 +227,7 @@ export class PresenceApp extends LitElement {
   //     throw new Error('Room name input field not found in DOM.');
   //   const networkSeed = generateSillyPassword({ wordCount: 5 });
   //   const clonedCell = await this.client.createCloneCell({
-  //     role_name: 'unzoom',
+  //     role_name: 'presence',
   //     modifiers: {
   //       network_seed: networkSeed,
   //     },
@@ -258,7 +258,7 @@ export class PresenceApp extends LitElement {
       throw new Error('Room name must not be empty.');
     }
     const clonedCell = await this.client.createCloneCell({
-      role_name: 'unzoom',
+      role_name: 'presence',
       modifiers: {
         network_seed: secretWordsInput.value,
       },
@@ -378,7 +378,7 @@ export class PresenceApp extends LitElement {
                 <button
                   class="enter-group-room-btn"
                   @click=${() => {
-                    this._selectedRoleName = 'unzoom';
+                    this._selectedRoleName = 'presence';
                     this._pageView = PageView.Room;
                   }}
                 >

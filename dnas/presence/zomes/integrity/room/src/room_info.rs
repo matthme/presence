@@ -1,4 +1,7 @@
 use hdi::prelude::*;
+
+pub const ROOM_INFO: &str = "ROOM_INFO";
+
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct RoomInfo {
@@ -37,32 +40,35 @@ pub fn validate_create_link_room_info_updates(
     target_address: AnyLinkableHash,
     _tag: LinkTag,
 ) -> ExternResult<ValidateCallbackResult> {
-    let action_hash = base_address
-        .into_action_hash()
-        .ok_or(wasm_error!(WasmErrorInner::Guest(String::from(
-            "No action hash associated with link"
-        ))))?;
-    let record = must_get_valid_record(action_hash)?;
-    let _room_info: crate::RoomInfo = record
-        .entry()
-        .to_app_option()
-        .map_err(|e| wasm_error!(e))?
-        .ok_or(wasm_error!(WasmErrorInner::Guest(String::from(
-            "Linked action must reference an entry"
-        ))))?;
-    let action_hash =
+    let path = Path::from(ROOM_INFO);
+    let path_entry_hash = path.path_entry_hash()?;
+    let base_entry_hash = match EntryHash::try_from(base_address) {
+        Ok(eh) => eh,
+        Err(_) => {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Base address of a RoomInfoUpdates link must be an entry hash.".into(),
+            ))
+        }
+    };
+    if base_entry_hash != path_entry_hash {
+        return Ok(ValidateCallbackResult::Invalid(
+            "RoomInfoUpdates links must have the RoomInfo anchor as their base.".into(),
+        ));
+    }
+
+    let room_info_action_hash =
         target_address
             .into_action_hash()
             .ok_or(wasm_error!(WasmErrorInner::Guest(String::from(
-                "No action hash associated with link"
+                "Link to RoomInfo entry is not an action hash"
             ))))?;
-    let record = must_get_valid_record(action_hash)?;
+    let record = must_get_valid_record(room_info_action_hash)?;
     let _room_info: crate::RoomInfo = record
         .entry()
         .to_app_option()
         .map_err(|e| wasm_error!(e))?
         .ok_or(wasm_error!(WasmErrorInner::Guest(String::from(
-            "Linked action must reference an entry"
+            "Linked action must point to a RoomInfo entry"
         ))))?;
     Ok(ValidateCallbackResult::Valid)
 }

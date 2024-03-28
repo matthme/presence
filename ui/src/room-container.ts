@@ -39,7 +39,7 @@ export class RoomContainer extends LitElement {
 
   async firstUpdated() {
     this.roomStore = new RoomStore(
-      new RoomClient(this.client, this.roleName, 'unzoom')
+      new RoomClient(this.client, this.roleName, 'room')
     );
   }
 

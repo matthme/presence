@@ -53,7 +53,7 @@ export default defineConfig({
       },
       source: {
         type: "localhost",
-        happPath: "./workdir/unzoom.happ",
+        happPath: "./workdir/presence.happ",
         uiPort: 8888,
       },
     },
