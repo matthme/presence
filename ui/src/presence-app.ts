@@ -38,7 +38,7 @@ import {
 import { msg } from '@lit/localize';
 import { v4 as uuidv4 } from 'uuid';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
-import { mdiAccountGroup, mdiLock } from '@mdi/js';
+import { mdiAccountGroup, mdiLock, mdiLockOpenOutline } from '@mdi/js';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -229,13 +229,17 @@ export class PresenceApp extends LitElement {
     return cellTypes;
   }
 
-  async createPersonalRoom() {
+  async createPrivateRoom() {
     if (this._pageView !== PageView.Home) return;
     const roomNameInput = this.shadowRoot?.getElementById(
       'private-room-name-input'
     ) as HTMLInputElement | null | undefined;
     if (!roomNameInput)
       throw new Error('Room name input field not found in DOM.');
+    if (roomNameInput.value === "" || !roomNameInput.value) {
+      this.notifyError("Room name must not be empty.");
+      return;
+    }
     const randomWords = generateSillyPassword({ wordCount: 5 });
     const clonedCell = await this.client.createCloneCell({
       role_name: 'presence',
@@ -333,46 +337,56 @@ export class PresenceApp extends LitElement {
   renderPrivateRooms() {
     return html`
       <div
-        class="row"
+        class="column"
         style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
         <div
           class="column"
-          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+          style="margin: 0 10px; align-items: flex-start; color: #e1e5fc;"
         >
-          <div class="secondary-font">${msg('+ Create New Private Room')}</div>
-          <input
-            id="private-room-name-input"
-            class="input-field"
-            placeholder="room name"
-            type="text"
-          />
-          <button
-            class="btn"
-            style="margin-top: 10px;"
-            @click=${async () => this.createPersonalRoom()}
-          >
-            ${msg('Create')}
-          </button>
+          <div class="secondary-font" style="margin-left: 5px;">${msg('+ Create New Private Room')}</div>
+          <div class="row" style="align-items: center;">
+            <input
+              id="private-room-name-input"
+              class="input-field"
+              placeholder="room name"
+              type="text"
+            />
+            <button
+              class="btn"
+              style="margin-left: 10px;"
+              @click=${async () => this.createPrivateRoom()}
+            >
+              ${msg('Create')}
+            </button>
+          </div>
         </div>
         <div
           class="column"
-          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+          style="margin: 0 10px; align-items: flex-start; color: #e1e5fc; margin-top: 12px;"
         >
-          <div class="secondary-font">${msg('Join Private Room')}</div>
-          <input
-            id="secret-words-input"
-            class="input-field"
-            placeholder="secret words"
-            type="text"
-          />
-          <button
-            class="btn"
-            style="margin-top: 10px;"
-            @click=${async () => this.joinRoom()}
-          >
-            ${msg('Join')}
-          </button>
+          <div class="row" style="align-items: center;">
+            <sl-icon
+              .src=${wrapPathInSvg(mdiLockOpenOutline)}
+              style="margin-right: 5px; margin-bottom: 4px;"
+            ></sl-icon>
+            <div class="secondary-font" style="margin-left: 5px;">${msg('Join Private Room')}</div>
+          </div>
+          <div class="row" style="align-items: center;">
+            <input
+              id="secret-words-input"
+              class="input-field"
+              placeholder="secret words"
+              type="text"
+            />
+            <button
+              class="btn"
+              style="margin-left: 10px;"
+              @click=${async () => this.joinRoom()}
+            >
+              ${msg('Join')}
+            </button>
+          </div>
         </div>
       </div>
       <div
@@ -429,9 +443,9 @@ export class PresenceApp extends LitElement {
       >
         <div
           class="column"
-          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+          style="margin: 0 10px; align-items: flex-start; color: #e1e5fc;"
         >
-          <div class="secondary-font">${msg('+ Create New Shared Room')}</div>
+          <div class="secondary-font" style="margin-left: 5px;">${msg('+ Create New Shared Room')}</div>
           <div class="row" style="align-items: center;">
             <input
               id="group-room-name-input"
