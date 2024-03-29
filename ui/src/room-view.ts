@@ -5,8 +5,9 @@ import {
   AgentPubKeyB64,
   AgentPubKey,
   decodeHashFromBase64,
+  ActionHash,
 } from '@holochain/client';
-import { StoreSubscriber } from '@holochain-open-dev/stores';
+import { StoreSubscriber, lazyLoadAndPoll } from '@holochain-open-dev/stores';
 import SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -34,6 +35,7 @@ import './avatar-with-nickname';
 import { Attachment, RoomInfo, weClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
+import { EntryRecord } from '@holochain-open-dev/utils';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -115,9 +117,20 @@ export class RoomView extends LitElement {
 
   _allAttachments = new StoreSubscriber(
     this,
-    () => this.roomStore.allAttachments,
+    () =>
+      lazyLoadAndPoll(async () => {
+        const allAttachments = this.roomStore.client.getAllAttachments();
+        const recentlyChangedAttachments = this._recentAttachmentChanges;
+        recentlyChangedAttachments.added = [];
+        recentlyChangedAttachments.deleted = [];
+        this._recentAttachmentChanges = recentlyChangedAttachments;
+        return allAttachments;
+      }, 5000),
     () => [this.roomStore]
   );
+
+  @state()
+  _recentAttachmentChanges: Record<string, EntryRecord<Attachment>[]> = { "added": [], "deleted": []};
 
   @state()
   _roomInfo: RoomInfo | undefined;
@@ -207,9 +220,6 @@ export class RoomView extends LitElement {
 
   @state()
   _leaveAudio = new Audio('percussive-drum-hit.mp3');
-
-  @state()
-  _recentlyAddedAttachments: Attachment[] = [];
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -1209,11 +1219,27 @@ export class RoomView extends LitElement {
       const newAttachment = await this.roomStore.client.createAttachment({
         wal: weaveUrlFromWal(wal, false),
       });
-      this._recentlyAddedAttachments = [
-        ...this._recentlyAddedAttachments,
-        newAttachment.entry,
+      const recentlyChanged = this._recentAttachmentChanges;
+      const recentlyAddedAttachments = [
+        ...recentlyChanged.added,
+        newAttachment,
       ];
+      recentlyChanged.added = recentlyAddedAttachments;
+      this._recentAttachmentChanges = recentlyChanged;
+      this.requestUpdate();
     }
+  }
+
+  async removeAttachment(entryRecord: EntryRecord<Attachment>) {
+    await this.roomStore.client.deleteAttachment(entryRecord.actionHash);
+    const recentlyChanged = this._recentAttachmentChanges;
+    const recentlyDeletedAttachments = [
+      ...recentlyChanged.deleted,
+      entryRecord,
+    ];
+    recentlyChanged.deleted = recentlyDeletedAttachments;
+    this._recentAttachmentChanges = recentlyChanged;
+    this.requestUpdate();
   }
 
   toggleMaximized(id: string) {
@@ -1278,22 +1304,50 @@ export class RoomView extends LitElement {
         return html`Failed to load attachments:
         ${this._allAttachments.value.error}`;
       case 'complete': {
-        const allWals = Array.from(
-          new Set([
-            ...this._recentlyAddedAttachments.map(a => a.wal),
-            ...this._allAttachments.value.value.map(a => a.entry.wal),
-          ])
+        const allAttachments = [
+          ...this._recentAttachmentChanges.added,
+          ...this._allAttachments.value.value,
+        ];
+        const recentlyDeletedAttachmentHashes =
+          this._recentAttachmentChanges.deleted.map(entryRecord =>
+            entryRecord.actionHash.toString()
+          );
+        const allDeduplicatedAttachments = allAttachments
+          .filter(
+            (value, index, self) =>
+              index ===
+              self.findIndex(
+                t => t.actionHash.toString() === value.actionHash.toString()
+              )
+          )
+          .filter(
+            entryRecord =>
+              !recentlyDeletedAttachmentHashes.includes(
+                entryRecord.actionHash.toString()
+              )
+          );
+        console.log('allDeduplicatedAttachments: ', allDeduplicatedAttachments);
+        console.log(
+          'this._allAttachments.value.value',
+          this._allAttachments.value.value
         );
-        console.log("allWals: ", allWals);
-        console.log("this._allAttachments.value.value", this._allAttachments.value.value);
+
         return html`
-          ${allWals.map(
-            wal => html`
-              <attachment-element
-                .src=${wal}
-              ></attachment-element>
-            `
-          )}
+          <div
+            class="column"
+            style="justify-content: flex-start; align-items: flex-start;"
+          >
+            ${allDeduplicatedAttachments.map(
+              entryRecord => html`
+                <attachment-element
+                  style="margin-bottom: 8px;"
+                  .entryRecord=${entryRecord}
+                  @remove-attachment=${(e: CustomEvent) =>
+                    this.removeAttachment(e.detail)}
+                ></attachment-element>
+              `
+            )}
+          </div>
         `;
       }
       default:
@@ -1303,7 +1357,10 @@ export class RoomView extends LitElement {
 
   renderAttachmentPanel() {
     return html`
-      <div class="column attachment-panel" style="align-items: flex-start;">
+      <div
+        class="column attachment-panel"
+        style="align-items: flex-start; justify-content: flex-start;"
+      >
         <div class="close-panel" style="margin-left: 20px;">
           > ${msg('close')}
         </div>
@@ -1694,13 +1751,13 @@ export class RoomView extends LitElement {
         bottom: 94px;
         right: 0;
         width: 400px;
-        opacity: 0.7;
         background: linear-gradient(
-          #6f7599,
-          #6f7599 80%,
-          #6f7599b6 90%,
+          #6f7599c4,
+          #6f7599c4 80%,
+          #6f759979 90%,
           #6f759900
         );
+        padding: 0 20px;
         /* background: #6f7599; */
       }
 

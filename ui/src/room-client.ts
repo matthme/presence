@@ -37,6 +37,10 @@ export class RoomClient extends ZomeClient<RoomSignal> {
     return new EntryRecord(record);
   }
 
+  async deleteAttachment(actionHash: ActionHash): Promise<ActionHash> {
+    return this.callZome('delete_attachment', actionHash);
+  }
+
   async getAllDescendentRooms(): Promise<Array<[DescendentRoom, AgentPubKey, ActionHash]>> {
     return this.callZome('get_all_descendent_rooms', null);
   }

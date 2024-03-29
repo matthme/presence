@@ -1,4 +1,13 @@
 import '@fontsource/pacifico';
+import '@fontsource-variable/noto-sans-sc';
+import '@fontsource/ubuntu/300-italic.css';
+import '@fontsource/ubuntu/400-italic.css';
+import '@fontsource/ubuntu/500-italic.css';
+import '@fontsource/ubuntu/700-italic.css';
+import '@fontsource/ubuntu/300.css';
+import '@fontsource/ubuntu/400.css';
+import '@fontsource/ubuntu/500.css';
+import '@fontsource/ubuntu/700.css';
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {

@@ -11,6 +11,8 @@
   "dependencies": {
     "@fontsource/pacifico": "5.0.8",
     "@fontsource/gabriela": "5.0.8",
+    "@fontsource-variable/noto-sans-sc": "^5.0.5",
+    "@fontsource/ubuntu": "^5.0.12",
     "@holochain/client": "0.17.0-dev.7",
     "@holochain-open-dev/elements": "0.300.0-dev.0",
     "@holochain-open-dev/profiles": "0.300.0-dev.0",
