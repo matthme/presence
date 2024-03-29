@@ -2,7 +2,9 @@ import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   AppAgentClient,
+  CellType,
   ClonedCell,
+  ProvisionedCell,
   encodeHashToBase64,
 } from '@holochain/client';
 import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
@@ -16,7 +18,9 @@ import { consume } from '@lit/context';
 import { sharedStyles } from './sharedStyles';
 import { clientContext } from './contexts';
 import { RoomClient } from './room-client';
-import { RoomInfo } from './types';
+import { DescendentRoom, RoomInfo } from './types';
+import { getCellTypes, groupRoomNetworkSeed } from './utils';
+import { GroupRoomInfo } from './presence-app';
 
 enum PageView {
   Loading,
@@ -24,14 +28,15 @@ enum PageView {
   Room,
 }
 
-@customElement('personal-room-card')
-export class PersonalRoomCard extends LitElement {
+@customElement('shared-room-card')
+export class SharedRoomCard extends LitElement {
   @consume({ context: clientContext })
   @state()
   client!: AppAgentClient;
 
   @property()
-  clonedCell!: ClonedCell;
+  @state()
+  groupRoomInfo!: GroupRoomInfo;
 
   @state()
   _showSecretWords = false;
@@ -39,88 +44,109 @@ export class PersonalRoomCard extends LitElement {
   @state()
   _roomInfo: RoomInfo | undefined;
 
+  @state()
+  _myCell: ClonedCell | undefined;
+
+  @state()
+  _networkSeed: string | undefined;
+
   async firstUpdated() {
-    const roomClient = new RoomClient(this.client, this.clonedCell.clone_id);
-    const roomInfo = await roomClient.getRoomInfo();
-    if (roomInfo) {
-      this._roomInfo = roomInfo;
+    console.log(
+      '@firstupdated for roominfo name: ',
+      this.groupRoomInfo.room.name
+    );
+    console.log('groupRoomInfo: ', this.groupRoomInfo);
+    // check if the appropriate clone cell is already installed
+    const appInfo = await this.client.appInfo();
+    if (!appInfo) throw new Error('AppInfo is null');
+    const cellTypes = getCellTypes(appInfo);
+    const appletNetworkSeed = cellTypes.provisioned.dna_modifiers.network_seed;
+
+    const networkSeed = groupRoomNetworkSeed(
+      appletNetworkSeed,
+      this.groupRoomInfo.room.network_seed_appendix
+    );
+
+    console.log('networkSeed: ', networkSeed);
+
+    const myCell = cellTypes.cloned.find(
+      clonedCell => networkSeed === clonedCell.dna_modifiers.network_seed
+    );
+    this._networkSeed = networkSeed;
+    console.log('myCell: ', myCell);
+    if (myCell) {
+      this._myCell = myCell;
+      const roomClient = new RoomClient(this.client, myCell.clone_id);
+      const roomInfo = await roomClient.getRoomInfo();
+      console.log('@firstupdated roomInfo: ', roomInfo);
+      console.log('@firstupdated clone_id: ', myCell.clone_id);
+      if (roomInfo) {
+        this._roomInfo = roomInfo;
+      }
+    } else {
+      this._roomInfo = {
+        name: this.groupRoomInfo.room.name,
+        icon_src: this.groupRoomInfo.room.icon_src,
+        meta_data: this.groupRoomInfo.room.meta_data,
+      };
     }
+  }
+
+  async handleOpenRoom() {
+    // If the cell is not installed yet, install it first
+    if (!this._myCell) {
+      console.log('Installing cell.');
+      // network seed must be defined at this point
+      if (!this._networkSeed) throw new Error('Network seed undefined.');
+      this._myCell = await this.client.createCloneCell({
+        role_name: 'presence',
+        modifiers: {
+          network_seed: this._networkSeed,
+        },
+      });
+      const roomClient = new RoomClient(this.client, this._myCell.clone_id);
+      const roomInfo = await roomClient.getRoomInfo();
+      if (roomInfo) {
+        this._roomInfo = roomInfo;
+      }
+
+    }
+
+    this.dispatchEvent(
+      new CustomEvent('request-open-room', {
+        detail: {
+          cloneId: this._myCell!.clone_id,
+        },
+        composed: true,
+        bubbles: true,
+      })
+    );
   }
 
   render() {
     return html`
-      <div class="row personal-room-card">
-        <div class="column" style="align-items: flex-start">
-          <div
-            style="margin-bottom: 15px; font-weight: bold;${this.clonedCell.name
-              ? ''
-              : 'opacity: 0.6'}"
-          >
-            ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
-          </div>
-          <div class="row" style="align-items: center">
-            <div class="column" style="align-items: flex-start;">
-              <span style="font-size: 18px;">secret words:</span>
-              <div class="row" style="align-items: center">
-                <span class="secret-words"
-                  >${this._showSecretWords
-                    ? this.clonedCell.dna_modifiers.network_seed
-                    : '•••••• •••••• •••••• •••••• ••••••'}</span
-                >
-                <sl-icon
-                  class="eye-icon"
-                  title="${this._showSecretWords ? 'Hide' : 'Show'}"
-                  .src=${this._showSecretWords
-                    ? wrapPathInSvg(mdiEyeOffOutline)
-                    : wrapPathInSvg(mdiEyeOutline)}
-                  @click=${() => {
-                    this._showSecretWords = !this._showSecretWords;
-                  }}
-                ></sl-icon>
-                <sl-icon
-                  class="copy-icon"
-                  title="Copy"
-                  .src=${wrapPathInSvg(mdiContentCopy)}
-                  @click=${() => {
-                    navigator.clipboard.writeText(
-                      this.clonedCell.dna_modifiers.network_seed
-                    );
-                  }}
-                ></sl-icon>
-              </div>
-              <div
-                class="column"
-                style="align-items: flex-start; margin-top: 10px;"
-              >
-                <div style="font-size: 18px;">dna hash:</div>
-                <div style="font-family: sans-serif; font-size: 15px;">
-                  ${encodeHashToBase64(this.clonedCell.cell_id[0])}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div class="column shared-room-card" style="align-items: flex-start;">
+        <div
+          style="margin-bottom: 15px; font-weight: bold;${this._roomInfo?.name
+            ? ''
+            : 'opacity: 0.6'}"
+        >
+          ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
         </div>
-        <span style="display: flex; flex: 1;"></span>
-
-        <div>
-          <button
-            @click=${() =>
-              this.dispatchEvent(
-                new CustomEvent('request-open-room', {
-                  detail: {
-                    cloneId: this.clonedCell.clone_id,
-                  },
-                  composed: true,
-                  bubbles: true,
-                })
-              )}
-            class="enter-room-btn"
-          >
-            <div class="row center-content">
-              <img src="door.png" alt="icon of a door" style="height: 25px; margin-right: 6px; transform: scaleX(-1);" />
-              <span> Enter</span>
-            </div>
-          </button>
+        <div class="row">
+          <span style="display: flex; flex: 1;"></span>
+          <div>
+            <button @click=${() => this.handleOpenRoom()} class="enter-room-btn">
+              <div class="row center-content">
+                <img
+                  src="door.png"
+                  alt="icon of a door"
+                  style="height: 25px; margin-right: 6px; transform: scaleX(-1);"
+                />
+                <span> Enter</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -129,7 +155,7 @@ export class PersonalRoomCard extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .personal-room-card {
+      .shared-room-card {
         align-items: center;
         min-width: 600px;
         /* background: #40638f; */
@@ -155,11 +181,13 @@ export class PersonalRoomCard extends LitElement {
       }
 
       .enter-room-btn:hover {
-        background: #102a4d95;
+        background: linear-gradient(#102a4d, #3c466b);
+        box-shadow: 0 0 1px 1px #102a4d;
       }
 
       .enter-room-btn:focus {
-        background: #102a4d95;
+        background: linear-gradient(#102a4d, #3c466b);
+        box-shadow: 0 0 1px 1px #102a4d;
       }
 
       .secret-words {

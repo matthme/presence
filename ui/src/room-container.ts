@@ -30,6 +30,7 @@ export class RoomContainer extends LitElement {
   @state()
   client!: AppAgentClient;
 
+  @state()
   @property()
   roleName!: RoleName;
 

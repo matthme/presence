@@ -5,11 +5,11 @@ import {
   AppAgentWebsocket,
   AppAgentClient,
   ClonedCell,
-  CellType,
   RoleName,
   encodeHashToBase64,
   AgentPubKey,
   ProvisionedCell,
+  ActionHash,
 } from '@holochain/client';
 import { provide } from '@lit/context';
 import {
@@ -25,6 +25,8 @@ import {
 } from '@holochain-open-dev/profiles';
 import { msg } from '@lit/localize';
 import { v4 as uuidv4 } from 'uuid';
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { mdiAccountGroup, mdiLock } from '@mdi/js';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -33,17 +35,25 @@ import { clientContext } from './contexts';
 
 import './room-container';
 import './private-room-card';
+import './shared-room-card';
 import './list-online-agents';
 import { sharedStyles } from './sharedStyles';
 import { RoomClient } from './room-client';
-import { weClientContext } from './types';
+import { DescendentRoom, weClientContext } from './types';
 import { RoomStore } from './room-store';
+import { CellTypes, getCellTypes, groupRoomNetworkSeed } from './utils';
 
 enum PageView {
   Loading,
   Home,
   Room,
 }
+
+export type GroupRoomInfo = {
+  room: DescendentRoom;
+  creator: AgentPubKey;
+  linkActionHash: ActionHash;
+};
 
 @customElement('presence-app')
 export class PresenceApp extends LitElement {
@@ -66,7 +76,7 @@ export class PresenceApp extends LitElement {
   _personalRooms: ClonedCell[] = [];
 
   @state()
-  _groupRooms: ClonedCell[] = [];
+  _groupRooms: GroupRoomInfo[] = [];
 
   @state()
   _selectedRoleName: RoleName | undefined;
@@ -134,39 +144,10 @@ export class PresenceApp extends LitElement {
     this._mainRoomStore = new RoomStore(
       new RoomClient(this.client, 'presence', 'room')
     );
-    // Get all personal rooms
-    const appInfo = await this.client.appInfo();
-    if (!appInfo) throw new Error('AppInfo is null');
 
-    const provisionedCell = appInfo.cell_info.presence.find(
-      cellInfo => CellType.Provisioned in cellInfo
-    );
+    const cellTypes = await this.updateRoomLists();
+    this._provisionedCell = cellTypes.provisioned;
 
-    if (provisionedCell) {
-      this._provisionedCell = (
-        provisionedCell as {
-          [CellType.Provisioned]: ProvisionedCell;
-        }
-      )[CellType.Provisioned];
-    }
-
-    const clonedCells = appInfo.cell_info.presence
-      ? appInfo.cell_info.presence
-          .filter(cellInfo => CellType.Cloned in cellInfo)
-          .map(
-            cellInfo =>
-              (cellInfo as { [CellType.Cloned]: ClonedCell })[CellType.Cloned]
-          )
-      : [];
-
-
-    this._groupRooms = clonedCells.filter(
-      cell => cell.dna_modifiers.network_seed.startsWith('groupRoom#')
-    );
-
-    this._personalRooms = clonedCells.filter(
-      cell => !cell.dna_modifiers.network_seed.startsWith('groupRoom#')
-    );
     const loadFinished = Date.now();
     const timeElapsed = loadFinished - start;
     if (timeElapsed > 3000) {
@@ -216,6 +197,26 @@ export class PresenceApp extends LitElement {
     }, 4000);
   }
 
+  async updateRoomLists(): Promise<CellTypes> {
+    // Get all personal rooms
+    const appInfo = await this.client.appInfo();
+    if (!appInfo) throw new Error('AppInfo is null');
+
+    const cellTypes = getCellTypes(appInfo);
+
+    this._personalRooms = cellTypes.cloned.filter(
+      cell => !cell.dna_modifiers.network_seed.startsWith('groupRoom#')
+    );
+
+    const allDescendentRooms =
+      await this._mainRoomStore!.client.getAllDescendentRooms();
+    this._groupRooms = allDescendentRooms.map(
+      ([room, creator, linkActionHash]) => ({ room, creator, linkActionHash })
+    );
+
+    return cellTypes;
+  }
+
   async createPersonalRoom() {
     if (this._pageView !== PageView.Home) return;
     const roomNameInput = this.shadowRoot?.getElementById(
@@ -236,7 +237,7 @@ export class PresenceApp extends LitElement {
       icon_src: undefined,
       meta_data: undefined,
     });
-    this._personalRooms = [clonedCell, ...this._personalRooms];
+    await this.updateRoomLists();
     roomNameInput.value = '';
   }
 
@@ -253,12 +254,14 @@ export class PresenceApp extends LitElement {
       throw new Error('Room name must not be empty.');
     }
 
-    if (!this._provisionedCell) throw new Error("Provisioned cell not defined.");
-    if (!this._mainRoomStore) throw new Error("Main Room Store is not defined.");
+    if (!this._provisionedCell)
+      throw new Error('Provisioned cell not defined.');
+    if (!this._mainRoomStore)
+      throw new Error('Main Room Store is not defined.');
     // network seed is composed of
     const uuid = uuidv4();
     const appletNetworkSeed = this._provisionedCell.dna_modifiers.network_seed;
-    const networkSeed = `groupRoom#${appletNetworkSeed}#${uuid}`;
+    const networkSeed = groupRoomNetworkSeed(appletNetworkSeed, uuid);
     const clonedCell = await this.client.createCloneCell({
       role_name: 'presence',
       modifiers: {
@@ -268,7 +271,14 @@ export class PresenceApp extends LitElement {
     });
 
     // register it in the main room
-    await this._mainRoomStore.client.createDescendentRoom(uuid);
+    const descendentRoom = {
+      network_seed_appendix: uuid,
+      name: roomNameInput.value,
+      icon_src: undefined,
+      meta_data: undefined,
+    };
+    const linkActionHash =
+      await this._mainRoomStore.client.createDescendentRoom(descendentRoom);
 
     const roomClient = new RoomClient(this.client, clonedCell.clone_id);
     await roomClient.setRoomInfo({
@@ -277,8 +287,14 @@ export class PresenceApp extends LitElement {
       meta_data: undefined,
     });
 
-    this._groupRooms = [clonedCell, ...this._groupRooms];
     roomNameInput.value = '';
+
+    const groupRoomInfo: GroupRoomInfo = {
+      room: descendentRoom,
+      creator: clonedCell.cell_id[1],
+      linkActionHash,
+    };
+    this._groupRooms = [...this._groupRooms, groupRoomInfo];
   }
 
   async joinRoom() {
@@ -304,13 +320,12 @@ export class PresenceApp extends LitElement {
 
   renderPrivateRooms() {
     return html`
-      <h2>${msg('Personal Rooms:')}</h2>
       <div
         class="row"
-        style="flex-wrap: wrap; justify-content: center; align-items: center;"
+        style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
-        <div class="column" style="margin: 0 10px; align-items: center;">
-          <div>${msg('+ Create New Room')}</div>
+        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
+          <div>${msg('+ Create New Private Room')}</div>
           <input
             id="private-room-name-input"
             class="input-field"
@@ -325,8 +340,8 @@ export class PresenceApp extends LitElement {
             ${msg('Create')}
           </button>
         </div>
-        <div class="column" style="margin: 0 10px; align-items: center;">
-          <div>${msg('Join Room')}</div>
+        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
+          <div>${msg('Join Private Room')}</div>
           <input
             id="secret-words-input"
             class="input-field"
@@ -354,14 +369,14 @@ export class PresenceApp extends LitElement {
           )
           .map(
             clonedCell => html`
-              <personal-room-card
+              <private-room-card
                 .clonedCell=${clonedCell}
                 @request-open-room=${(e: CustomEvent) => {
                   this._selectedRoleName = e.detail.cloneId;
                   this._pageView = PageView.Room;
                 }}
                 style="margin: 7px 0;"
-              ></personal-room-card>
+              ></private-room-card>
             `
           )}
       </div>
@@ -369,14 +384,33 @@ export class PresenceApp extends LitElement {
     `;
   }
 
+  renderSharedRoomCards(groupRooms: GroupRoomInfo[]) {
+    return groupRooms
+      .sort((info_a, info_b) =>
+        info_a.room.name.localeCompare(info_b.room.name)
+      )
+      .map(
+        roomInfo => html`
+          <shared-room-card
+            .groupRoomInfo=${roomInfo}
+            .id=${roomInfo.room.network_seed_appendix}
+            @request-open-room=${(e: CustomEvent) => {
+              this._selectedRoleName = e.detail.cloneId;
+              this._pageView = PageView.Room;
+            }}
+            style="margin: 7px 0;"
+          ></shared-room-card>
+        `
+      );
+  }
+
   renderGroupRooms() {
     return html`
-      <h2>${msg('Shared Rooms:')}</h2>
       <div
         class="row"
-        style="flex-wrap: wrap; justify-content: center; align-items: center;"
+        style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
-        <div class="column" style="margin: 0 10px; align-items: center;">
+        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
           <div>${msg('+ Create New Shared Room')}</div>
           <input
             id="group-room-name-input"
@@ -397,24 +431,7 @@ export class PresenceApp extends LitElement {
         class="column"
         style="margin-top: 40px; align-items: center; margin-bottom: 80px;"
       >
-        ${this._groupRooms
-          .sort((cell_a, cell_b) =>
-            encodeHashToBase64(cell_b.cell_id[0]).localeCompare(
-              encodeHashToBase64(cell_a.cell_id[0])
-            )
-          )
-          .map(
-            clonedCell => html`
-              <private-room-card
-                .clonedCell=${clonedCell}
-                @request-open-room=${(e: CustomEvent) => {
-                  this._selectedRoleName = e.detail.cloneId;
-                  this._pageView = PageView.Room;
-                }}
-                style="margin: 7px 0;"
-              ></private-room-card>
-            `
-          )}
+        ${this.renderSharedRoomCards(this._groupRooms)}
       </div>
       <span style="display: flex; flex: 1;"></span>
     `;
@@ -485,7 +502,57 @@ export class PresenceApp extends LitElement {
                 : html``}
             </div>
             <div class="column bottom-panel">
-              ${this._showGroupRooms ? this.renderGroupRooms() : this.renderPrivateRooms()}
+              <div
+                class="row center-content"
+                style="border-radius: 15px; margin-top: 30px;"
+              >
+                <div
+                  tabindex="0"
+                  class="row center-content slider-button ${this._showGroupRooms
+                    ? 'btn-selected'
+                    : ''}"
+                  style="border-radius: 15px 0 0 15px;"
+                  @click=${() => {
+                    this._showGroupRooms = true;
+                  }}
+                  @keypress=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      this._showGroupRooms = true;
+                    }
+                  }}
+                >
+                  <sl-icon
+                    .src=${wrapPathInSvg(mdiAccountGroup)}
+                    style="font-size: 35px; margin-right: 5px;"
+                  ></sl-icon>
+                  ${msg('Shared Rooms')}
+                </div>
+                <div
+                  tabindex="0"
+                  class="row center-content slider-button ${this._showGroupRooms
+                    ? ''
+                    : 'btn-selected'}"
+                  style="border-radius: 0 15px 15px 0;"
+                  @click=${() => {
+                    this._showGroupRooms = false;
+                  }}
+                  @keypress=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      this._showGroupRooms = false;
+                    }
+                  }}
+                >
+                  <sl-icon
+                    .src=${wrapPathInSvg(mdiLock)}
+                    style="font-size: 35px; margin-right: 5px;"
+                  ></sl-icon>
+
+                  ${msg('Private Rooms')}
+                </div>
+              </div>
+              ${this._showGroupRooms
+                ? this.renderGroupRooms()
+                : this.renderPrivateRooms()}
             </div>
           </div>
         `;
@@ -546,7 +613,9 @@ export class PresenceApp extends LitElement {
       }
 
       .top-panel {
-        background: #ced5fa;
+        background: #b2b9e0;
+        /* background: #bbc4f2; */
+        /* background: #ced5fa; */
         /* background: #668fc2; */
         display: flex;
         align-items: center;
@@ -558,7 +627,7 @@ export class PresenceApp extends LitElement {
 
       .bottom-panel {
         align-items: center;
-        color: #c8ddf9;
+        color: #bbc4f2;
       }
 
       .enter-group-room-btn {
@@ -574,11 +643,39 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-group-room-btn:hover {
-        background: #668fc2;
+        background: linear-gradient(#102a4d, #3c466b);
+        box-shadow: 0 0 1px 1px #102a4d;
       }
 
       .enter-group-room-btn:focus {
-        background: #668fc2;
+        background: linear-gradient(#102a4d, #3c466b);
+        box-shadow: 0 0 1px 1px #102a4d;
+      }
+
+      .slider-button {
+        background: #383b4d;
+        color: #e1e5fc;
+        border-radius: 15px 0 0 15px;
+        padding: 2px 15px;
+        box-shadow: 0 0 2px 2px black inset;
+        cursor: pointer;
+      }
+
+      .slider-button:hover:not(.btn-selected) {
+        background: #8b90ae52;
+        /* color: #383b4d; */
+      }
+
+      .slider-button:focus:not(.btn-selected) {
+        background: #8b90ae52;
+        /* color: #383b4d; */
+      }
+
+      .btn-selected {
+        background: #ced5fa;
+        color: #1d1f2c;
+        padding: 0 15px;
+        box-shadow: 0 0 2px 2px black;
       }
 
       .input-field {
@@ -591,7 +688,7 @@ export class PresenceApp extends LitElement {
       }
 
       .btn {
-        background: #c8ddf9;
+        background: #bbc4f2;
         border-radius: 10px;
         color: #081c36;
         border: none;

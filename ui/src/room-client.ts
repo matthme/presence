@@ -32,12 +32,12 @@ export class RoomClient extends ZomeClient<RoomSignal> {
     return records.map((record) => new EntryRecord<Attachment>(record));
   }
 
-  async getAllDescendentRooms(): Promise<Array<DescendentRoom>> {
+  async getAllDescendentRooms(): Promise<Array<[DescendentRoom, AgentPubKey, ActionHash]>> {
     return this.callZome('get_all_descendent_rooms', null);
   }
 
-  async createDescendentRoom(networkSeedAppendix: string): Promise<ActionHash> {
-    return this.callZome('create_descendent_room', networkSeedAppendix)
+  async createDescendentRoom(input: DescendentRoom): Promise<ActionHash> {
+    return this.callZome('create_descendent_room', input)
   }
 
   async getRoomInfo(): Promise<RoomInfo | undefined> {

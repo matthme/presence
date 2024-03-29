@@ -740,6 +740,7 @@ export class RoomView extends LitElement {
 
   async firstUpdated() {
     this._unsubscribe = this.roomStore.client.onSignal(async signal => {
+      console.log("GOT SIGNAL: ", signal);
       switch (signal.type) {
         case 'PingUi': {
           if (
@@ -1176,6 +1177,7 @@ export class RoomView extends LitElement {
     this.pingInterval = window.setInterval(async () => {
       await this.pingAgents();
     }, 2000);
+    this._leaveAudio.volume = 0.5;
   }
 
   async pingAgents() {

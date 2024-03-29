@@ -5,7 +5,7 @@ import {
   ClonedCell,
   encodeHashToBase64,
 } from '@holochain/client';
-import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
+import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline, mdiLock } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
@@ -46,12 +46,15 @@ export class PrivateRoomCard extends LitElement {
     return html`
       <div class="row personal-room-card">
         <div class="column" style="align-items: flex-start">
-          <div
-            style="margin-bottom: 15px; font-weight: bold;${this.clonedCell.name
-              ? ''
-              : 'opacity: 0.6'}"
-          >
-            ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
+          <div class="row" style="align-items: center; margin-bottom: 15px; ">
+            <sl-icon .src=${wrapPathInSvg(mdiLock)} style="font-size: 28px; margin-right: 3px;"></sl-icon>
+            <div
+              style="font-weight: bold;${this.clonedCell.name
+                ? ''
+                : 'opacity: 0.6'}"
+            >
+              ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
+            </div>
           </div>
           <div class="row" style="align-items: center">
             <div class="column" style="align-items: flex-start;">

@@ -15,7 +15,7 @@
     "@holochain-open-dev/elements": "0.300.0-dev.0",
     "@holochain-open-dev/profiles": "0.300.0-dev.0",
     "@holochain-open-dev/stores": "0.300.0-dev.0",
-    "@holochain-open-dev/utils": "0.300.0-dev.0",
+    "@holochain-open-dev/utils": "0.300.0-dev.1",
     "@lightningrodlabs/we-applet": "0.16.0-dev.0",
     "@lit/context": "^1.1.0",
     "@lit/task": "^1.0.0",

@@ -1,8 +1,10 @@
+use hdi::prelude::*;
 pub mod attachment;
 pub use attachment::*;
 pub mod room_info;
-use hdi::prelude::*;
 pub use room_info::*;
+pub mod descendent_room;
+pub use descendent_room::*;
 pub mod anchors;
 pub use anchors::*;
 #[derive(Serialize, Deserialize)]
@@ -12,6 +14,7 @@ pub use anchors::*;
 pub enum EntryTypes {
     RoomInfo(RoomInfo),
     Attachment(Attachment),
+    DescendentRoom(DescendentRoom),
 }
 #[derive(Serialize, Deserialize)]
 #[hdk_link_types]
@@ -43,6 +46,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Attachment(attachment) => {
                     validate_create_attachment(EntryCreationAction::Create(action), attachment)
                 }
+                EntryTypes::DescendentRoom(descendent_room) => validate_create_descendent_room(
+                    EntryCreationAction::Create(action),
+                    descendent_room,
+                ),
             },
             OpEntry::UpdateEntry {
                 app_entry, action, ..
@@ -53,6 +60,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Attachment(attachment) => {
                     validate_create_attachment(EntryCreationAction::Update(action), attachment)
                 }
+                EntryTypes::DescendentRoom(descendent_room) => validate_create_descendent_room(
+                    EntryCreationAction::Update(action),
+                    descendent_room,
+                ),
             },
             _ => Ok(ValidateCallbackResult::Valid),
         },
@@ -97,6 +108,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 EntryTypes::Attachment(attachment) => {
                     validate_delete_attachment(action, original_action, attachment)
+                }
+                EntryTypes::DescendentRoom(descendent_room) => {
+                    validate_delete_descendent_room(action, original_action, descendent_room)
                 }
             },
             _ => Ok(ValidateCallbackResult::Valid),
@@ -176,6 +190,10 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 EntryTypes::Attachment(attachment) => {
                     validate_create_attachment(EntryCreationAction::Create(action), attachment)
                 }
+                EntryTypes::DescendentRoom(descendent_room) => validate_create_descendent_room(
+                    EntryCreationAction::Create(action),
+                    descendent_room,
+                ),
             },
             OpRecord::UpdateEntry {
                 original_action_hash,
@@ -258,6 +276,37 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                             Ok(result)
                         }
                     }
+                    EntryTypes::DescendentRoom(descendent_room) => {
+                        let result = validate_create_descendent_room(
+                            EntryCreationAction::Update(action.clone()),
+                            descendent_room.clone(),
+                        )?;
+                        if let ValidateCallbackResult::Valid = result {
+                            let original_descendent_room: Option<DescendentRoom> = original_record
+                                .entry()
+                                .to_app_option()
+                                .map_err(|e| wasm_error!(e))?;
+                            let original_descendent_room = match original_descendent_room {
+                                Some(descendent_room) => descendent_room,
+                                None => {
+                                    return Ok(
+                                            ValidateCallbackResult::Invalid(
+                                                "The updated entry type must be the same as the original entry type"
+                                                    .to_string(),
+                                            ),
+                                        );
+                                }
+                            };
+                            validate_update_descendent_room(
+                                action,
+                                descendent_room,
+                                original_action,
+                                original_descendent_room,
+                            )
+                        } else {
+                            Ok(result)
+                        }
+                    }
                 }
             }
             OpRecord::DeleteEntry {
@@ -319,6 +368,13 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                     }
                     EntryTypes::Attachment(original_attachment) => {
                         validate_delete_attachment(action, original_action, original_attachment)
+                    }
+                    EntryTypes::DescendentRoom(original_descendent_room) => {
+                        validate_delete_descendent_room(
+                            action,
+                            original_action,
+                            original_descendent_room,
+                        )
                     }
                 }
             }

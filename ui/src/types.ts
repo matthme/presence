@@ -24,9 +24,10 @@ export type Attachment = {
 }
 
 export type DescendentRoom = {
-  creator: AgentPubKey,
-  network_seed_appendix: String,
-  link_action_hash: ActionHash,
+  network_seed_appendix: string,
+  name: string;
+  icon_src: string | undefined;
+  meta_data: string | undefined;
 }
 
 export type InitAcceptInput = {
