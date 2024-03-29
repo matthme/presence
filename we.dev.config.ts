@@ -38,6 +38,12 @@ export default defineConfig({
           registeringAgent: 1,
           joiningAgents: [2],
         },
+        {
+          name: 'KanDo',
+          instanceName: 'KanDo',
+          registeringAgent: 1,
+          joiningAgents: [2],
+        },
       ],
     },
   ],
@@ -55,6 +61,19 @@ export default defineConfig({
         type: "localhost",
         happPath: "./workdir/presence.happ",
         uiPort: 8888,
+      },
+    },
+    {
+      name: 'KanDo',
+      subtitle: 'KanBan board on Holochain',
+      description: 'KanBan board',
+      icon: {
+        type: 'https',
+        url: 'https://lightningrodlabs.org/projects/notebooks.png',
+      },
+      source: {
+        type: 'https',
+        url: 'https://github.com/holochain-apps/kando/releases/download/v0.9.3/kando.webhapp',
       },
     },
   ],

@@ -1,4 +1,5 @@
 pub mod all_agents;
+pub mod all_attachments;
 pub mod all_descendent_rooms;
 pub mod attachment;
 pub mod remote_signals;

@@ -32,6 +32,11 @@ export class RoomClient extends ZomeClient<RoomSignal> {
     return records.map((record) => new EntryRecord<Attachment>(record));
   }
 
+  async createAttachment(attachment: Attachment): Promise<EntryRecord<Attachment>> {
+    const record = await this.callZome('create_attachment', attachment);
+    return new EntryRecord(record);
+  }
+
   async getAllDescendentRooms(): Promise<Array<[DescendentRoom, AgentPubKey, ActionHash]>> {
     return this.callZome('get_all_descendent_rooms', null);
   }

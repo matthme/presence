@@ -26,13 +26,14 @@ import { consume } from '@lit/context';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
-import { WeClient } from '@lightningrodlabs/we-applet';
+import { WeClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
 
 import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { RoomInfo, weClientContext } from './types';
+import { Attachment, RoomInfo, weClientContext } from './types';
 import { RoomStore } from './room-store';
+import './attachment-element';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -109,6 +110,12 @@ export class RoomView extends LitElement {
   _allAgents = new StoreSubscriber(
     this,
     () => this.roomStore.allAgents,
+    () => [this.roomStore]
+  );
+
+  _allAttachments = new StoreSubscriber(
+    this,
+    () => this.roomStore.allAttachments,
     () => [this.roomStore]
   );
 
@@ -200,6 +207,9 @@ export class RoomView extends LitElement {
 
   @state()
   _leaveAudio = new Audio('percussive-drum-hit.mp3');
+
+  @state()
+  _recentlyAddedAttachments: Attachment[] = [];
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -747,7 +757,6 @@ export class RoomView extends LitElement {
 
   async firstUpdated() {
     this._unsubscribe = this.roomStore.client.onSignal(async signal => {
-      console.log('GOT SIGNAL: ', signal);
       switch (signal.type) {
         case 'PingUi': {
           if (
@@ -1193,6 +1202,20 @@ export class RoomView extends LitElement {
     }
   }
 
+  async addAttachment() {
+    const wal = await this._weClient.userSelectWal();
+    console.log('Got WAL: ', wal);
+    if (wal) {
+      const newAttachment = await this.roomStore.client.createAttachment({
+        wal: weaveUrlFromWal(wal, false),
+      });
+      this._recentlyAddedAttachments = [
+        ...this._recentlyAddedAttachments,
+        newAttachment.entry,
+      ];
+    }
+  }
+
   toggleMaximized(id: string) {
     if (this._maximizedVideo !== id) {
       this._maximizedVideo = id;
@@ -1241,6 +1264,53 @@ export class RoomView extends LitElement {
     if (this.roomStore.client.roleName === 'presence') return msg('Main Room');
     if (this._roomInfo) return this._roomInfo.name;
     return '[unknown]';
+  }
+
+  renderAttachments() {
+    switch (this._allAttachments.value.status) {
+      case 'pending':
+        return html`loading...`;
+      case 'error':
+        console.error(
+          'Failed to load attachments: ',
+          this._allAttachments.value.error
+        );
+        return html`Failed to load attachments:
+        ${this._allAttachments.value.error}`;
+      case 'complete': {
+        const allWals = Array.from(
+          new Set([
+            ...this._recentlyAddedAttachments.map(a => a.wal),
+            ...this._allAttachments.value.value.map(a => a.entry.wal),
+          ])
+        );
+        console.log("allWals: ", allWals);
+        console.log("this._allAttachments.value.value", this._allAttachments.value.value);
+        return html`
+          ${allWals.map(
+            wal => html`
+              <attachment-element
+                .src=${wal}
+              ></attachment-element>
+            `
+          )}
+        `;
+      }
+      default:
+        return html`unkown territory...`;
+    }
+  }
+
+  renderAttachmentPanel() {
+    return html`
+      <div class="column attachment-panel" style="align-items: flex-start;">
+        <div class="close-panel" style="margin-left: 20px;">
+          > ${msg('close')}
+        </div>
+        <button @click=${() => this.addAttachment()}>Add Attachment</button>
+        ${this.renderAttachments()}
+      </div>
+    `;
   }
 
   renderToggles() {
@@ -1404,19 +1474,6 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
-      <div
-        class="stop-share"
-        tabindex="0"
-        style="${this._screenShareStream ? '' : 'display: none'}"
-        @click=${async () => this.screenShareOff()}
-        @keypress=${async (e: KeyboardEvent) => {
-          if (e.key === 'Enter') {
-            await this.screenShareOff();
-          }
-        }}
-      >
-        ${msg('Stop Screen Share')}
-      </div>
       <div class="row center-content room-name">
         ${this.private
           ? html`<sl-icon
@@ -1605,7 +1662,20 @@ export class RoomView extends LitElement {
           `
         )}
       </div>
-      ${this.renderToggles()}
+      ${this.renderToggles()} ${this.renderAttachmentPanel()}
+      <div
+        class="stop-share"
+        tabindex="0"
+        style="${this._screenShareStream ? '' : 'display: none'}"
+        @click=${async () => this.screenShareOff()}
+        @keypress=${async (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            await this.screenShareOff();
+          }
+        }}
+      >
+        ${msg('Stop Screen Share')}
+      </div>
     `;
   }
 
@@ -1616,6 +1686,22 @@ export class RoomView extends LitElement {
         flex-grow: 1;
         margin: 0;
         background: #383b4d;
+      }
+
+      .attachment-panel {
+        position: absolute;
+        top: 0;
+        bottom: 94px;
+        right: 0;
+        width: 400px;
+        opacity: 0.7;
+        background: linear-gradient(
+          #6f7599,
+          #6f7599 80%,
+          #6f7599b6 90%,
+          #6f759900
+        );
+        /* background: #6f7599; */
       }
 
       .room-name {
