@@ -205,7 +205,7 @@ export class PresenceApp extends LitElement {
     const cellTypes = getCellTypes(appInfo);
 
     this._personalRooms = cellTypes.cloned.filter(
-      cell => !cell.dna_modifiers.network_seed.startsWith('groupRoom#')
+      cell => cell.dna_modifiers.network_seed.startsWith('privateRoom#')
     );
 
     const allDescendentRooms =
@@ -224,11 +224,11 @@ export class PresenceApp extends LitElement {
     ) as HTMLInputElement | null | undefined;
     if (!roomNameInput)
       throw new Error('Room name input field not found in DOM.');
-    const networkSeed = generateSillyPassword({ wordCount: 5 });
+    const randomWords = generateSillyPassword({ wordCount: 5 });
     const clonedCell = await this.client.createCloneCell({
       role_name: 'presence',
       modifiers: {
-        network_seed: networkSeed,
+        network_seed: `privateRoom#${randomWords}`,
       },
     });
     const roomClient = new RoomClient(this.client, clonedCell.clone_id);
@@ -311,7 +311,7 @@ export class PresenceApp extends LitElement {
     const clonedCell = await this.client.createCloneCell({
       role_name: 'presence',
       modifiers: {
-        network_seed: secretWordsInput.value,
+        network_seed: `privateRoom#${secretWordsInput.value}`,
       },
     });
     this._personalRooms = [clonedCell, ...this._personalRooms];

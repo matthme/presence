@@ -1,5 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import {
   encodeHashToBase64,
   AgentPubKeyB64,
@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   mdiFullscreen,
   mdiFullscreenExit,
+  mdiLock,
   mdiMicrophone,
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
@@ -30,7 +31,7 @@ import { WeClient } from '@lightningrodlabs/we-applet';
 import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { weClientContext } from './types';
+import { RoomInfo, weClientContext } from './types';
 import { RoomStore } from './room-store';
 
 const ICE_CONFIG = [
@@ -99,6 +100,9 @@ export class RoomView extends LitElement {
   @state()
   _weClient!: WeClient;
 
+  @property({ type: Boolean })
+  private = false;
+
   @state()
   pingInterval: number | undefined;
 
@@ -107,6 +111,9 @@ export class RoomView extends LitElement {
     () => this.roomStore.allAgents,
     () => [this.roomStore]
   );
+
+  @state()
+  _roomInfo: RoomInfo | undefined;
 
   @state()
   _onlineAgents: AgentPubKeyB64[] = [];
@@ -740,7 +747,7 @@ export class RoomView extends LitElement {
 
   async firstUpdated() {
     this._unsubscribe = this.roomStore.client.onSignal(async signal => {
-      console.log("GOT SIGNAL: ", signal);
+      console.log('GOT SIGNAL: ', signal);
       switch (signal.type) {
         case 'PingUi': {
           if (
@@ -871,8 +878,7 @@ export class RoomView extends LitElement {
            */
           if (
             signal.connection_type !== 'screen' &&
-            pubKey64 >
-              encodeHashToBase64(this.roomStore.client.client.myPubKey)
+            pubKey64 > encodeHashToBase64(this.roomStore.client.client.myPubKey)
           ) {
             console.log(
               '#### SENDING INIT ACCEPT. signal.connection_type: ',
@@ -1178,6 +1184,7 @@ export class RoomView extends LitElement {
       await this.pingAgents();
     }, 2000);
     this._leaveAudio.volume = 0.5;
+    this._roomInfo = await this.roomStore.client.getRoomInfo();
   }
 
   async pingAgents() {
@@ -1228,6 +1235,12 @@ export class RoomView extends LitElement {
       return 'octett';
     }
     return 'unlimited';
+  }
+
+  roomName() {
+    if (this.roomStore.client.roleName === 'presence') return msg('Main Room');
+    if (this._roomInfo) return this._roomInfo.name;
+    return '[unknown]';
   }
 
   renderToggles() {
@@ -1404,6 +1417,15 @@ export class RoomView extends LitElement {
       >
         ${msg('Stop Screen Share')}
       </div>
+      <div class="row center-content room-name">
+        ${this.private
+          ? html`<sl-icon
+              .src=${wrapPathInSvg(mdiLock)}
+              style="font-size: 28px; margin-right: 3px;"
+            ></sl-icon>`
+          : html``}
+        ${this.roomName()}
+      </div>
       <div
         class="error-message"
         style="${this._displayError ? '' : 'display: none;'}"
@@ -1510,7 +1532,9 @@ export class RoomView extends LitElement {
         >
           <video
             muted
-            style="${this._camera ? '' : 'display: none;'}; transform: scaleX(-1);"
+            style="${this._camera
+              ? ''
+              : 'display: none;'}; transform: scaleX(-1);"
             id="my-own-stream"
             class="video-el"
           ></video>
@@ -1594,6 +1618,13 @@ export class RoomView extends LitElement {
         background: #383b4d;
       }
 
+      .room-name {
+        position: absolute;
+        bottom: 5px;
+        left: 15px;
+        color: #6f7599;
+      }
+
       .stop-share {
         display: flex;
         flex-direction: row;
@@ -1602,7 +1633,7 @@ export class RoomView extends LitElement {
         padding: 4px 10px;
         position: absolute;
         top: 10px;
-        right: 10px;
+        left: 10px;
         color: white;
         background: #b60606;
         border-radius: 10px;

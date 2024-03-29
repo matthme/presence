@@ -16,6 +16,7 @@ import { RoomStore } from './room-store';
 import { clientContext, roomStoreContext } from './contexts';
 import { RoomClient } from './room-client';
 import { sharedStyles } from './sharedStyles';
+import { getCellTypes } from './utils';
 
 
 @localized()
@@ -34,19 +35,27 @@ export class RoomContainer extends LitElement {
   @property()
   roleName!: RoleName;
 
-
   @state()
-  pingInterval: number | undefined;
+  _private = false;
 
   async firstUpdated() {
     this.roomStore = new RoomStore(
       new RoomClient(this.client, this.roleName, 'room')
     );
+    const appInfo = await this.client.appInfo();
+    if (!appInfo) throw new Error('AppInfo is null');
+
+    const cellTypes = getCellTypes(appInfo);
+    const myCell = cellTypes.cloned.find((cell) => cell.clone_id === this.roleName);
+    if (myCell && myCell.dna_modifiers.network_seed.startsWith("privateRoom#")) {
+      this._private = true;
+    }
+
   }
 
   render() {
     return html`
-      <room-view></room-view>
+      <room-view ?private=${this._private}></room-view>
     `;
   }
 
@@ -55,21 +64,4 @@ export class RoomContainer extends LitElement {
 ];
 }
 
-function numToLayout(num: number) {
-  if (num === 1) {
-    return 'single';
-  }
-  if (num <= 2) {
-    return "double";
-  }
-  if (num <= 4) {
-    return 'quartett';
-  }
-  if (num <= 6) {
-    return 'sextett';
-  }
-  if (num <= 8) {
-    return 'octett';
-  }
-  return 'unlimited';
-}
+
