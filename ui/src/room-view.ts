@@ -534,6 +534,7 @@ export class RoomView extends LitElement {
           });
         } catch (e: any) {
           console.error(`Failed to get media devices (video): ${e.toString()}`);
+          this.notifyError(`Failed to get media devices (video): ${e.toString()}`);
           return;
         }
         this._mainStream.addTrack(videoStream!.getVideoTracks()[0]);
@@ -561,6 +562,7 @@ export class RoomView extends LitElement {
         });
       } catch (e: any) {
         console.error(`Failed to get media devices (video): ${e.toString()}`);
+        this.notifyError(`Failed to get media devices (video): ${e.toString()}`);
         return;
       }
       const myVideo = this.shadowRoot?.getElementById(
@@ -625,6 +627,9 @@ export class RoomView extends LitElement {
           });
         } catch (e: any) {
           console.error(`Failed to get media devices (audio): ${e.toString()}`);
+          this.notifyError(
+            `Failed to get media devices (audio): ${e.toString()}`
+          );
           return;
         }
         try {
@@ -647,6 +652,10 @@ export class RoomView extends LitElement {
         this._microphone = true;
       } catch (e: any) {
         console.error(`Failed to get media devices (audio): ${e.toString()}`);
+        this.notifyError(
+          `Failed to get media devices (audio): ${e.toString()}`
+        );
+        return;
       }
       const audioTrack = this._mainStream?.getAudioTracks()[0];
       Object.values(this._openConnections).forEach(conn => {
@@ -1616,12 +1625,6 @@ export class RoomView extends LitElement {
           : html``}
         ${this.roomName()}
       </div>
-      <div
-        class="error-message"
-        style="${this._displayError ? '' : 'display: none;'}"
-      >
-        ${this._displayError}
-      </div>
       <div class="videos-container">
         <!-- My own screen first if screen sharing is enabled -->
         <div
@@ -1798,6 +1801,13 @@ export class RoomView extends LitElement {
       ${this.renderToggles()}
       ${this._showAttachmentsPanel ? this.renderAttachmentPanel() : undefined}
       ${this._showAttachmentsPanel ? undefined : this.renderAttachmentButton()}
+
+      <div
+        class="error-message secondary-font"
+        style="${this._displayError ? '' : 'display: none;'}"
+      >
+        ${this._displayError}
+      </div>
       <div
         class="stop-share"
         tabindex="0"
@@ -1939,13 +1949,13 @@ export class RoomView extends LitElement {
       .error-message {
         position: fixed;
         bottom: 10px;
-        left: 10px;
+        right: 10px;
         padding: 5px 10px;
         border-radius: 10px;
-        color: white;
-        background: #b60606;
-        box-shadow: 0 0 2px white;
-        font-family: sans-serif;
+        color: #f8c7c7;
+        background: linear-gradient(#8b1616, #8b1616 30%, #6e0a0a);
+        /* background: #7b0e0e; */
+        box-shadow: 0 0 3px 1px #721c1c;
       }
 
       .videos-container {

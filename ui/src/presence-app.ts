@@ -432,19 +432,21 @@ export class PresenceApp extends LitElement {
           style="margin: 0 10px; align-items: center; color: #e1e5fc;"
         >
           <div class="secondary-font">${msg('+ Create New Shared Room')}</div>
-          <input
-            id="group-room-name-input"
-            class="input-field"
-            placeholder="room name"
-            type="text"
-          />
-          <button
-            class="btn"
-            style="margin-top: 10px;"
-            @click=${async () => this.createGroupRoom()}
-          >
-            ${msg('Create')}
-          </button>
+          <div class="row" style="align-items: center;">
+            <input
+              id="group-room-name-input"
+              class="input-field"
+              placeholder="room name"
+              type="text"
+            />
+            <button
+              class="btn"
+              style="margin-left: 10px;"
+              @click=${async () => this.createGroupRoom()}
+            >
+              ${msg('Create')}
+            </button>
+          </div>
         </div>
       </div>
       <div
@@ -471,7 +473,7 @@ export class PresenceApp extends LitElement {
       case PageView.Home:
         return html`
           <div
-            class="error-message"
+            class="error-message secondary-font"
             style="${this._displayError ? '' : 'display: none;'}"
           >
             ${this._displayError}
@@ -618,9 +620,10 @@ export class PresenceApp extends LitElement {
         right: 10px;
         padding: 5px 10px;
         border-radius: 10px;
-        color: #f3b227;
-        background: #7b0e0e;
-        box-shadow: 0 0 3px 1px #f3b227;
+        color: #f8c7c7;
+        background: linear-gradient(#8b1616, #8b1616 30%, #6e0a0a);
+        /* background: #7b0e0e; */
+        box-shadow: 0 0 3px 1px #721c1c;
       }
 
       .entry-logo {
@@ -714,28 +717,34 @@ export class PresenceApp extends LitElement {
       }
 
       .input-field {
-        height: 35px;
+        height: 40px;
         border-radius: 10px;
         border: none;
         font-size: 18px;
         padding-left: 8px;
         min-width: 350px;
+        box-shadow: 0 0 2px 1px #1c1e2e inset;
+        background: linear-gradient(#eaecf3, #eaecf3 20%, #ffffff);
       }
 
       .btn {
-        background: #bbc4f2;
+        background: linear-gradient(#cdd3ec, #afb6da 30%, #afb6da, #929bca);
+        box-shadow: 0 0 5px 1px #1d1d1d;
+        /* background: #bbc4f2; */
         border-radius: 10px;
         color: #081c36;
         border: none;
         padding: 5px 5px;
-        font-family: 'Pacifico', sans-serif;
+        /* font-family: 'Pacifico', sans-serif; */
+        font-family: 'Baloo 2 Variable', sans-serif;
+        font-weight: 600;
         font-size: 20px;
         width: 80px;
         cursor: pointer;
       }
 
       .btn:hover {
-        background: #ffffff;
+        background: linear-gradient(#e9ecf9, #c8cee8 30%, #c8cee8, #929bca);
       }
 
       .btn:focus {
