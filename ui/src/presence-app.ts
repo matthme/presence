@@ -1,5 +1,8 @@
 import '@fontsource/pacifico';
+import '@fontsource/gabriela';
 import '@fontsource-variable/noto-sans-sc';
+// Supports weights 400-800
+import '@fontsource-variable/baloo-2';
 import '@fontsource/ubuntu/300-italic.css';
 import '@fontsource/ubuntu/400-italic.css';
 import '@fontsource/ubuntu/500-italic.css';
@@ -334,7 +337,7 @@ export class PresenceApp extends LitElement {
         style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
         <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
-          <div>${msg('+ Create New Private Room')}</div>
+          <div class="secondary-font">${msg('+ Create New Private Room')}</div>
           <input
             id="private-room-name-input"
             class="input-field"
@@ -350,7 +353,7 @@ export class PresenceApp extends LitElement {
           </button>
         </div>
         <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
-          <div>${msg('Join Private Room')}</div>
+          <div class="secondary-font">${msg('Join Private Room')}</div>
           <input
             id="secret-words-input"
             class="input-field"
@@ -420,7 +423,7 @@ export class PresenceApp extends LitElement {
         style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
         <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
-          <div>${msg('+ Create New Shared Room')}</div>
+          <div class="secondary-font">${msg('+ Create New Shared Room')}</div>
           <input
             id="group-room-name-input"
             class="input-field"
@@ -479,7 +482,7 @@ export class PresenceApp extends LitElement {
               </div>
               <div style="margin-top: 120px; margin-bottom: 20px;">
                 <button
-                  class="enter-group-room-btn"
+                  class="enter-main-room-btn"
                   @click=${() => {
                     this._selectedRoleName = 'presence';
                     this._pageView = PageView.Room;
@@ -513,7 +516,7 @@ export class PresenceApp extends LitElement {
             <div class="column bottom-panel">
               <div
                 class="row center-content"
-                style="border-radius: 15px; margin-top: 30px;"
+                style="border-radius: 15px; margin-top: 40px;"
               >
                 <div
                   tabindex="0"
@@ -534,7 +537,9 @@ export class PresenceApp extends LitElement {
                     .src=${wrapPathInSvg(mdiAccountGroup)}
                     style="font-size: 35px; margin-right: 5px;"
                   ></sl-icon>
+                  <div style="margin-bottom: -6px;">
                   ${msg('Shared Rooms')}
+                  </div>
                 </div>
                 <div
                   tabindex="0"
@@ -555,8 +560,9 @@ export class PresenceApp extends LitElement {
                     .src=${wrapPathInSvg(mdiLock)}
                     style="font-size: 35px; margin-right: 5px;"
                   ></sl-icon>
-
+                  <div style="margin-bottom: -6px;">
                   ${msg('Private Rooms')}
+                  </div>
                 </div>
               </div>
               ${this._showGroupRooms
@@ -622,7 +628,8 @@ export class PresenceApp extends LitElement {
       }
 
       .top-panel {
-        background: #b2b9e0;
+        background: linear-gradient(#b2b9e0, #838bb2);
+        /* background: #b2b9e0; */
         /* background: #bbc4f2; */
         /* background: #ced5fa; */
         /* background: #668fc2; */
@@ -639,8 +646,8 @@ export class PresenceApp extends LitElement {
         color: #bbc4f2;
       }
 
-      .enter-group-room-btn {
-        background: #102a4d;
+      .enter-main-room-btn {
+        background: linear-gradient(#102a4d, #0d2646);
         border-radius: 40px;
         color: #fff0f0;
         border: none;
@@ -648,26 +655,33 @@ export class PresenceApp extends LitElement {
         padding-right: 25px;
         font-family: 'Pacifico', sans-serif;
         font-size: 30px;
+        box-shadow: 1px 1px 4px 2px #03162f;
         cursor: pointer;
       }
 
-      .enter-group-room-btn:hover {
-        background: linear-gradient(#102a4d, #3c466b);
-        box-shadow: 0 0 1px 1px #102a4d;
+      .enter-main-room-btn:hover {
+        /* background: linear-gradient(#102a4d, #213753); */
+        background: linear-gradient(#102a4d, #071931);
+        /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
-      .enter-group-room-btn:focus {
+      .enter-main-room-btn:focus {
         background: linear-gradient(#102a4d, #3c466b);
-        box-shadow: 0 0 1px 1px #102a4d;
+        /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
       .slider-button {
-        background: #383b4d;
+        align-items: center;
+        /* background: #383b4d; */
+        background: #2f3141;
         color: #e1e5fc;
+        height: 54px;
         border-radius: 15px 0 0 15px;
         padding: 2px 15px;
-        box-shadow: 0 0 2px 2px black inset;
+        box-shadow: 0 0 4px 2px black inset;
         cursor: pointer;
+        font-family: 'Baloo 2 Variable', sans-serif;
+        font-weight: 600;
       }
 
       .slider-button:hover:not(.btn-selected) {
@@ -681,10 +695,11 @@ export class PresenceApp extends LitElement {
       }
 
       .btn-selected {
-        background: #ced5fa;
+        /* background: #b1bbee; */
+        background: #afb6da;
         color: #1d1f2c;
         padding: 0 15px;
-        box-shadow: 0 0 2px 2px black;
+        box-shadow: 0 0 6px 2px black;
       }
 
       .input-field {

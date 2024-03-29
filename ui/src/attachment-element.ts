@@ -8,11 +8,9 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import {
   AppletInfo,
-  AssetInfo,
   AssetLocationAndInfo,
   WAL,
   WeClient,
-  weaveUrlFromWal,
   weaveUrlToLocation,
 } from '@lightningrodlabs/we-applet';
 import { EntryRecord } from '@holochain-open-dev/utils';
@@ -75,7 +73,7 @@ export class AttachmentElement extends LitElement {
   render() {
     return html`
       <div
-        class="btn ${this._assetInfo ? '' : 'disabled'}"
+        class="btn secondary-font ${this._assetInfo ? '' : 'disabled'}"
         tabindex="0"
         @click=${() => this.openAsset()}
         @keypress=${(e: KeyboardEvent) => {
@@ -141,10 +139,9 @@ export class AttachmentElement extends LitElement {
     css`
       .btn {
         /* all: unset; */
-        font-family: 'Ubuntu', sans-serif;
         font-size: 18px;
         border-radius: 20px;
-        height: 36px;
+        height: 38px;
         cursor: pointer;
         margin: 0;
         position: relative;
@@ -189,7 +186,7 @@ export class AttachmentElement extends LitElement {
         font-weight: bold;
         color: #ffdada;
         border-radius: 0 20px 20px 0;
-        height: 36px;
+        height: 38px;
         width: 32px;
         padding-right: 2px;
       }

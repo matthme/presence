@@ -5,8 +5,8 @@ import {
   AgentPubKeyB64,
   AgentPubKey,
   decodeHashFromBase64,
-  ActionHash,
 } from '@holochain/client';
+
 import { StoreSubscriber, lazyLoadAndPoll } from '@holochain-open-dev/stores';
 import SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
@@ -29,6 +29,7 @@ import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import { WeClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
+import { EntryRecord } from '@holochain-open-dev/utils';
 
 import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
@@ -36,7 +37,6 @@ import './avatar-with-nickname';
 import { Attachment, RoomInfo, weClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
-import { EntryRecord } from '@holochain-open-dev/utils';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -1318,10 +1318,12 @@ export class RoomView extends LitElement {
           }
         }}
       >
+        <div style="margin-bottom: -2px; margin-left: 2px;">
         ${numAttachments || numAttachments === 0 ? numAttachments : ''}
+        </div>
         <sl-icon
           .src=${wrapPathInSvg(mdiPaperclip)}
-          style="transform: rotate(5deg); margin-left: -3px;"
+          style="transform: rotate(5deg); margin-left: -2px;"
         ></sl-icon>
       </div>
     `;
@@ -1393,7 +1395,7 @@ export class RoomView extends LitElement {
   renderAttachmentPanel() {
     return html`
       <div
-        class="column attachment-panel"
+        class="column attachment-panel secondary-font"
         style="align-items: flex-start; justify-content: flex-start;"
       >
         <div
@@ -1829,7 +1831,7 @@ export class RoomView extends LitElement {
         height: 40px;
         justify-content: flex-end;
         align-items: center;
-        font-family: 'Ubuntu', sans-serif;
+        /* font-family: 'Ubuntu', sans-serif; */
         font-size: 22px;
         cursor: pointer;
       }
@@ -1842,10 +1844,12 @@ export class RoomView extends LitElement {
         all: unset;
         text-align: center;
         color: #c3c9eb;
-        font-family: 'Ubuntu', sans-serif;
+        /* font-family: 'Baloo 2 Variable', sans-serif; */
+        /* font-family: 'Ubuntu'; */
         font-size: 22px;
         cursor: pointer;
         margin-bottom: 15px;
+        font-weight: 600;
       }
 
       .add-attachment-btn:hover {
@@ -1864,9 +1868,9 @@ export class RoomView extends LitElement {
         top: 5px;
         right: 15px;
         background: #c3c9eb;
-        font-weight: 400;
+        font-weight: 500;
         border-radius: 20px;
-        font-family: 'Ubuntu', sans-serif;
+        font-family: 'Baloo 2 Variable', sans-serif;
         font-size: 24px;
         padding: 3px 8px;
         cursor: pointer;
