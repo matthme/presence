@@ -1630,10 +1630,14 @@ export class RoomView extends LitElement {
         flex-direction: row;
         align-items: center;
         justify-content: center;
-        padding: 4px 10px;
+        padding: 6px 10px;
         position: absolute;
         top: 10px;
-        left: 10px;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        width: 300px;
         color: white;
         background: #b60606;
         border-radius: 10px;
