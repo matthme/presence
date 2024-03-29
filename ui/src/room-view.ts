@@ -1304,7 +1304,6 @@ export class RoomView extends LitElement {
       this._allAttachments.value.status === 'complete'
         ? this._allAttachments.value.value.length
         : undefined;
-    console.log('numAttachments: ', numAttachments);
     return html`
       <div
         tabindex="0"
@@ -1319,7 +1318,7 @@ export class RoomView extends LitElement {
         }}
       >
         <div style="margin-bottom: -2px; margin-left: 2px;">
-        ${numAttachments || numAttachments === 0 ? numAttachments : ''}
+          ${numAttachments || numAttachments === 0 ? numAttachments : ''}
         </div>
         <sl-icon
           .src=${wrapPathInSvg(mdiPaperclip)}
@@ -1363,27 +1362,28 @@ export class RoomView extends LitElement {
                 entryRecord.actionHash.toString()
               )
           );
-        console.log('allDeduplicatedAttachments: ', allDeduplicatedAttachments);
-        console.log(
-          'this._allAttachments.value.value',
-          this._allAttachments.value.value
-        );
 
         return html`
           <div
             class="column"
             style="justify-content: flex-start; align-items: flex-start;"
           >
-            ${allDeduplicatedAttachments.map(
-              entryRecord => html`
-                <attachment-element
-                  style="margin-bottom: 8px;"
-                  .entryRecord=${entryRecord}
-                  @remove-attachment=${(e: CustomEvent) =>
-                    this.removeAttachment(e.detail)}
-                ></attachment-element>
-              `
-            )}
+            ${allDeduplicatedAttachments
+              .sort(
+                (entryRecord_a, entryRecord_b) =>
+                  entryRecord_b.action.timestamp -
+                  entryRecord_a.action.timestamp
+              )
+              .map(
+                entryRecord => html`
+                  <attachment-element
+                    style="margin-bottom: 8px;"
+                    .entryRecord=${entryRecord}
+                    @remove-attachment=${(e: CustomEvent) =>
+                      this.removeAttachment(e.detail)}
+                  ></attachment-element>
+                `
+              )}
           </div>
         `;
       }
@@ -1398,21 +1398,24 @@ export class RoomView extends LitElement {
         class="column attachment-panel secondary-font"
         style="align-items: flex-start; justify-content: flex-start;"
       >
-        <div
-          tabindex="0"
-          class="row close-panel"
-          @click=${() => {
-            this._showAttachmentsPanel = false;
-          }}
-          @keypress=${(e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+        <div class="row close-panel">
+          <div
+            tabindex="0"
+            class="close-btn"
+            style="margin-right: 10px;"
+            @click=${() => {
               this._showAttachmentsPanel = false;
-            }
-          }}
-        >
-          <div style="margin-right: 10px;">${msg('close X')}</div>
+            }}
+            @keypress=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                this._showAttachmentsPanel = false;
+              }
+            }}
+          >
+            ${msg('close X')}
+          </div>
         </div>
-        <div class="column" style="padding: 20px; align-items: flex-start">
+        <div class="column" style="padding: 0 20px; align-items: flex-start">
           <div
             tabindex="0"
             class="add-attachment-btn"
@@ -1833,11 +1836,15 @@ export class RoomView extends LitElement {
         align-items: center;
         /* font-family: 'Ubuntu', sans-serif; */
         font-size: 22px;
+      }
+
+      .close-btn {
         cursor: pointer;
       }
 
-      .close-panel:hover {
-        background: linear-gradient(-90deg, #a0a1cb, #6f7599c4);
+      .close-btn:hover {
+        color: #c3c9eb;
+        /* background: linear-gradient(-90deg, #a0a1cb, #6f7599c4); */
       }
 
       .add-attachment-btn {
@@ -1853,6 +1860,10 @@ export class RoomView extends LitElement {
       }
 
       .add-attachment-btn:hover {
+        color: white;
+      }
+
+      .add-attachment-btn:focus {
         color: white;
       }
 

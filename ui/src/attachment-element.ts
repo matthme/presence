@@ -1,4 +1,4 @@
-import { LitElement, css, html } from 'lit';
+import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { localized, msg } from '@lit/localize';
 import { consume } from '@lit/context';
@@ -41,8 +41,7 @@ export class AttachmentElement extends LitElement {
   @state()
   _wal: WAL | undefined;
 
-  async firstUpdated() {
-    console.log("entryRecord: ", this.entryRecord);
+  async updateAssetInfo() {
     const weaveLocation = weaveUrlToLocation(this.entryRecord.entry.wal);
     if (weaveLocation.type !== 'asset') {
       this._error = 'Invalid URL';
@@ -53,7 +52,15 @@ export class AttachmentElement extends LitElement {
     this._assetAppletInfo = this._assetInfo
       ? await this._weClient.appletInfo(this._assetInfo.appletHash)
       : undefined;
-    console.log('this._assetAppletInfo', this._assetAppletInfo);
+  }
+
+  async firstUpdated() {
+    await this.updateAssetInfo();
+  }
+  protected async willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
+      if (changedProperties.has('entryRecord')) {
+        await this.updateAssetInfo();
+      }
   }
 
   async openAsset() {
@@ -112,6 +119,7 @@ export class AttachmentElement extends LitElement {
                   style="color: white;"
                 >
                   <div
+                    tabindex="0"
                     class="row center-content delete-btn"
                     @click=${(e: any) => {
                       this.removeAttachment();
@@ -148,7 +156,7 @@ export class AttachmentElement extends LitElement {
       }
 
       .btn:focus {
-        outline: 2px solid #081c36;
+        outline: 2px solid white;
       }
 
       .open-area {
@@ -194,7 +202,11 @@ export class AttachmentElement extends LitElement {
       .delete-btn:hover {
         background: #d76565;
         color: #4d0202;
-        pointer-events: ;
+      }
+
+      .delete-btn:focus {
+        background: #d76565;
+        color: #4d0202;
       }
 
       sl-tooltip::part(body) {

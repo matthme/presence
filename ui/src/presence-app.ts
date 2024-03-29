@@ -216,8 +216,8 @@ export class PresenceApp extends LitElement {
 
     const cellTypes = getCellTypes(appInfo);
 
-    this._personalRooms = cellTypes.cloned.filter(
-      cell => cell.dna_modifiers.network_seed.startsWith('privateRoom#')
+    this._personalRooms = cellTypes.cloned.filter(cell =>
+      cell.dna_modifiers.network_seed.startsWith('privateRoom#')
     );
 
     const allDescendentRooms =
@@ -336,7 +336,10 @@ export class PresenceApp extends LitElement {
         class="row"
         style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
-        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
+        <div
+          class="column"
+          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+        >
           <div class="secondary-font">${msg('+ Create New Private Room')}</div>
           <input
             id="private-room-name-input"
@@ -352,7 +355,10 @@ export class PresenceApp extends LitElement {
             ${msg('Create')}
           </button>
         </div>
-        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
+        <div
+          class="column"
+          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+        >
           <div class="secondary-font">${msg('Join Private Room')}</div>
           <input
             id="secret-words-input"
@@ -405,7 +411,6 @@ export class PresenceApp extends LitElement {
         roomInfo => html`
           <shared-room-card
             .groupRoomInfo=${roomInfo}
-            .id=${roomInfo.room.network_seed_appendix}
             @request-open-room=${(e: CustomEvent) => {
               this._selectedRoleName = e.detail.cloneId;
               this._pageView = PageView.Room;
@@ -422,7 +427,10 @@ export class PresenceApp extends LitElement {
         class="row"
         style="flex-wrap: wrap; justify-content: center; align-items: center; margin-top: 30px;"
       >
-        <div class="column" style="margin: 0 10px; align-items: center; color: #e1e5fc;">
+        <div
+          class="column"
+          style="margin: 0 10px; align-items: center; color: #e1e5fc;"
+        >
           <div class="secondary-font">${msg('+ Create New Shared Room')}</div>
           <input
             id="group-room-name-input"
@@ -537,9 +545,7 @@ export class PresenceApp extends LitElement {
                     .src=${wrapPathInSvg(mdiAccountGroup)}
                     style="font-size: 35px; margin-right: 5px;"
                   ></sl-icon>
-                  <div style="margin-bottom: -6px;">
-                  ${msg('Shared Rooms')}
-                  </div>
+                  <div style="margin-bottom: -6px;">${msg('Shared Rooms')}</div>
                 </div>
                 <div
                   tabindex="0"
@@ -561,7 +567,7 @@ export class PresenceApp extends LitElement {
                     style="font-size: 35px; margin-right: 5px;"
                   ></sl-icon>
                   <div style="margin-bottom: -6px;">
-                  ${msg('Private Rooms')}
+                    ${msg('Private Rooms')}
                   </div>
                 </div>
               </div>

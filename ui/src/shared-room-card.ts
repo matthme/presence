@@ -1,4 +1,4 @@
-import { LitElement, css, html } from 'lit';
+import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   AppAgentClient,
@@ -35,7 +35,6 @@ export class SharedRoomCard extends LitElement {
   client!: AppAgentClient;
 
   @property()
-  @state()
   groupRoomInfo!: GroupRoomInfo;
 
   @state()
@@ -50,13 +49,7 @@ export class SharedRoomCard extends LitElement {
   @state()
   _networkSeed: string | undefined;
 
-  async firstUpdated() {
-    console.log(
-      '@firstupdated for roominfo name: ',
-      this.groupRoomInfo.room.name
-    );
-    console.log('groupRoomInfo: ', this.groupRoomInfo);
-    // check if the appropriate clone cell is already installed
+  async updateRoomInfo() {
     const appInfo = await this.client.appInfo();
     if (!appInfo) throw new Error('AppInfo is null');
     const cellTypes = getCellTypes(appInfo);
@@ -67,19 +60,14 @@ export class SharedRoomCard extends LitElement {
       this.groupRoomInfo.room.network_seed_appendix
     );
 
-    console.log('networkSeed: ', networkSeed);
-
     const myCell = cellTypes.cloned.find(
       clonedCell => networkSeed === clonedCell.dna_modifiers.network_seed
     );
     this._networkSeed = networkSeed;
-    console.log('myCell: ', myCell);
     if (myCell) {
       this._myCell = myCell;
       const roomClient = new RoomClient(this.client, myCell.clone_id);
       const roomInfo = await roomClient.getRoomInfo();
-      console.log('@firstupdated roomInfo: ', roomInfo);
-      console.log('@firstupdated clone_id: ', myCell.clone_id);
       if (roomInfo) {
         this._roomInfo = roomInfo;
       }
@@ -90,6 +78,16 @@ export class SharedRoomCard extends LitElement {
         meta_data: this.groupRoomInfo.room.meta_data,
       };
     }
+  }
+
+
+  async firstUpdated() {
+    await this.updateRoomInfo();
+  }
+  async willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
+      if (changedProperties.has('groupRoomInfo')) {
+        await this.updateRoomInfo();
+      }
   }
 
   async handleOpenRoom() {
