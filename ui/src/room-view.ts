@@ -17,6 +17,7 @@ import {
   mdiMicrophone,
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
+  mdiPaperclip,
   mdiVideo,
   mdiVideoOff,
 } from '@mdi/js';
@@ -130,7 +131,10 @@ export class RoomView extends LitElement {
   );
 
   @state()
-  _recentAttachmentChanges: Record<string, EntryRecord<Attachment>[]> = { "added": [], "deleted": []};
+  _recentAttachmentChanges: Record<string, EntryRecord<Attachment>[]> = {
+    added: [],
+    deleted: [],
+  };
 
   @state()
   _roomInfo: RoomInfo | undefined;
@@ -220,6 +224,9 @@ export class RoomView extends LitElement {
 
   @state()
   _leaveAudio = new Audio('percussive-drum-hit.mp3');
+
+  @state()
+  _showAttachmentsPanel = false;
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -1292,6 +1299,34 @@ export class RoomView extends LitElement {
     return '[unknown]';
   }
 
+  renderAttachmentButton() {
+    const numAttachments =
+      this._allAttachments.value.status === 'complete'
+        ? this._allAttachments.value.value.length
+        : undefined;
+    console.log('numAttachments: ', numAttachments);
+    return html`
+      <div
+        tabindex="0"
+        class="attachments-btn row center-content"
+        @click=${() => {
+          this._showAttachmentsPanel = true;
+        }}
+        @keypress=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            this._showAttachmentsPanel = true;
+          }
+        }}
+      >
+        ${numAttachments || numAttachments === 0 ? numAttachments : ''}
+        <sl-icon
+          .src=${wrapPathInSvg(mdiPaperclip)}
+          style="transform: rotate(5deg); margin-left: -3px;"
+        ></sl-icon>
+      </div>
+    `;
+  }
+
   renderAttachments() {
     switch (this._allAttachments.value.status) {
       case 'pending':
@@ -1361,11 +1396,35 @@ export class RoomView extends LitElement {
         class="column attachment-panel"
         style="align-items: flex-start; justify-content: flex-start;"
       >
-        <div class="close-panel" style="margin-left: 20px;">
-          > ${msg('close')}
+        <div
+          tabindex="0"
+          class="row close-panel"
+          @click=${() => {
+            this._showAttachmentsPanel = false;
+          }}
+          @keypress=${(e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              this._showAttachmentsPanel = false;
+            }
+          }}
+        >
+          <div style="margin-right: 10px;">${msg('close X')}</div>
         </div>
-        <button @click=${() => this.addAttachment()}>Add Attachment</button>
-        ${this.renderAttachments()}
+        <div class="column" style="padding: 20px; align-items: flex-start">
+          <div
+            tabindex="0"
+            class="add-attachment-btn"
+            @click=${() => this.addAttachment()}
+            @keypress=${async (e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                await this.addAttachment();
+              }
+            }}
+          >
+            + Add Attachment
+          </div>
+          ${this.renderAttachments()}
+        </div>
       </div>
     `;
   }
@@ -1719,7 +1778,9 @@ export class RoomView extends LitElement {
           `
         )}
       </div>
-      ${this.renderToggles()} ${this.renderAttachmentPanel()}
+      ${this.renderToggles()}
+      ${this._showAttachmentsPanel ? this.renderAttachmentPanel() : undefined}
+      ${this._showAttachmentsPanel ? undefined : this.renderAttachmentButton()}
       <div
         class="stop-share"
         tabindex="0"
@@ -1757,8 +1818,38 @@ export class RoomView extends LitElement {
           #6f759979 90%,
           #6f759900
         );
-        padding: 0 20px;
         /* background: #6f7599; */
+      }
+
+      .close-panel {
+        /* background: linear-gradient(-90deg, #2f3052, #6f7599c4); */
+        color: #0d1543;
+        font-weight: bold;
+        width: 400px;
+        height: 40px;
+        justify-content: flex-end;
+        align-items: center;
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 22px;
+        cursor: pointer;
+      }
+
+      .close-panel:hover {
+        background: linear-gradient(-90deg, #a0a1cb, #6f7599c4);
+      }
+
+      .add-attachment-btn {
+        all: unset;
+        text-align: center;
+        color: #c3c9eb;
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 22px;
+        cursor: pointer;
+        margin-bottom: 15px;
+      }
+
+      .add-attachment-btn:hover {
+        color: white;
       }
 
       .room-name {
@@ -1766,6 +1857,24 @@ export class RoomView extends LitElement {
         bottom: 5px;
         left: 15px;
         color: #6f7599;
+      }
+
+      .attachments-btn {
+        position: absolute;
+        top: 5px;
+        right: 15px;
+        background: #c3c9eb;
+        font-weight: 400;
+        border-radius: 20px;
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 24px;
+        padding: 3px 8px;
+        cursor: pointer;
+        /* box-shadow: 1px 1px 5px black; */
+      }
+
+      .attachments-btn:hover {
+        background: #dbdff9;
       }
 
       .stop-share {
