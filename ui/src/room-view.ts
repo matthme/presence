@@ -231,6 +231,13 @@ export class RoomView extends LitElement {
   @state()
   _unsubscribe: (() => void) | undefined;
 
+  sideClickListener = (e: MouseEvent) => {
+    if (this._showAttachmentsPanel) {
+      console.log('TURNING OFF');
+      this._showAttachmentsPanel = false;
+    }
+  };
+
   notifyError(msg: string) {
     this._displayError = msg;
     setTimeout(() => {
@@ -773,6 +780,7 @@ export class RoomView extends LitElement {
   }
 
   async firstUpdated() {
+    this.addEventListener('click', this.sideClickListener);
     this._unsubscribe = this.roomStore.client.onSignal(async signal => {
       switch (signal.type) {
         case 'PingUi': {
@@ -1260,6 +1268,7 @@ export class RoomView extends LitElement {
   disconnectedCallback(): void {
     if (this.pingInterval) window.clearInterval(this.pingInterval);
     if (this._unsubscribe) this._unsubscribe();
+    this.removeEventListener('click', this.sideClickListener);
   }
 
   idToLayout(id: string) {
@@ -1308,8 +1317,9 @@ export class RoomView extends LitElement {
       <div
         tabindex="0"
         class="attachments-btn row center-content"
-        @click=${() => {
+        @click=${(e: MouseEvent) => {
           this._showAttachmentsPanel = true;
+          e.stopPropagation();
         }}
         @keypress=${(e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1397,6 +1407,8 @@ export class RoomView extends LitElement {
       <div
         class="column attachment-panel secondary-font"
         style="align-items: flex-start; justify-content: flex-start;"
+        @click=${(e: MouseEvent) => e.stopPropagation()}
+        @keypress=${() => undefined}
       >
         <div class="row close-panel">
           <div
