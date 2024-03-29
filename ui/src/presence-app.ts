@@ -524,7 +524,7 @@ export class PresenceApp extends LitElement {
             <div class="column bottom-panel">
               <div
                 class="row center-content"
-                style="border-radius: 15px; margin-top: 40px;"
+                style="border-radius: 15px; margin-top: 45px;"
               >
                 <div
                   tabindex="0"
@@ -605,7 +605,6 @@ export class PresenceApp extends LitElement {
         justify-content: flex-start;
         font-size: calc(10px + 2vmin);
         color: #102a4d;
-        max-width: 960px;
         margin: 0;
         text-align: center;
         background: #383b4d;
@@ -645,6 +644,7 @@ export class PresenceApp extends LitElement {
         margin: 0;
         width: 100%;
         position: relative;
+        box-shadow: 0 0 60px 10px #212434;
       }
 
       .bottom-panel {
@@ -653,7 +653,8 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-main-room-btn {
-        background: linear-gradient(#102a4d, #0d2646);
+        background: linear-gradient(#102a4d, #071931);
+        /* background: linear-gradient(#102a4d, #0d2646); */
         border-radius: 40px;
         color: #fff0f0;
         border: none;
@@ -667,7 +668,7 @@ export class PresenceApp extends LitElement {
 
       .enter-main-room-btn:hover {
         /* background: linear-gradient(#102a4d, #213753); */
-        background: linear-gradient(#102a4d, #071931);
+        background: linear-gradient(#243e61, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
@@ -679,7 +680,8 @@ export class PresenceApp extends LitElement {
       .slider-button {
         align-items: center;
         /* background: #383b4d; */
-        background: #2f3141;
+        /* background: #2f3141; */
+        background: linear-gradient(#202334, #2f3141 30%, #2f3141);
         color: #e1e5fc;
         height: 54px;
         border-radius: 15px 0 0 15px;
@@ -691,18 +693,21 @@ export class PresenceApp extends LitElement {
       }
 
       .slider-button:hover:not(.btn-selected) {
-        background: #8b90ae52;
+        background: linear-gradient(#585d7952, #8b90ae52 30%, #8b90ae52);
+        /* background: #8b90ae52; */
         /* color: #383b4d; */
       }
 
       .slider-button:focus:not(.btn-selected) {
-        background: #8b90ae52;
+        background: linear-gradient(#585d7952, #8b90ae52 30%, #8b90ae52);
+        /* background: #8b90ae52; */
         /* color: #383b4d; */
       }
 
       .btn-selected {
         /* background: #b1bbee; */
-        background: #afb6da;
+        /* background: #afb6da; */
+        background: linear-gradient(#cdd3ec, #afb6da 30%, #afb6da, #929bca);
         color: #1d1f2c;
         padding: 0 15px;
         box-shadow: 0 0 6px 2px black;
