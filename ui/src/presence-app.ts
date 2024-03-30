@@ -524,8 +524,8 @@ export class PresenceApp extends LitElement {
               </div>
               ${this._profilesStore
                 ? this._activeMainRoomParticipants.length === 0
-                  ? html`${msg('The main room is empty.')}`
-                  : html`<div class="row" style="align-items: center;">
+                  ? html`<span class="blue-dark">${msg('The main room is empty.')}</span>`
+                  : html`<div class="row blue-dark" style="align-items: center;">
                       <span style="margin-right: 10px;"
                         >${msg('Currently in the main room: ')}</span
                       >
@@ -559,7 +559,7 @@ export class PresenceApp extends LitElement {
                 >
                   <sl-icon
                     .src=${wrapPathInSvg(mdiAccountGroup)}
-                    style="font-size: 35px; margin-right: 5px;"
+                    style="font-size: 30px; margin-right: 5px;"
                   ></sl-icon>
                   <div style="margin-bottom: -6px;">${msg('Shared Rooms')}</div>
                 </div>
@@ -580,7 +580,7 @@ export class PresenceApp extends LitElement {
                 >
                   <sl-icon
                     .src=${wrapPathInSvg(mdiLock)}
-                    style="font-size: 35px; margin-right: 5px;"
+                    style="font-size: 30px; margin-right: 5px;"
                   ></sl-icon>
                   <div style="margin-bottom: -6px;">
                     ${msg('Private Rooms')}
@@ -679,7 +679,7 @@ export class PresenceApp extends LitElement {
         padding: 10px 15px;
         padding-right: 25px;
         font-family: 'Pacifico', sans-serif;
-        font-size: 30px;
+        font-size: 35px;
         box-shadow: 1px 1px 4px 2px #03162f;
         cursor: pointer;
       }
@@ -695,6 +695,10 @@ export class PresenceApp extends LitElement {
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
+      .blue-dark {
+        color: #0a1c35;
+      }
+
       .slider-button {
         align-items: center;
         /* background: #383b4d; */
@@ -708,6 +712,7 @@ export class PresenceApp extends LitElement {
         cursor: pointer;
         font-family: 'Baloo 2 Variable', sans-serif;
         font-weight: 600;
+        font-size: 26px;
       }
 
       .slider-button:hover:not(.btn-selected) {
