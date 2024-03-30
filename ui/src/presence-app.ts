@@ -547,7 +547,6 @@ export class PresenceApp extends LitElement {
                   class="row center-content slider-button ${this._showGroupRooms
                     ? 'btn-selected'
                     : ''}"
-                  style="border-radius: 15px 0 0 15px;"
                   @click=${() => {
                     this._showGroupRooms = true;
                   }}
@@ -568,7 +567,7 @@ export class PresenceApp extends LitElement {
                   class="row center-content slider-button ${this._showGroupRooms
                     ? ''
                     : 'btn-selected'}"
-                  style="border-radius: 0 15px 15px 0;"
+                  style="border-radius: 3px 25px 25px 3px;"
                   @click=${() => {
                     this._showGroupRooms = false;
                   }}
@@ -686,12 +685,12 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-main-room-btn:hover {
-        background: linear-gradient(#243e61, #0c203a);
+        background: linear-gradient(#2c477f, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
       .enter-main-room-btn:focus {
-        background: linear-gradient(#243e61, #0c203a);
+        background: linear-gradient(#2c477f, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
@@ -706,7 +705,7 @@ export class PresenceApp extends LitElement {
         background: linear-gradient(#1b1f35, #282b42 30%, #282b42);
         color: #e1e5fc;
         height: 54px;
-        border-radius: 15px 0 0 15px;
+        border-radius: 25px 3px 3px 25px;
         padding: 2px 15px;
         box-shadow: 0 0 4px 2px black inset;
         cursor: pointer;

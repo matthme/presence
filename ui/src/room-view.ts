@@ -1858,7 +1858,7 @@ export class RoomView extends LitElement {
         position: absolute;
         top: 45px;
         bottom: 5px;
-        width: 380px;
+        width: 376px;
         padding: 2px;
       }
 
@@ -1927,7 +1927,7 @@ export class RoomView extends LitElement {
         font-size: 24px;
         padding: 3px 10px;
         cursor: pointer;
-        box-shadow: 0px 0px 5px #171b32;
+        box-shadow: 0px 0px 5px 2px #0b0f28;
       }
 
       .attachments-btn:hover {
@@ -2149,11 +2149,12 @@ export class RoomView extends LitElement {
         font-size: 19px;
         bottom: 10px;
         right: 10px;
-        width: 300px;
+        width: 298px;
         height: 74px;
         border-radius: 37px;
         background: #0e142c;
         color: #facece;
+        box-shadow: 0 0 3px 2px #050b21;
         /* left: calc(50% - 150px); */
       }
     `,
