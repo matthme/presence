@@ -164,7 +164,8 @@ export class SharedRoomCard extends LitElement {
         /* background: #668fc2; */
         /* background: #102a4d; */
         /* background: #b2b9e0; */
-        background: linear-gradient(#b2b9e0, #9ba3d0);
+        /* background: linear-gradient(#b2b9e0, #9ba3d0); */
+        background: linear-gradient(#a7aed8, #8f98c9);
         /* background-image: url(); */
         /* object-fit: cover; */
         /* background-position: center center; */

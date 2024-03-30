@@ -159,7 +159,8 @@ export class PrivateRoomCard extends LitElement {
         /* background: #668fc2; */
         /* background: #102a4d; */
         background: #b2b9e0;
-        background: linear-gradient(#b2b9e0, #9ba3d0);
+        /* background: linear-gradient(#b2b9e0, #9ba3d0); */
+        background: linear-gradient(#a7aed8, #8f98c9);
         /* background: #ced5fa; */
         padding: 20px 20px;
         border-radius: 25px;
