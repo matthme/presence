@@ -2086,7 +2086,7 @@ export class RoomView extends LitElement {
       }
 
       .btn-icon-off {
-        color: #668fc2;
+        color: #6482c9;
       }
 
       .toggle-btn {
@@ -2094,7 +2094,7 @@ export class RoomView extends LitElement {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: #347fe1;
+        background: #17529f;
         margin: 0 5px;
         border-radius: 50%;
         height: 60px;
@@ -2103,15 +2103,15 @@ export class RoomView extends LitElement {
       }
 
       .btn-off {
-        background: #40638f;
+        background: #22365c;
       }
 
       .toggle-btn:hover {
-        background: #347fe1;
+        background: #17529f;
       }
 
       .toggle-btn:hover:not(.btn-off) {
-        background: #40638f;
+        background: #22365c;
       }
 
       .toggles-panel {
@@ -2126,7 +2126,7 @@ export class RoomView extends LitElement {
         width: 300px;
         height: 74px;
         border-radius: 37px;
-        background: #102a4d;
+        background: #0e142c;
         color: #facece;
         /* left: calc(50% - 150px); */
       }

@@ -624,7 +624,8 @@ export class PresenceApp extends LitElement {
         margin: 0;
         padding: 0;
         text-align: center;
-        background: #383b4d;
+        background: #2b304a;
+        /* background: #383b4d; */
         font-family: 'Pacifico', sans-serif;
         font-size: 30px;
       }
@@ -662,7 +663,7 @@ export class PresenceApp extends LitElement {
         margin: 0;
         width: 100%;
         position: relative;
-        box-shadow: 0 0 60px 10px #212434;
+        box-shadow: 0 0 60px 10px #1e2137;
       }
 
       .bottom-panel {
@@ -685,7 +686,6 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-main-room-btn:hover {
-        /* background: linear-gradient(#102a4d, #213753); */
         background: linear-gradient(#243e61, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
@@ -703,7 +703,7 @@ export class PresenceApp extends LitElement {
         align-items: center;
         /* background: #383b4d; */
         /* background: #2f3141; */
-        background: linear-gradient(#202334, #2f3141 30%, #2f3141);
+        background: linear-gradient(#1b1f35, #282b42 30%, #282b42);
         color: #e1e5fc;
         height: 54px;
         border-radius: 15px 0 0 15px;
@@ -716,13 +716,13 @@ export class PresenceApp extends LitElement {
       }
 
       .slider-button:hover:not(.btn-selected) {
-        background: linear-gradient(#585d7952, #8b90ae52 30%, #8b90ae52);
+        background: linear-gradient(#4d547a52, #7b82ad52 30%, #7981ad52);
         /* background: #8b90ae52; */
         /* color: #383b4d; */
       }
 
       .slider-button:focus:not(.btn-selected) {
-        background: linear-gradient(#585d7952, #8b90ae52 30%, #8b90ae52);
+        background: linear-gradient(#4d547a52, #7b82ad52 30%, #7981ad52);
         /* background: #8b90ae52; */
         /* color: #383b4d; */
       }
