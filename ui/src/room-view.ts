@@ -1859,6 +1859,7 @@ export class RoomView extends LitElement {
         top: 45px;
         bottom: 5px;
         width: 380px;
+        padding: 2px;
       }
 
       .attachments-list::-webkit-scrollbar {

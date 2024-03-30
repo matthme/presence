@@ -117,10 +117,11 @@ export class AttachmentElement extends LitElement {
                 <sl-tooltip
                   .content=${msg('remove for everyone')}
                   style="color: white;"
+                  hoist
                 >
                   <div
                     tabindex="0"
-                    class="row center-content delete-btn"
+                    class="row center-content delete-btn tertiary-font"
                     @click=${(e: any) => {
                       this.removeAttachment();
                       e.stopPropagation();
@@ -153,6 +154,7 @@ export class AttachmentElement extends LitElement {
         cursor: pointer;
         margin: 0;
         position: relative;
+        box-shadow: 0 0 2px 1px #081c366d
       }
 
       .btn:focus {
