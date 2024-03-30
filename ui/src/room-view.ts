@@ -534,7 +534,9 @@ export class RoomView extends LitElement {
           });
         } catch (e: any) {
           console.error(`Failed to get media devices (video): ${e.toString()}`);
-          this.notifyError(`Failed to get media devices (video): ${e.toString()}`);
+          this.notifyError(
+            `Failed to get media devices (video): ${e.toString()}`
+          );
           return;
         }
         this._mainStream.addTrack(videoStream!.getVideoTracks()[0]);
@@ -562,7 +564,9 @@ export class RoomView extends LitElement {
         });
       } catch (e: any) {
         console.error(`Failed to get media devices (video): ${e.toString()}`);
-        this.notifyError(`Failed to get media devices (video): ${e.toString()}`);
+        this.notifyError(
+          `Failed to get media devices (video): ${e.toString()}`
+        );
         return;
       }
       const myVideo = this.shadowRoot?.getElementById(
@@ -1384,8 +1388,7 @@ export class RoomView extends LitElement {
 
         return html`
           <div
-            class="column"
-            style="justify-content: flex-start; align-items: flex-start;"
+            class="column attachments-list"
           >
             ${allDeduplicatedAttachments
               .sort(
@@ -1436,7 +1439,7 @@ export class RoomView extends LitElement {
             ${msg('close X')}
           </div>
         </div>
-        <div class="column" style="padding: 0 20px; align-items: flex-start">
+        <div class="column" style="padding: 0 20px; align-items: flex-start; position: relative; height: 100%;">
           <div
             tabindex="0"
             class="add-attachment-btn"
@@ -1830,7 +1833,7 @@ export class RoomView extends LitElement {
       main {
         flex-grow: 1;
         margin: 0;
-        background: #383b4d;
+        background: #2b304a;
       }
 
       .attachment-panel {
@@ -1846,6 +1849,20 @@ export class RoomView extends LitElement {
           #6f759900
         );
         /* background: #6f7599; */
+      }
+
+      .attachments-list {
+        justify-content: flex-start;
+        align-items: flex-start;
+        overflow-y: auto;
+        position: absolute;
+        top: 45px;
+        bottom: 5px;
+        width: 380px;
+      }
+
+      .attachments-list::-webkit-scrollbar {
+        display: none;
       }
 
       .close-panel {
@@ -1898,20 +1915,28 @@ export class RoomView extends LitElement {
 
       .attachments-btn {
         position: absolute;
-        top: 5px;
-        right: 15px;
-        background: #c3c9eb;
+        top: 10px;
+        right: 10px;
+        /* background: #c3c9eb; */
+        background: linear-gradient(#c3c9ebd6, #a7b0dfd6);
+        opacity: 0.8;
         font-weight: 500;
         border-radius: 20px;
         font-family: 'Baloo 2 Variable', sans-serif;
         font-size: 24px;
-        padding: 3px 8px;
+        padding: 3px 10px;
         cursor: pointer;
-        /* box-shadow: 1px 1px 5px black; */
+        box-shadow: 0px 0px 5px #171b32;
       }
 
       .attachments-btn:hover {
-        background: #dbdff9;
+        /* background: #dbdff9; */
+        background: linear-gradient(#c3c9eb, #a7b0df);
+      }
+
+      .attachments-btn:focus {
+        /* background: #dbdff9; */
+        background: linear-gradient(#d4d9f3, #bac2e9);
       }
 
       .stop-share {
