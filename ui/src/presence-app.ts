@@ -540,7 +540,7 @@ export class PresenceApp extends LitElement {
             <div class="column bottom-panel">
               <div
                 class="row center-content"
-                style="border-radius: 15px; margin-top: 45px;"
+                style="border-radius: 15px; margin-top: 48px;"
               >
                 <div
                   tabindex="0"
@@ -660,7 +660,7 @@ export class PresenceApp extends LitElement {
         /* background: #668fc2; */
         display: flex;
         align-items: center;
-        min-height: 320px;
+        min-height: 315px;
         margin: 0;
         width: 100%;
         position: relative;
@@ -732,8 +732,9 @@ export class PresenceApp extends LitElement {
         /* background: #b1bbee; */
         /* background: #afb6da; */
         /* background: linear-gradient(#cdd3ec, #afb6da 30%, #afb6da, #929bca); */
+        background: linear-gradient(#c2cae8, #a5add8 30%, #a5add8, #8994c7);
         /* background: linear-gradient(#aeb8e5, #96a1d4 30%, #96a1d4, #7a86c3); */
-        background: linear-gradient(#b3bce4, #9ca6d4 30%, #9ca6d4, #838ec5);
+        /* background: linear-gradient(#b3bce4, #9ca6d4 30%, #9ca6d4, #838ec5); */
         color: #1d1f2c;
         padding: 0 15px;
         box-shadow: 0 0 6px 2px black;
@@ -752,8 +753,9 @@ export class PresenceApp extends LitElement {
 
       .btn {
         /* background: linear-gradient(#cdd3ec, #afb6da 30%, #afb6da, #929bca); */
+        background: linear-gradient(#c2cae8, #a5add8 30%, #a5add8, #8994c7);
         /* background: linear-gradient(#aeb8e5, #96a1d4 30%, #96a1d4, #7a86c3); */
-        background: linear-gradient(#b3bce4, #9ca6d4 30%, #9ca6d4, #838ec5);
+        /* background: linear-gradient(#b3bce4, #9ca6d4 30%, #9ca6d4, #838ec5); */
         box-shadow: 0 0 5px 1px #1d1d1d;
         /* background: #bbc4f2; */
         border-radius: 10px;
