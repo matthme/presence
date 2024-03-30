@@ -622,6 +622,7 @@ export class PresenceApp extends LitElement {
         font-size: calc(10px + 2vmin);
         color: #102a4d;
         margin: 0;
+        padding: 0;
         text-align: center;
         background: #383b4d;
         font-family: 'Pacifico', sans-serif;

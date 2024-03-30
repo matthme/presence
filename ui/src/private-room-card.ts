@@ -5,11 +5,18 @@ import {
   ClonedCell,
   encodeHashToBase64,
 } from '@holochain/client';
-import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline, mdiLock } from '@mdi/js';
+import {
+  mdiContentCopy,
+  mdiEyeOffOutline,
+  mdiEyeOutline,
+  mdiLock,
+} from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { localized, msg } from '@lit/localize';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
+import '@shoelace-style/shoelace/dist/components/tooltip/tooltip';
 
 import './room-container';
 import { consume } from '@lit/context';
@@ -18,7 +25,7 @@ import { clientContext } from './contexts';
 import { RoomClient } from './room-client';
 import { RoomInfo } from './types';
 
-
+@localized()
 @customElement('private-room-card')
 export class PrivateRoomCard extends LitElement {
   @consume({ context: clientContext })
@@ -44,10 +51,13 @@ export class PrivateRoomCard extends LitElement {
 
   render() {
     return html`
-      <div class="row personal-room-card">
+      <div class="row personal-room-card secondary-font">
         <div class="column" style="align-items: flex-start">
           <div class="row" style="align-items: center; margin-bottom: 15px; ">
-            <sl-icon .src=${wrapPathInSvg(mdiLock)} style="font-size: 28px; margin-right: 3px;"></sl-icon>
+            <sl-icon
+              .src=${wrapPathInSvg(mdiLock)}
+              style="font-size: 28px; margin-right: 3px; margin-bottom: 4px;"
+            ></sl-icon>
             <div
               style="font-weight: bold;${this.clonedCell.name
                 ? ''
@@ -58,39 +68,50 @@ export class PrivateRoomCard extends LitElement {
           </div>
           <div class="row" style="align-items: center">
             <div class="column" style="align-items: flex-start;">
-              <span style="font-size: 18px;">secret words:</span>
+              <span style="font-size: 18px; font-weight: 600;"
+                >secret words:</span
+              >
               <div class="row" style="align-items: center">
                 <span class="secret-words"
                   >${this._showSecretWords
-                    ? this.clonedCell.dna_modifiers.network_seed
+                    ? this.clonedCell.dna_modifiers.network_seed.replace(
+                        'privateRoom#',
+                        ''
+                      )
                     : '•••••• •••••• •••••• •••••• ••••••'}</span
                 >
-                <sl-icon
-                  class="eye-icon"
-                  title="${this._showSecretWords ? 'Hide' : 'Show'}"
-                  .src=${this._showSecretWords
-                    ? wrapPathInSvg(mdiEyeOffOutline)
-                    : wrapPathInSvg(mdiEyeOutline)}
-                  @click=${() => {
-                    this._showSecretWords = !this._showSecretWords;
-                  }}
-                ></sl-icon>
-                <sl-icon
-                  class="copy-icon"
-                  title="Copy"
-                  .src=${wrapPathInSvg(mdiContentCopy)}
-                  @click=${() => {
-                    navigator.clipboard.writeText(
-                      this.clonedCell.dna_modifiers.network_seed
-                    );
-                  }}
-                ></sl-icon>
+                <sl-tooltip
+                  .content=${this._showSecretWords ? msg('Hide') : msg('Show')}
+                >
+                  <sl-icon
+                    class="eye-icon"
+                    title="${this._showSecretWords ? msg('Hide') : msg('Show')}"
+                    .src=${this._showSecretWords
+                      ? wrapPathInSvg(mdiEyeOffOutline)
+                      : wrapPathInSvg(mdiEyeOutline)}
+                    @click=${() => {
+                      this._showSecretWords = !this._showSecretWords;
+                    }}
+                  ></sl-icon>
+                </sl-tooltip>
+                <sl-tooltip .content=${msg('Copy')}>
+                  <sl-icon
+                    class="copy-icon"
+                    title="Copy"
+                    .src=${wrapPathInSvg(mdiContentCopy)}
+                    @click=${() => {
+                      navigator.clipboard.writeText(
+                        this.clonedCell.dna_modifiers.network_seed
+                      );
+                    }}
+                  ></sl-icon>
+                </sl-tooltip>
               </div>
               <div
                 class="column"
                 style="align-items: flex-start; margin-top: 10px;"
               >
-                <div style="font-size: 18px;">dna hash:</div>
+                <div style="font-size: 18px; font-weight: 600;">dna hash:</div>
                 <div style="font-family: sans-serif; font-size: 15px;">
                   ${encodeHashToBase64(this.clonedCell.cell_id[0])}
                 </div>
@@ -100,7 +121,7 @@ export class PrivateRoomCard extends LitElement {
         </div>
         <span style="display: flex; flex: 1;"></span>
 
-        <div>
+        <div class="column" style="justify-content: flex-start;">
           <button
             @click=${() =>
               this.dispatchEvent(
@@ -112,10 +133,14 @@ export class PrivateRoomCard extends LitElement {
                   bubbles: true,
                 })
               )}
-            class="enter-room-btn"
+            class="enter-room-btn secondary-font"
           >
             <div class="row center-content">
-              <img src="door.png" alt="icon of a door" style="height: 25px; margin-right: 6px; transform: scaleX(-1);" />
+              <img
+                src="door.png"
+                alt="icon of a door"
+                style="height: 25px; margin-right: 6px; transform: scaleX(-1);"
+              />
               <span> Enter</span>
             </div>
           </button>
@@ -128,36 +153,48 @@ export class PrivateRoomCard extends LitElement {
     sharedStyles,
     css`
       .personal-room-card {
-        align-items: center;
+        align-items: flex-start;
         min-width: 600px;
         /* background: #40638f; */
         /* background: #668fc2; */
         /* background: #102a4d; */
-        background: #ced5fa;
-        padding: 15px 23px;
+        background: #b2b9e0;
+        background: linear-gradient(#b2b9e0, #9ba3d0);
+        /* background: #ced5fa; */
+        padding: 20px 20px;
         border-radius: 25px;
         color: #071b31;
         font-size: 20px;
-        box-shadow: 1px 1px 2px 1px #000000;
+        box-shadow: 1px 1px 8px 2px #020b16b8;
       }
 
       .enter-room-btn {
-        background: #102a4d;
+        background: linear-gradient(#102a4d, #071931);
         border-radius: 10px;
         color: #fff0f0;
         border: none;
         padding: 5px 10px;
-        font-family: 'Pacifico', sans-serif;
+        box-shadow: 0px 0px 2px 0px #03162f;
+        font-weight: 600;
         font-size: 20px;
         cursor: pointer;
       }
 
       .enter-room-btn:hover {
-        background: #102a4d95;
+        background: linear-gradient(#243e61, #0c203a);
       }
 
       .enter-room-btn:focus {
-        background: #102a4d95;
+        background: linear-gradient(#243e61, #0c203a);
+      }
+
+      sl-tooltip::part(body) {
+        background-color: #05162c;
+        color: #ffffff;
+        font-size: 16px;
+        padding: 0 8px;
+        border-radius: 10px;
+        box-shadow: 0 0 2px 1px #05162c;
       }
 
       .secret-words {
@@ -187,7 +224,7 @@ export class PrivateRoomCard extends LitElement {
         color: white;
       }
       .copy-icon:active {
-        color: #42f03c;
+        color: #5782dd;
       }
     `,
   ];
