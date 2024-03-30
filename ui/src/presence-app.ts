@@ -368,9 +368,9 @@ export class PresenceApp extends LitElement {
           <div class="row" style="align-items: center;">
             <sl-icon
               .src=${wrapPathInSvg(mdiLockOpenOutline)}
-              style="margin-right: 5px; margin-bottom: 4px;"
+              style="margin-right: 3px; margin-bottom: 4px; margin-left: 5px;"
             ></sl-icon>
-            <div class="secondary-font" style="margin-left: 5px;">${msg('Join Private Room')}</div>
+            <div class="secondary-font">${msg('Join Private Room')}</div>
           </div>
           <div class="row" style="align-items: center;">
             <input
@@ -691,7 +691,7 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-main-room-btn:focus {
-        background: linear-gradient(#102a4d, #3c466b);
+        background: linear-gradient(#243e61, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 

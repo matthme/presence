@@ -80,14 +80,15 @@ export class SharedRoomCard extends LitElement {
     }
   }
 
-
   async firstUpdated() {
     await this.updateRoomInfo();
   }
-  async willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
-      if (changedProperties.has('groupRoomInfo')) {
-        await this.updateRoomInfo();
-      }
+  async willUpdate(
+    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ) {
+    if (changedProperties.has('groupRoomInfo')) {
+      await this.updateRoomInfo();
+    }
   }
 
   async handleOpenRoom() {
@@ -107,7 +108,6 @@ export class SharedRoomCard extends LitElement {
       if (roomInfo) {
         this._roomInfo = roomInfo;
       }
-
     }
 
     this.dispatchEvent(
@@ -123,28 +123,32 @@ export class SharedRoomCard extends LitElement {
 
   render() {
     return html`
-      <div class="column shared-room-card" style="align-items: flex-start;">
-        <div
-          style="margin-bottom: 15px; font-weight: bold;${this._roomInfo?.name
-            ? ''
-            : 'opacity: 0.6'}"
-        >
-          ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
-        </div>
-        <div class="row">
-          <span style="display: flex; flex: 1;"></span>
-          <div>
-            <button @click=${() => this.handleOpenRoom()} class="enter-room-btn">
-              <div class="row center-content">
-                <img
-                  src="door.png"
-                  alt="icon of a door"
-                  style="height: 25px; margin-right: 6px; transform: scaleX(-1);"
-                />
-                <span> Enter</span>
-              </div>
-            </button>
+      <div
+        class="column shared-room-card"
+        style="align-items: flex-start; flex: 1;"
+      >
+        <div class="row secondary-font" style="align-items: flex-start; flex: 1; width: 100%;">
+          <div
+            style="margin-bottom: 15px; font-size: 26px; font-weight: bold;${this._roomInfo?.name
+              ? ''
+              : 'opacity: 0.6'}"
+          >
+            ${this._roomInfo ? this._roomInfo.name : '[unknown]'}
           </div>
+          <span style="display: flex; flex: 1;"></span>
+          <button
+            @click=${() => this.handleOpenRoom()}
+            class="enter-room-btn secondary-font"
+          >
+            <div class="row center-content">
+              <img
+                src="door.png"
+                alt="icon of a door"
+                style="height: 25px; margin-right: 6px; transform: scaleX(-1);"
+              />
+              <span> Enter</span>
+            </div>
+          </button>
         </div>
       </div>
     `;
@@ -154,38 +158,39 @@ export class SharedRoomCard extends LitElement {
     sharedStyles,
     css`
       .shared-room-card {
-        align-items: center;
+        align-items: flex-start;
         min-width: 600px;
         /* background: #40638f; */
         /* background: #668fc2; */
         /* background: #102a4d; */
-        background: #ced5fa;
-        padding: 15px 23px;
+        background: #b2b9e0;
+        background: linear-gradient(#b2b9e0, #9ba3d0);
+        /* background: #ced5fa; */
+        padding: 20px 20px;
         border-radius: 25px;
         color: #071b31;
         font-size: 20px;
-        box-shadow: 1px 1px 2px 1px #000000;
+        box-shadow: 1px 1px 8px 2px #020b16b8;
       }
 
       .enter-room-btn {
-        background: #102a4d;
+        background: linear-gradient(#102a4d, #071931);
         border-radius: 10px;
         color: #fff0f0;
         border: none;
         padding: 5px 10px;
-        font-family: 'Pacifico', sans-serif;
+        box-shadow: 0px 0px 2px 0px #03162f;
+        font-weight: 600;
         font-size: 20px;
         cursor: pointer;
       }
 
       .enter-room-btn:hover {
-        background: linear-gradient(#102a4d, #3c466b);
-        box-shadow: 0 0 1px 1px #102a4d;
+        background: linear-gradient(#243e61, #0c203a);
       }
 
       .enter-room-btn:focus {
-        background: linear-gradient(#102a4d, #3c466b);
-        box-shadow: 0 0 1px 1px #102a4d;
+        background: linear-gradient(#243e61, #0c203a);
       }
 
       .secret-words {
