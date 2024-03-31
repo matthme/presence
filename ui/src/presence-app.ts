@@ -115,13 +115,13 @@ export class PresenceApp extends LitElement {
   }[] = [];
 
   @state()
-  _pingInterval: number | undefined;
+  _clearActiveParticipantsInterval: number | undefined;
 
   @state()
   _unsubscribe: (() => void) | undefined;
 
   disconnectedCallback(): void {
-    if (this._pingInterval) window.clearInterval(this._pingInterval);
+    if (this._clearActiveParticipantsInterval) window.clearInterval(this._clearActiveParticipantsInterval);
     if (this._unsubscribe) this._unsubscribe();
   }
 
@@ -170,8 +170,15 @@ export class PresenceApp extends LitElement {
       }, 3000 - timeElapsed);
     }
 
+    this._clearActiveParticipantsInterval = window.setInterval(() => {
+      const now = Date.now();
+      // If an agent hasn't sent a ping for more than 10 seconds, assume that they are no longer in the room
+      this._activeMainRoomParticipants = this._activeMainRoomParticipants.filter((info) => now - info.lastSeen < 10000);
+    }, 10000)
+
+
     this._unsubscribe = this._mainRoomStore.client.onSignal(async signal => {
-      if (signal.type === 'PongUi') {
+      if (signal.type === 'PingUi') {
         // This is the case if the other agent is in the main room
         const newOnlineAgentsList = this._activeMainRoomParticipants.filter(
           info => info.pubkey.toString() !== signal.from_agent.toString()
@@ -183,23 +190,6 @@ export class PresenceApp extends LitElement {
         this._activeMainRoomParticipants = newOnlineAgentsList;
       }
     });
-    await this.pingMainRoomAgents();
-    this._pingInterval = window.setInterval(async () => {
-      await this.pingMainRoomAgents();
-      // remove all agents from list that haven't responded in more than 16 seconds, i.e. they missed ~3 pings
-      const now = Date.now();
-      const newOnlineAgentsList = this._activeMainRoomParticipants.filter(
-        info => info.lastSeen + 11000 > now
-      );
-      this._activeMainRoomParticipants = newOnlineAgentsList;
-    }, 5000);
-  }
-
-  async pingMainRoomAgents() {
-    if (this._mainRoomStore) {
-      const allAgents = await this._mainRoomStore.client.getAllAgents();
-      await this._mainRoomStore?.client.pingFrontend(allAgents);
-    }
   }
 
   notifyError(msg: string) {
@@ -289,6 +279,7 @@ export class PresenceApp extends LitElement {
     // register it in the main room
     const descendentRoom = {
       network_seed_appendix: uuid,
+      dna_hash: clonedCell.cell_id[0],
       name: roomNameInput.value,
       icon_src: undefined,
       meta_data: undefined,

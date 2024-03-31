@@ -1231,6 +1231,7 @@ export class RoomView extends LitElement {
       await this.pingAgents();
     }, 2000);
     this._leaveAudio.volume = 0.5;
+    this._joinAudio.volume = 0.8;
     this._roomInfo = await this.roomStore.client.getRoomInfo();
   }
 

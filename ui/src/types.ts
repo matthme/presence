@@ -7,6 +7,7 @@ import {
   CreateLink,
   DeleteLink,
   ActionHash,
+  DnaHash,
 } from '@holochain/client';
 import { WeClient } from '@lightningrodlabs/we-applet';
 import { createContext } from '@lit/context';
@@ -25,6 +26,7 @@ export type Attachment = {
 
 export type DescendentRoom = {
   network_seed_appendix: string,
+  dna_hash: DnaHash,
   name: string;
   icon_src: string | undefined;
   meta_data: string | undefined;

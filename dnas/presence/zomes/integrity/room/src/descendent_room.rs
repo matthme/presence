@@ -4,6 +4,7 @@ use hdi::prelude::*;
 #[derive(Clone, PartialEq)]
 pub struct DescendentRoom {
     pub network_seed_appendix: String,
+    pub dna_hash: DnaHash,
     pub name: String,
     pub icon_src: Option<String>,
     pub meta_data: Option<String>,

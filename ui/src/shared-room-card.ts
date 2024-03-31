@@ -1,33 +1,23 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import {
-  AppAgentClient,
-  CellType,
-  ClonedCell,
-  ProvisionedCell,
-  encodeHashToBase64,
-} from '@holochain/client';
-import { mdiContentCopy, mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
-import { wrapPathInSvg } from '@holochain-open-dev/elements';
+import { AgentPubKey, AppAgentClient, ClonedCell } from '@holochain/client';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
 
-import './room-container';
 import { consume } from '@lit/context';
 import { sharedStyles } from './sharedStyles';
 import { clientContext } from './contexts';
 import { RoomClient } from './room-client';
-import { DescendentRoom, RoomInfo } from './types';
+import { RoomInfo } from './types';
 import { getCellTypes, groupRoomNetworkSeed } from './utils';
 import { GroupRoomInfo } from './presence-app';
 
-enum PageView {
-  Loading,
-  Home,
-  Room,
-}
+import './room-container';
+import './list-online-agents';
+import { localized, msg } from '@lit/localize';
 
+@localized()
 @customElement('shared-room-card')
 export class SharedRoomCard extends LitElement {
   @consume({ context: clientContext })
@@ -45,6 +35,18 @@ export class SharedRoomCard extends LitElement {
 
   @state()
   _myCell: ClonedCell | undefined;
+
+  @state()
+  _activeRoomParticipants: {
+    pubkey: AgentPubKey;
+    lastSeen: number;
+  }[] = [];
+
+  @state()
+  _clearActiveParticipantsInterval: number | undefined;
+
+  @state()
+  _unsubscribe: (() => void) | undefined;
 
   @state()
   _networkSeed: string | undefined;
@@ -71,24 +73,64 @@ export class SharedRoomCard extends LitElement {
       if (roomInfo) {
         this._roomInfo = roomInfo;
       }
+      // If RoomInfo has changed, unsubscribe from the signals of the previous room
+      if (this._unsubscribe) this._unsubscribe();
+      // Set the list of active room participants to zero and remove the event listener
+      this._activeRoomParticipants = [];
+      if (this._clearActiveParticipantsInterval)
+        window.clearInterval(this._clearActiveParticipantsInterval);
+      this._clearActiveParticipantsInterval = window.setInterval(() => {
+        const now = Date.now();
+        // If an agent hasn't sent a ping for more than 10 seconds, assume that they are no longer in the room
+        this._activeRoomParticipants = this._activeRoomParticipants.filter(
+          info => now - info.lastSeen < 10000
+        );
+      }, 10000);
+
+      // Listen to pings from agents
+      this._unsubscribe = roomClient.onSignal(async signal => {
+        if (signal.type === 'PingUi') {
+          console.log('Gog pingUI from room ', roomClient.roleName);
+          // This is the case if the other agent is in the main room
+          const newOnlineAgentsList = this._activeRoomParticipants.filter(
+            info => info.pubkey.toString() !== signal.from_agent.toString()
+          );
+          newOnlineAgentsList.push({
+            pubkey: signal.from_agent,
+            lastSeen: Date.now(),
+          });
+          this._activeRoomParticipants = newOnlineAgentsList;
+          console.log(
+            'this._activeRoomParticipants',
+            this._activeRoomParticipants
+          );
+        }
+      });
     } else {
       this._roomInfo = {
         name: this.groupRoomInfo.room.name,
         icon_src: this.groupRoomInfo.room.icon_src,
         meta_data: this.groupRoomInfo.room.meta_data,
       };
+      // TODO if cell is not installed yet, what to show in UI? Online active room participants
+      // cannot be displayed in this case
     }
   }
 
   async firstUpdated() {
     await this.updateRoomInfo();
   }
+
   async willUpdate(
     changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
   ) {
     if (changedProperties.has('groupRoomInfo')) {
       await this.updateRoomInfo();
     }
+  }
+
+  disconnectedCallback(): void {
+    if (this._unsubscribe) this._unsubscribe();
   }
 
   async handleOpenRoom() {
@@ -121,15 +163,36 @@ export class SharedRoomCard extends LitElement {
     );
   }
 
+  renderActiveParticipants() {
+    if (!this._myCell) {
+      return html`<span
+      style="font-size: 18px; opacity: 0.8;"
+        >${msg(
+          'Join this room at least once to be able to see participants'
+        )}</span
+      >`;
+    }
+    if (this._activeRoomParticipants.length === 0) {
+      return html`<span>${msg('room is empty')}</span>`;
+    }
+    return html`
+      <list-online-agents
+        .avatarSize=${34}
+        .agents=${this._activeRoomParticipants.map(info => info.pubkey)}
+      ></list-online-agents>
+    `;
+  }
+
   render() {
     return html`
       <div
-        class="column shared-room-card"
+        class="column shared-room-card secondary-font"
         style="align-items: flex-start; flex: 1;"
       >
-        <div class="row secondary-font" style="align-items: flex-start; flex: 1; width: 100%;">
+        <div class="row" style="align-items: flex-start; flex: 1; width: 100%;">
           <div
-            style="margin-bottom: 15px; font-size: 26px; font-weight: bold;${this._roomInfo?.name
+            style="margin-bottom: 15px; font-size: 26px; font-weight: bold;${this
+              ._roomInfo?.name
               ? ''
               : 'opacity: 0.6'}"
           >
@@ -149,6 +212,9 @@ export class SharedRoomCard extends LitElement {
               <span> Enter</span>
             </div>
           </button>
+        </div>
+        <div class="row" style="flex: 1; width: calc(100% - 4px); justify-content: flex-end;">
+          ${this.renderActiveParticipants()}
         </div>
       </div>
     `;

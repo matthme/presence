@@ -1,9 +1,9 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { AgentPubKey } from '@holochain/client';
+import { AgentPubKey, encodeHashToBase64 } from '@holochain/client';
 import { consume } from '@lit/context';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
-import { localized, msg } from '@lit/localize';
+import { localized } from '@lit/localize';
 
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
 
@@ -45,7 +45,7 @@ export class ListOnlineAgents extends LitElement {
   private _onlineAgents = new StoreSubscriber(
     this,
     () => this.store.agentsProfiles(this.agents),
-    () => [this.store]
+    () => [this.store, this.agents]
   );
 
   initials(nickname: string): string {
