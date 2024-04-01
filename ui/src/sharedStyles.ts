@@ -1,6 +1,18 @@
 import { css } from 'lit';
 
 export const sharedStyles = css`
+  .secondary-font {
+    font-family: 'Baloo 2 Variable', sans-serif;
+  }
+
+  .primary-font {
+    font-family: 'Pacifico', sans-serif;
+  }
+
+  .tertiary-font {
+    font-family: 'Ubuntu', sans-serif;
+  }
+
   .column {
     display: flex;
     flex-direction: column;

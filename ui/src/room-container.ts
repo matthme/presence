@@ -12,40 +12,50 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import './room-view';
 
-import { UnzoomStore } from './unzoom-store';
-import { clientContext, unzoomStoreContext } from './contexts';
-import { UnzoomClient } from './unzoom-client';
+import { RoomStore } from './room-store';
+import { clientContext, roomStoreContext } from './contexts';
+import { RoomClient } from './room-client';
 import { sharedStyles } from './sharedStyles';
+import { getCellTypes } from './utils';
 
 
 @localized()
 @customElement('room-container')
 export class RoomContainer extends LitElement {
 
-  @provide({ context: unzoomStoreContext })
+  @provide({ context: roomStoreContext })
   @property({ type: Object })
-  unzoomStore!: UnzoomStore;
+  roomStore!: RoomStore;
 
   @consume({ context: clientContext })
   @state()
   client!: AppAgentClient;
 
+  @state()
   @property()
   roleName!: RoleName;
 
-
   @state()
-  pingInterval: number | undefined;
+  _private = false;
 
   async firstUpdated() {
-    this.unzoomStore = new UnzoomStore(
-      new UnzoomClient(this.client, this.roleName, 'unzoom')
+    this.roomStore = new RoomStore(
+      new RoomClient(this.client, this.roleName, 'room')
     );
+    const appInfo = await this.client.appInfo();
+    if (!appInfo) throw new Error('AppInfo is null');
+
+    const cellTypes = getCellTypes(appInfo);
+    const myCell = cellTypes.cloned.find((cell) => cell.clone_id === this.roleName);
+    if (myCell && myCell.dna_modifiers.network_seed.startsWith("privateRoom#")) {
+      this._private = true;
+    }
+
   }
 
   render() {
     return html`
-      <room-view></room-view>
+      <room-view ?private=${this._private}></room-view>
     `;
   }
 
@@ -54,21 +64,4 @@ export class RoomContainer extends LitElement {
 ];
 }
 
-function numToLayout(num: number) {
-  if (num === 1) {
-    return 'single';
-  }
-  if (num <= 2) {
-    return "double";
-  }
-  if (num <= 4) {
-    return 'quartett';
-  }
-  if (num <= 6) {
-    return 'sextett';
-  }
-  if (num <= 8) {
-    return 'octett';
-  }
-  return 'unlimited';
-}
+

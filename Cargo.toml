@@ -8,13 +8,12 @@ opt-level = "z"
 members = ["dnas/*/zomes/coordinator/*", "dnas/*/zomes/integrity/*"]
 
 [workspace.dependencies]
-hdi = "0.3.4"
-hdk = "0.2.4"
-holochain_integrity_types = "0.2.4"
+hdi = { version = "0.4.0-beta-dev.31" }
+hdk = { version = "0.3.0-beta-dev.35" }
 serde = "1"
 
-[workspace.dependencies.unzoom]
-path = "dnas/unzoom/zomes/coordinator/unzoom"
+[workspace.dependencies.room]
+path = "dnas/presence/zomes/coordinator/room"
 
-[workspace.dependencies.unzoom_integrity]
-path = "dnas/unzoom/zomes/integrity/unzoom"
+[workspace.dependencies.room_integrity]
+path = "dnas/presence/zomes/integrity/room"

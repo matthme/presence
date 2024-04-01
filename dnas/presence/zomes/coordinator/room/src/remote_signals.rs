@@ -63,7 +63,7 @@ pub fn ping(agents_pub_keys: Vec<AgentPubKey>) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, agents_pub_keys)
+    send_remote_signal(encoded_signal, agents_pub_keys)
 }
 
 fn pong(from_agent: AgentPubKey) -> ExternResult<()> {
@@ -74,7 +74,7 @@ fn pong(from_agent: AgentPubKey) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, vec![from_agent])
+    send_remote_signal(encoded_signal, vec![from_agent])
 }
 
 /// Send a remote signal to the given users to check whether they are online AND their UI is running
@@ -88,7 +88,7 @@ pub fn ping_ui(agents_pub_keys: Vec<AgentPubKey>) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, agents_pub_keys)
+    send_remote_signal(encoded_signal, agents_pub_keys)
 }
 
 /// Respond with a pong to a PongUi signal. Needs to be actively called by the UI.
@@ -101,7 +101,7 @@ pub fn pong_ui(agent_pub_key: AgentPubKey) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, vec![agent_pub_key])
+    send_remote_signal(encoded_signal, vec![agent_pub_key])
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -122,7 +122,7 @@ pub fn send_init_request(input: InitRequestInput) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, vec![input.to_agent])
+    send_remote_signal(encoded_signal, vec![input.to_agent])
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -143,7 +143,7 @@ pub fn send_init_accept(input: InitAcceptInput) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, vec![input.to_agent])
+    send_remote_signal(encoded_signal, vec![input.to_agent])
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -164,5 +164,5 @@ pub fn send_sdp_data(input: SdpDataInput) -> ExternResult<()> {
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    remote_signal(encoded_signal, vec![input.to_agent])
+    send_remote_signal(encoded_signal, vec![input.to_agent])
 }
