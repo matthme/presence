@@ -471,7 +471,7 @@ export class PresenceApp extends LitElement {
           class="column center-content"
           style="color: #c8ddf9; height: 100vh;"
         >
-          <div class="entry-logo">presence.</div>
+          <div class="entry-logo">presence</div>
           <!-- <div>...and see the bigger picture</div> -->
           <div style="position: absolute; bottom: 20px;">loading...</div>
         </div>`;
@@ -678,11 +678,11 @@ export class PresenceApp extends LitElement {
       }
 
       .enter-main-room-btn:hover {
-        background: linear-gradient(#2c477f, #0c203a);
+        background: linear-gradient(#293c7f, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }
 
-      .enter-main-room-btn:focus {
+      .enter-main-room-btn:focus-visible {
         background: linear-gradient(#2c477f, #0c203a);
         /* box-shadow: 0 0 1px 1px #102a4d; */
       }

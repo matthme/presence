@@ -1388,9 +1388,7 @@ export class RoomView extends LitElement {
           );
 
         return html`
-          <div
-            class="column attachments-list"
-          >
+          <div class="column attachments-list">
             ${allDeduplicatedAttachments
               .sort(
                 (entryRecord_a, entryRecord_b) =>
@@ -1440,7 +1438,10 @@ export class RoomView extends LitElement {
             ${msg('close X')}
           </div>
         </div>
-        <div class="column" style="padding: 0 20px; align-items: flex-start; position: relative; height: 100%;">
+        <div
+          class="column"
+          style="padding: 0 20px; align-items: flex-start; position: relative; height: 100%;"
+        >
           <div
             tabindex="0"
             class="add-attachment-btn"
@@ -1969,7 +1970,7 @@ export class RoomView extends LitElement {
         background: #fd5959;
       }
 
-      .stop-share:focus {
+      .stop-share:focus-visible {
         background: #fd5959;
       }
 
@@ -2022,18 +2023,21 @@ export class RoomView extends LitElement {
         position: absolute;
         bottom: 5px;
         left: 5px;
-        color: #facece;
+        /* color: #facece; */
+        color: #ffe100;
         height: 40px;
         width: 40px;
         cursor: pointer;
       }
 
       .maximize-icon:hover {
-        color: white;
+        color: #ffe100;
+        transform: scale(1.2);
       }
 
-      .maximize-icon:focus {
-        color: white;
+      .maximize-icon:focus-visible {
+        color: #ffe100;
+        transform: scale(1.2);
       }
 
       .hidden {

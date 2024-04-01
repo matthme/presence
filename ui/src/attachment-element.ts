@@ -157,7 +157,7 @@ export class AttachmentElement extends LitElement {
         box-shadow: 0 0 2px 1px #081c366d
       }
 
-      .btn:focus {
+      .btn:focus-visible {
         outline: 2px solid white;
       }
 
@@ -171,7 +171,7 @@ export class AttachmentElement extends LitElement {
         background: #eaecfb;
       }
 
-      .open-area:focus {
+      .open-area:focus-visible {
         background: #eaecfb;
       }
 
@@ -206,7 +206,7 @@ export class AttachmentElement extends LitElement {
         color: #4d0202;
       }
 
-      .delete-btn:focus {
+      .delete-btn:focus-visible {
         background: #d76565;
         color: #4d0202;
       }

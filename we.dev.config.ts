@@ -33,8 +33,8 @@ export default defineConfig({
       ],
       applets: [
         {
-          name: "presence.",
-          instanceName: "presence.",
+          name: "presence",
+          instanceName: "presence",
           registeringAgent: 1,
           joiningAgents: [2],
         },
@@ -49,7 +49,7 @@ export default defineConfig({
   ],
   applets: [
     {
-      name: "presence.",
+      name: "presence",
       subtitle: "video calls",
       description:
         "Be present.",
