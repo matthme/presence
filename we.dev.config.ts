@@ -39,8 +39,8 @@ export default defineConfig({
           joiningAgents: [2],
         },
         {
-          name: 'KanDo',
-          instanceName: 'KanDo',
+          name: 'ZipZap',
+          instanceName: 'ZipZap',
           registeringAgent: 1,
           joiningAgents: [2],
         },
@@ -74,6 +74,19 @@ export default defineConfig({
       source: {
         type: 'https',
         url: 'https://github.com/holochain-apps/kando/releases/download/v0.9.3/kando.webhapp',
+      },
+    },
+    {
+      name: 'ZipZap',
+      subtitle: 'Ephemeral direct messaging',
+      description: 'Ephemeral direct messaging',
+      icon: {
+        type: 'https',
+        url: 'https://lightningrodlabs.org/projects/notebooks.png',
+      },
+      source: {
+        type: 'https',
+        url: 'https://github.com/lightningrodlabs/zipzap/releases/download/v0.1.3/zipzap.webhapp',
       },
     },
   ],
