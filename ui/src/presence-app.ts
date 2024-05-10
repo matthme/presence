@@ -489,7 +489,7 @@ export class PresenceApp extends LitElement {
           >
             <span
               style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;"
-              >v0.5.0</span
+              >v0.5.2</span
             >
             <div class="column top-panel">
               <div style="position: absolute; top: 0; right: 20px;">
