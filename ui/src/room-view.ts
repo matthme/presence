@@ -1230,8 +1230,8 @@ export class RoomView extends LitElement {
     this.pingInterval = window.setInterval(async () => {
       await this.pingAgents();
     }, 2000);
-    this._leaveAudio.volume = 0.5;
-    this._joinAudio.volume = 0.8;
+    this._leaveAudio.volume = 0.25;
+    this._joinAudio.volume = 0.5;
     this._roomInfo = await this.roomStore.client.getRoomInfo();
   }
 
