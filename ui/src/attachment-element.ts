@@ -14,12 +14,12 @@ import {
   weaveUrlToLocation,
 } from '@lightningrodlabs/we-applet';
 import { EntryRecord } from '@holochain-open-dev/utils';
+import { mdiTrashCan } from '@mdi/js';
 
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
 import { Attachment, weClientContext } from './types';
-import { mdiTrashCan } from '@mdi/js';
-import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
 @localized()
 @customElement('attachment-element')

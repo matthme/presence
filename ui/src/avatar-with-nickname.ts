@@ -3,7 +3,7 @@ import {
   hashProperty,
   sharedStyles,
 } from "@holochain-open-dev/elements";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, PropertyValueMap } from "lit";
 import { property, customElement } from "lit/decorators.js";
 import { AgentPubKey, encodeHashToBase64 } from "@holochain/client";
 import { localized, msg } from "@lit/localize";
@@ -52,6 +52,14 @@ export class AvatarWithNickname extends LitElement {
     () => this.store.profiles.get(this.agentPubKey),
     () => [this.agentPubKey, this.store]
   );
+
+  async willUpdate(
+    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ) {
+    if (changedProperties.has('agentPubKey')) {
+      this.requestUpdate();
+    }
+  }
 
   renderIdenticon() {
     return html`
