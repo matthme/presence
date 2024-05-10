@@ -18,6 +18,8 @@ import { EntryRecord } from '@holochain-open-dev/utils';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
 import { Attachment, weClientContext } from './types';
+import { mdiTrashCan } from '@mdi/js';
+import { wrapPathInSvg } from '@holochain-open-dev/elements';
 
 @localized()
 @customElement('attachment-element')
@@ -57,10 +59,12 @@ export class AttachmentElement extends LitElement {
   async firstUpdated() {
     await this.updateAssetInfo();
   }
-  protected async willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
-      if (changedProperties.has('entryRecord')) {
-        await this.updateAssetInfo();
-      }
+  protected async willUpdate(
+    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ) {
+    if (changedProperties.has('entryRecord')) {
+      await this.updateAssetInfo();
+    }
   }
 
   async openAsset() {
@@ -89,7 +93,7 @@ export class AttachmentElement extends LitElement {
           }
         }}
       >
-        <div class="row" style="align-items: center;">
+        <div class="row" style="align-items: stretch;">
           ${this._assetInfo
             ? html`
                 <div
@@ -121,11 +125,10 @@ export class AttachmentElement extends LitElement {
                 >
                   <div
                     tabindex="0"
-                    class="row center-content delete-btn tertiary-font"
+                    class="column center-content delete-btn tertiary-font"
                     @click=${(e: any) => {
                       this.removeAttachment();
                       e.stopPropagation();
-
                     }}
                     @keypress=${(e: KeyboardEvent) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -133,11 +136,16 @@ export class AttachmentElement extends LitElement {
                       }
                     }}
                   >
-                    X
+                    <sl-icon
+                      style="font-size: 23px;"
+                      .src=${wrapPathInSvg(mdiTrashCan)}
+                    ></sl-icon>
                   </div>
                 </sl-tooltip>
               `
-            : html`<div class="row center-content" style="margin: 0;">Asset not found.</div>`}
+            : html`<div class="row center-content" style="margin: 0;">
+                Asset not found.
+              </div>`}
         </div>
       </div>
     `;
@@ -150,11 +158,11 @@ export class AttachmentElement extends LitElement {
         /* all: unset; */
         font-size: 18px;
         border-radius: 20px;
-        height: 38px;
+        min-height: 38px;
         cursor: pointer;
         margin: 0;
         position: relative;
-        box-shadow: 0 0 2px 1px #081c366d
+        box-shadow: 0 0 2px 1px #081c366d;
       }
 
       .btn:focus-visible {
@@ -165,6 +173,8 @@ export class AttachmentElement extends LitElement {
         background: #c3c9eb;
         color: #081c36;
         border-radius: 20px 0 0 20px;
+        max-width: 280px;
+        overflow: hidden;
       }
 
       .open-area:hover {
@@ -196,7 +206,7 @@ export class AttachmentElement extends LitElement {
         font-weight: bold;
         color: #ffdada;
         border-radius: 0 20px 20px 0;
-        height: 38px;
+        min-height: 38px;
         width: 32px;
         padding-right: 2px;
       }

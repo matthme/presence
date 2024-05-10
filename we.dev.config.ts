@@ -44,6 +44,12 @@ export default defineConfig({
           registeringAgent: 1,
           joiningAgents: [2],
         },
+        {
+          name: 'KanDo',
+          instanceName: 'KanDo',
+          registeringAgent: 1,
+          joiningAgents: [2],
+        },
       ],
     },
   ],
