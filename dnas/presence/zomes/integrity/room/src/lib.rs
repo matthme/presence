@@ -68,53 +68,135 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             _ => Ok(ValidateCallbackResult::Valid),
         },
         FlatOp::RegisterUpdate(update_entry) => match update_entry {
-            OpUpdate::Entry {
-                original_action,
-                original_app_entry,
-                app_entry,
-                action,
-            } => match (app_entry, original_app_entry) {
-                (
-                    EntryTypes::Attachment(attachment),
-                    EntryTypes::Attachment(original_attachment),
-                ) => validate_update_attachment(
-                    action,
-                    attachment,
+            OpUpdate::Entry { app_entry, action } => {
+                let original_action = must_get_action(action.clone().original_action_address)?
+                    .action()
+                    .to_owned();
+                let original_create_action = match EntryCreationAction::try_from(original_action) {
+                    Ok(action) => action,
+                    Err(e) => {
+                        return Ok(ValidateCallbackResult::Invalid(format!(
+                            "Expected to get EntryCreationAction from Action: {e:?}"
+                        )));
+                    }
+                };
+                match app_entry {
+                    EntryTypes::Attachment(attachment) => {
+                        let original_app_entry =
+                            must_get_valid_record(action.clone().original_action_address)?;
+                        let original_attachment = match Attachment::try_from(original_app_entry) {
+                            Ok(entry) => entry,
+                            Err(e) => {
+                                return Ok(ValidateCallbackResult::Invalid(format!(
+                                    "Expected to get Attachment from Record: {e:?}"
+                                )));
+                            }
+                        };
+                        validate_update_attachment(
+                            action,
+                            attachment,
+                            original_create_action,
+                            original_attachment,
+                        )
+                    }
+                    EntryTypes::RoomInfo(room_info) => {
+                        let original_app_entry =
+                            must_get_valid_record(action.clone().original_action_address)?;
+                        let original_room_info = match RoomInfo::try_from(original_app_entry) {
+                            Ok(entry) => entry,
+                            Err(e) => {
+                                return Ok(ValidateCallbackResult::Invalid(format!(
+                                    "Expected to get RoomInfo from Record: {e:?}"
+                                )));
+                            }
+                        };
+                        validate_update_room_info(
+                            action,
+                            room_info,
+                            original_create_action,
+                            original_room_info,
+                        )
+                    }
+                    EntryTypes::DescendentRoom(descendent_room) => {
+                        let original_app_entry =
+                            must_get_valid_record(action.clone().original_action_address)?;
+                        let original_descendent_room =
+                            match DescendentRoom::try_from(original_app_entry) {
+                                Ok(entry) => entry,
+                                Err(e) => {
+                                    return Ok(ValidateCallbackResult::Invalid(format!(
+                                        "Expected to get DescendentRoom from Record: {e:?}"
+                                    )));
+                                }
+                            };
+                        validate_update_descendent_room(
+                            action,
+                            descendent_room,
+                            original_create_action,
+                            original_descendent_room,
+                        )
+                    }
+                }
+            }
+            _ => Ok(ValidateCallbackResult::Valid),
+        },
+        FlatOp::RegisterDelete(delete_entry) => {
+            let original_action_hash = delete_entry.clone().action.deletes_address;
+            let original_record = must_get_valid_record(original_action_hash)?;
+            let original_record_action = original_record.action().clone();
+            let original_action = match EntryCreationAction::try_from(original_record_action) {
+                Ok(action) => action,
+                Err(e) => {
+                    return Ok(ValidateCallbackResult::Invalid(format!(
+                        "Expected to get EntryCreationAction from Action: {e:?}"
+                    )));
+                }
+            };
+            let app_entry_type = match original_action.entry_type() {
+                EntryType::App(app_entry_type) => app_entry_type,
+                _ => {
+                    return Ok(ValidateCallbackResult::Valid);
+                }
+            };
+            let entry = match original_record.entry().as_option() {
+                Some(entry) => entry,
+                None => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Original record for a delete must contain an entry".to_string(),
+                    ));
+                }
+            };
+            let original_app_entry = match EntryTypes::deserialize_from_type(
+                app_entry_type.zome_index,
+                app_entry_type.entry_index,
+                entry,
+            )? {
+                Some(app_entry) => app_entry,
+                None => {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "Original app entry must be one of the defined entry types for this zome"
+                            .to_string(),
+                    ));
+                }
+            };
+            match original_app_entry {
+                EntryTypes::RoomInfo(room_info) => validate_delete_room_info(
+                    delete_entry.clone().action,
                     original_action,
-                    original_attachment,
+                    room_info,
                 ),
-                (EntryTypes::RoomInfo(room_info), EntryTypes::RoomInfo(original_room_info)) => {
-                    validate_update_room_info(
-                        action,
-                        room_info,
-                        original_action,
-                        original_room_info,
-                    )
-                }
-                _ => Ok(ValidateCallbackResult::Invalid(
-                    "Original and updated entry types must be the same".to_string(),
-                )),
-            },
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
-        FlatOp::RegisterDelete(delete_entry) => match delete_entry {
-            OpDelete::Entry {
-                original_action,
-                original_app_entry,
-                action,
-            } => match original_app_entry {
-                EntryTypes::RoomInfo(room_info) => {
-                    validate_delete_room_info(action, original_action, room_info)
-                }
-                EntryTypes::Attachment(attachment) => {
-                    validate_delete_attachment(action, original_action, attachment)
-                }
-                EntryTypes::DescendentRoom(descendent_room) => {
-                    validate_delete_descendent_room(action, original_action, descendent_room)
-                }
-            },
-            _ => Ok(ValidateCallbackResult::Valid),
-        },
+                EntryTypes::Attachment(attachment) => validate_delete_attachment(
+                    delete_entry.clone().action,
+                    original_action,
+                    attachment,
+                ),
+                EntryTypes::DescendentRoom(descendent_room) => validate_delete_descendent_room(
+                    delete_entry.clone().action,
+                    original_action,
+                    descendent_room,
+                ),
+            }
+        }
         FlatOp::RegisterCreateLink {
             link_type,
             base_address,
