@@ -25,6 +25,7 @@ import {
 } from '@holochain/client';
 import { provide } from '@lit/context';
 import {
+  GroupPermissionType,
   GroupProfile,
   WeaveClient,
   initializeHotReload,
@@ -107,6 +108,9 @@ export class PresenceApp extends LitElement {
 
   @state()
   _provisionedCell: ProvisionedCell | undefined;
+
+  @state()
+  _myGroupPermission: GroupPermissionType | undefined;
 
   @state()
   _activeMainRoomParticipants: {
@@ -199,6 +203,18 @@ export class PresenceApp extends LitElement {
     }, 4000);
   }
 
+  async checkPermission(): Promise<void> {
+    let permissionType = this._myGroupPermission;
+    if (!permissionType) {
+      permissionType = await this._weaveClient.myGroupPermissionType();
+    }
+    if (permissionType.type !== "Steward") {
+      this.notifyError("Only group Stewards are allowed to create shared rooms.");
+      throw new Error("Only group Stewards are allowed to create shared rooms.");
+    }
+
+  }
+
   async updateRoomLists(): Promise<CellTypes> {
     // Get all personal rooms
     const appInfo = await this.client.appInfo();
@@ -247,7 +263,9 @@ export class PresenceApp extends LitElement {
     roomNameInput.value = '';
   }
 
+
   async createGroupRoom() {
+    await this.checkPermission();
     if (this._pageView !== PageView.Home) return;
     const roomNameInput = this.shadowRoot?.getElementById(
       'group-room-name-input'
