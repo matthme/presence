@@ -14,8 +14,8 @@ import '@fontsource/ubuntu/700.css';
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
-  AppAgentWebsocket,
-  AppAgentClient,
+  AppWebsocket,
+  AppClient,
   ClonedCell,
   RoleName,
   encodeHashToBase64,
@@ -26,7 +26,7 @@ import {
 import { provide } from '@lit/context';
 import {
   GroupProfile,
-  WeClient,
+  WeaveClient,
   initializeHotReload,
   isWeContext,
 } from '@lightningrodlabs/we-applet';
@@ -51,7 +51,7 @@ import './shared-room-card';
 import './list-online-agents';
 import { sharedStyles } from './sharedStyles';
 import { RoomClient } from './room-client';
-import { DescendentRoom, weClientContext } from './types';
+import { DescendentRoom, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import { CellTypes, getCellTypes, groupRoomNetworkSeed } from './utils';
 
@@ -71,11 +71,11 @@ export type GroupRoomInfo = {
 export class PresenceApp extends LitElement {
   @provide({ context: clientContext })
   @property({ type: Object })
-  client!: AppAgentClient;
+  client!: AppClient;
 
-  @provide({ context: weClientContext })
+  @provide({ context: weaveClientContext })
   @property({ type: Object })
-  _weClient!: WeClient;
+  _weaveClient!: WeaveClient;
 
   @provide({ context: profilesStoreContext })
   @property({ type: Object })
@@ -138,20 +138,20 @@ export class PresenceApp extends LitElement {
       }
     }
     if (isWeContext()) {
-      const weClient = await WeClient.connect();
-      this._weClient = weClient;
+      const weaveClient = await WeaveClient.connect();
+      this._weaveClient = weaveClient;
       if (
-        weClient.renderInfo.type !== 'applet-view' ||
-        weClient.renderInfo.view.type !== 'main'
+        weaveClient.renderInfo.type !== 'applet-view' ||
+        weaveClient.renderInfo.view.type !== 'main'
       )
         throw new Error('This Applet only implements the applet main view.');
-      this.client = weClient.renderInfo.appletClient;
+      this.client = weaveClient.renderInfo.appletClient;
       this._profilesStore = new ProfilesStore(
-        weClient.renderInfo.profilesClient
+        weaveClient.renderInfo.profilesClient
       );
     } else {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
-      this.client = await AppAgentWebsocket.connect('presence');
+      this.client = await AppWebsocket.connect();
     }
     this._mainRoomStore = new RoomStore(
       new RoomClient(this.client, 'presence', 'room')
@@ -584,7 +584,7 @@ export class PresenceApp extends LitElement {
           </div>
         `;
       case PageView.Room:
-        if (!this._weClient) return html`loading...`;
+        if (!this._weaveClient) return html`loading...`;
         return html`
           <room-container
             class="room-container"

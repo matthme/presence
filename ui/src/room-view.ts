@@ -28,13 +28,13 @@ import { consume } from '@lit/context';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
-import { WeClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
+import { WeaveClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
 import { EntryRecord } from '@holochain-open-dev/utils';
 
 import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { Attachment, RoomInfo, weClientContext } from './types';
+import { Attachment, RoomInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
 
@@ -100,9 +100,9 @@ export class RoomView extends LitElement {
   @state()
   roomStore!: RoomStore;
 
-  @consume({ context: weClientContext })
+  @consume({ context: weaveClientContext })
   @state()
-  _weClient!: WeClient;
+  _weaveClient!: WeaveClient;
 
   @property({ type: Boolean })
   private = false;
@@ -722,7 +722,7 @@ export class RoomView extends LitElement {
       });
     } else {
       try {
-        const screenSource = await this._weClient.userSelectScreen();
+        const screenSource = await this._weaveClient.userSelectScreen();
         this._screenShareStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -1242,7 +1242,7 @@ export class RoomView extends LitElement {
   }
 
   async addAttachment() {
-    const wal = await this._weClient.userSelectWal();
+    const wal = await this._weaveClient.userSelectWal();
     console.log('Got WAL: ', wal);
     if (wal) {
       const newAttachment = await this.roomStore.client.createAttachment({

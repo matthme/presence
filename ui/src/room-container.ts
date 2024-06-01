@@ -1,7 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
-  AppAgentClient,
+  AppClient,
   RoleName,
 } from '@holochain/client';
 import { localized } from '@lit/localize';
@@ -29,7 +29,7 @@ export class RoomContainer extends LitElement {
 
   @consume({ context: clientContext })
   @state()
-  client!: AppAgentClient;
+  client!: AppClient;
 
   @state()
   @property()

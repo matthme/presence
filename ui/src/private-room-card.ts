@@ -1,7 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
-  AppAgentClient,
+  AppClient,
   ClonedCell,
   encodeHashToBase64,
 } from '@holochain/client';
@@ -30,7 +30,7 @@ import { RoomInfo } from './types';
 export class PrivateRoomCard extends LitElement {
   @consume({ context: clientContext })
   @state()
-  client!: AppAgentClient;
+  client!: AppClient;
 
   @property()
   clonedCell!: ClonedCell;
@@ -101,7 +101,7 @@ export class PrivateRoomCard extends LitElement {
                     .src=${wrapPathInSvg(mdiContentCopy)}
                     @click=${() => {
                       navigator.clipboard.writeText(
-                        this.clonedCell.dna_modifiers.network_seed
+                        this.clonedCell.dna_modifiers.network_seed.replace('privateRoom#', '')
                       );
                     }}
                   ></sl-icon>

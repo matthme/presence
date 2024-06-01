@@ -1,6 +1,6 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { AgentPubKey, AppAgentClient, ClonedCell } from '@holochain/client';
+import { AgentPubKey, AppClient, ClonedCell } from '@holochain/client';
 import { localized, msg } from '@lit/localize';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
@@ -22,7 +22,7 @@ import './list-online-agents';
 export class SharedRoomCard extends LitElement {
   @consume({ context: clientContext })
   @state()
-  client!: AppAgentClient;
+  client!: AppClient;
 
   @property()
   groupRoomInfo!: GroupRoomInfo;

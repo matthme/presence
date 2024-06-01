@@ -10,7 +10,7 @@ import {
   AppletInfo,
   AssetLocationAndInfo,
   WAL,
-  WeClient,
+  WeaveClient,
   weaveUrlToLocation,
 } from '@lightningrodlabs/we-applet';
 import { EntryRecord } from '@holochain-open-dev/utils';
@@ -19,14 +19,14 @@ import { mdiTrashCan } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { Attachment, weClientContext } from './types';
+import { Attachment, weaveClientContext } from './types';
 
 @localized()
 @customElement('attachment-element')
 export class AttachmentElement extends LitElement {
-  @consume({ context: weClientContext })
+  @consume({ context: weaveClientContext })
   @state()
-  _weClient!: WeClient;
+  _weaveClient!: WeaveClient;
 
   @property()
   entryRecord!: EntryRecord<Attachment>;
@@ -49,10 +49,10 @@ export class AttachmentElement extends LitElement {
       this._error = 'Invalid URL';
       return;
     }
-    this._assetInfo = await this._weClient.assetInfo(weaveLocation.wal);
+    this._assetInfo = await this._weaveClient.assetInfo(weaveLocation.wal);
     this._wal = weaveLocation.wal;
     this._assetAppletInfo = this._assetInfo
-      ? await this._weClient.appletInfo(this._assetInfo.appletHash)
+      ? await this._weaveClient.appletInfo(this._assetInfo.appletHash)
       : undefined;
   }
 
@@ -68,7 +68,7 @@ export class AttachmentElement extends LitElement {
   }
 
   async openAsset() {
-    await this._weClient.openWal(this._wal!);
+    await this._weaveClient.openWal(this._wal!);
   }
 
   removeAttachment() {
