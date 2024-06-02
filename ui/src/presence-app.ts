@@ -133,6 +133,9 @@ export class PresenceApp extends LitElement {
   _refreshing = false;
 
   @state()
+  _creatingRoom = false;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   disconnectedCallback(): void {
@@ -254,88 +257,102 @@ export class PresenceApp extends LitElement {
 
   async createPrivateRoom() {
     if (this._pageView !== PageView.Home) return;
-    const roomNameInput = this.shadowRoot?.getElementById(
-      'private-room-name-input'
-    ) as HTMLInputElement | null | undefined;
-    if (!roomNameInput)
-      throw new Error('Room name input field not found in DOM.');
-    if (roomNameInput.value === '' || !roomNameInput.value) {
-      this.notifyError('Room name must not be empty.');
-      return;
+    this._creatingRoom = true;
+    try {
+      const roomNameInput = this.shadowRoot?.getElementById(
+        'private-room-name-input'
+      ) as HTMLInputElement | null | undefined;
+      if (!roomNameInput)
+        throw new Error('Room name input field not found in DOM.');
+      if (roomNameInput.value === '' || !roomNameInput.value) {
+        this.notifyError('Room name must not be empty.');
+        return;
+      }
+      const randomWords = generateSillyPassword({ wordCount: 5 });
+      const clonedCell = await this.client.createCloneCell({
+        role_name: 'presence',
+        modifiers: {
+          network_seed: `privateRoom#${randomWords}`,
+        },
+      });
+      const roomClient = new RoomClient(this.client, clonedCell.clone_id);
+      await roomClient.setRoomInfo({
+        name: roomNameInput.value,
+        icon_src: undefined,
+        meta_data: undefined,
+      });
+      await this.updateRoomLists();
+      roomNameInput.value = '';
+      this._creatingRoom = false;
+    } catch (e) {
+      this._creatingRoom = false;
+      throw(e);
     }
-    const randomWords = generateSillyPassword({ wordCount: 5 });
-    const clonedCell = await this.client.createCloneCell({
-      role_name: 'presence',
-      modifiers: {
-        network_seed: `privateRoom#${randomWords}`,
-      },
-    });
-    const roomClient = new RoomClient(this.client, clonedCell.clone_id);
-    await roomClient.setRoomInfo({
-      name: roomNameInput.value,
-      icon_src: undefined,
-      meta_data: undefined,
-    });
-    await this.updateRoomLists();
-    roomNameInput.value = '';
   }
 
   async createGroupRoom() {
-    await this.checkPermission();
-    if (this._pageView !== PageView.Home) return;
-    const roomNameInput = this.shadowRoot?.getElementById(
-      'group-room-name-input'
-    ) as HTMLInputElement | null | undefined;
-    if (!roomNameInput)
+    this._creatingRoom = true;
+    try {
+      await this.checkPermission();
+      if (this._pageView !== PageView.Home) return;
+      const roomNameInput = this.shadowRoot?.getElementById(
+        'group-room-name-input'
+      ) as HTMLInputElement | null | undefined;
       if (!roomNameInput)
-        throw new Error('Group room name input field not found in DOM.');
-    if (roomNameInput.value === '') {
-      this.notifyError('Error: Room name input field must not be empty.');
-      throw new Error('Room name must not be empty.');
+        if (!roomNameInput)
+          throw new Error('Group room name input field not found in DOM.');
+      if (roomNameInput.value === '') {
+        this.notifyError('Error: Room name input field must not be empty.');
+        throw new Error('Room name must not be empty.');
+      }
+
+      if (!this._provisionedCell)
+        throw new Error('Provisioned cell not defined.');
+      if (!this._mainRoomStore)
+        throw new Error('Main Room Store is not defined.');
+      // network seed is composed of
+      const uuid = uuidv4();
+      const appletNetworkSeed = this._provisionedCell.dna_modifiers.network_seed;
+      const networkSeed = groupRoomNetworkSeed(appletNetworkSeed, uuid);
+      const clonedCell = await this.client.createCloneCell({
+        role_name: 'presence',
+        modifiers: {
+          network_seed: networkSeed,
+        },
+        name: roomNameInput.value,
+      });
+
+      // register it in the main room
+      const descendentRoom = {
+        network_seed_appendix: uuid,
+        dna_hash: clonedCell.cell_id[0],
+        name: roomNameInput.value,
+        icon_src: undefined,
+        meta_data: undefined,
+      };
+      const linkActionHash =
+        await this._mainRoomStore.client.createDescendentRoom(descendentRoom);
+
+      const roomClient = new RoomClient(this.client, clonedCell.clone_id);
+      await roomClient.setRoomInfo({
+        name: roomNameInput.value,
+        icon_src: undefined,
+        meta_data: undefined,
+      });
+
+      roomNameInput.value = '';
+
+      const groupRoomInfo: GroupRoomInfo = {
+        room: descendentRoom,
+        creator: clonedCell.cell_id[1],
+        linkActionHash,
+      };
+      this._groupRooms = [...this._groupRooms, groupRoomInfo];
+      this._creatingRoom = false;
+    } catch (e) {
+      this._creatingRoom = false;
+      throw(e);
     }
-
-    if (!this._provisionedCell)
-      throw new Error('Provisioned cell not defined.');
-    if (!this._mainRoomStore)
-      throw new Error('Main Room Store is not defined.');
-    // network seed is composed of
-    const uuid = uuidv4();
-    const appletNetworkSeed = this._provisionedCell.dna_modifiers.network_seed;
-    const networkSeed = groupRoomNetworkSeed(appletNetworkSeed, uuid);
-    const clonedCell = await this.client.createCloneCell({
-      role_name: 'presence',
-      modifiers: {
-        network_seed: networkSeed,
-      },
-      name: roomNameInput.value,
-    });
-
-    // register it in the main room
-    const descendentRoom = {
-      network_seed_appendix: uuid,
-      dna_hash: clonedCell.cell_id[0],
-      name: roomNameInput.value,
-      icon_src: undefined,
-      meta_data: undefined,
-    };
-    const linkActionHash =
-      await this._mainRoomStore.client.createDescendentRoom(descendentRoom);
-
-    const roomClient = new RoomClient(this.client, clonedCell.clone_id);
-    await roomClient.setRoomInfo({
-      name: roomNameInput.value,
-      icon_src: undefined,
-      meta_data: undefined,
-    });
-
-    roomNameInput.value = '';
-
-    const groupRoomInfo: GroupRoomInfo = {
-      room: descendentRoom,
-      creator: clonedCell.cell_id[1],
-      linkActionHash,
-    };
-    this._groupRooms = [...this._groupRooms, groupRoomInfo];
   }
 
   async joinRoom() {
@@ -382,9 +399,10 @@ export class PresenceApp extends LitElement {
             <button
               class="btn"
               style="margin-left: 10px;"
+              ?disabled=${this._creatingRoom}
               @click=${async () => this.createPrivateRoom()}
             >
-              ${msg('Create')}
+            ${this._creatingRoom ? msg('...') : msg('Create')}
             </button>
           </div>
         </div>
@@ -486,9 +504,10 @@ export class PresenceApp extends LitElement {
             <button
               class="btn"
               style="margin-left: 10px;"
+              ?disabled=${this._creatingRoom}
               @click=${async () => this.createGroupRoom()}
             >
-              ${msg('Create')}
+              ${this._creatingRoom ? msg('...') : msg('Create')}
             </button>
           </div>
         </div>
