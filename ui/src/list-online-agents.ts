@@ -60,7 +60,7 @@ export class ListOnlineAgents extends LitElement {
   ) {
     return html`
       <div class="row" style="align-items: center;">
-        ${Array.from(profiles.entries()).map(
+        ${Array.from(profiles.entries()).sort(([key_a, _maybeProfile_a], [key_b, _maybeProfile_b]) => encodeHashToBase64(key_a).localeCompare(encodeHashToBase64(key_b))).map(
           ([agent_pub_key, maybeProfile]) => {
             if (maybeProfile) {
               return html`

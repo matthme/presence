@@ -13,6 +13,7 @@ import '@fontsource/ubuntu/500.css';
 import '@fontsource/ubuntu/700.css';
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import {
   AppWebsocket,
   AppClient,
@@ -55,6 +56,8 @@ import { RoomClient } from './room-client';
 import { DescendentRoom, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import { CellTypes, getCellTypes, groupRoomNetworkSeed } from './utils';
+
+declare const __APP_VERSION__: string;
 
 enum PageView {
   Loading,
@@ -125,7 +128,8 @@ export class PresenceApp extends LitElement {
   _unsubscribe: (() => void) | undefined;
 
   disconnectedCallback(): void {
-    if (this._clearActiveParticipantsInterval) window.clearInterval(this._clearActiveParticipantsInterval);
+    if (this._clearActiveParticipantsInterval)
+      window.clearInterval(this._clearActiveParticipantsInterval);
     if (this._unsubscribe) this._unsubscribe();
   }
 
@@ -177,9 +181,11 @@ export class PresenceApp extends LitElement {
     this._clearActiveParticipantsInterval = window.setInterval(() => {
       const now = Date.now();
       // If an agent hasn't sent a ping for more than 10 seconds, assume that they are no longer in the room
-      this._activeMainRoomParticipants = this._activeMainRoomParticipants.filter((info) => now - info.lastSeen < 10000);
-    }, 10000)
-
+      this._activeMainRoomParticipants =
+        this._activeMainRoomParticipants.filter(
+          info => now - info.lastSeen < 10000
+        );
+    }, 10000);
 
     this._unsubscribe = this._mainRoomStore.client.onSignal(async signal => {
       if (signal.type === 'PingUi') {
@@ -208,11 +214,14 @@ export class PresenceApp extends LitElement {
     if (!permissionType) {
       permissionType = await this._weaveClient.myGroupPermissionType();
     }
-    if (permissionType.type !== "Steward") {
-      this.notifyError("Only group Stewards are allowed to create shared rooms.");
-      throw new Error("Only group Stewards are allowed to create shared rooms.");
+    if (permissionType.type !== 'Steward') {
+      this.notifyError(
+        'Only group Stewards are allowed to create shared rooms.'
+      );
+      throw new Error(
+        'Only group Stewards are allowed to create shared rooms.'
+      );
     }
-
   }
 
   async updateRoomLists(): Promise<CellTypes> {
@@ -242,8 +251,8 @@ export class PresenceApp extends LitElement {
     ) as HTMLInputElement | null | undefined;
     if (!roomNameInput)
       throw new Error('Room name input field not found in DOM.');
-    if (roomNameInput.value === "" || !roomNameInput.value) {
-      this.notifyError("Room name must not be empty.");
+    if (roomNameInput.value === '' || !roomNameInput.value) {
+      this.notifyError('Room name must not be empty.');
       return;
     }
     const randomWords = generateSillyPassword({ wordCount: 5 });
@@ -262,7 +271,6 @@ export class PresenceApp extends LitElement {
     await this.updateRoomLists();
     roomNameInput.value = '';
   }
-
 
   async createGroupRoom() {
     await this.checkPermission();
@@ -353,7 +361,9 @@ export class PresenceApp extends LitElement {
           class="column"
           style="margin: 0 10px; align-items: flex-start; color: #e1e5fc;"
         >
-          <div class="secondary-font" style="margin-left: 5px;">${msg('+ Create New Private Room')}</div>
+          <div class="secondary-font" style="margin-left: 5px;">
+            ${msg('+ Create New Private Room')}
+          </div>
           <div class="row" style="align-items: center;">
             <input
               id="private-room-name-input"
@@ -402,46 +412,46 @@ export class PresenceApp extends LitElement {
         class="column"
         style="margin-top: 40px; align-items: center; margin-bottom: 80px;"
       >
-        ${this._personalRooms
-          .sort((cell_a, cell_b) =>
+        ${repeat(
+          this._personalRooms.sort((cell_a, cell_b) =>
             encodeHashToBase64(cell_b.cell_id[0]).localeCompare(
               encodeHashToBase64(cell_a.cell_id[0])
             )
-          )
-          .map(
-            clonedCell => html`
-              <private-room-card
-                .clonedCell=${clonedCell}
-                @request-open-room=${(e: CustomEvent) => {
-                  this._selectedRoleName = e.detail.cloneId;
-                  this._pageView = PageView.Room;
-                }}
-                style="margin: 7px 0;"
-              ></private-room-card>
-            `
-          )}
+          ),
+          clonedCell => clonedCell.clone_id,
+          clonedCell => html`
+            <private-room-card
+              .clonedCell=${clonedCell}
+              @request-open-room=${(e: CustomEvent) => {
+                this._selectedRoleName = e.detail.cloneId;
+                this._pageView = PageView.Room;
+              }}
+              style="margin: 7px 0;"
+            ></private-room-card>
+          `
+        )}
       </div>
       <span style="display: flex; flex: 1;"></span>
     `;
   }
 
   renderSharedRoomCards(groupRooms: GroupRoomInfo[]) {
-    return groupRooms
-      .sort((info_a, info_b) =>
+    return repeat(
+      groupRooms.sort((info_a, info_b) =>
         info_a.room.name.localeCompare(info_b.room.name)
-      )
-      .map(
-        roomInfo => html`
-          <shared-room-card
-            .groupRoomInfo=${roomInfo}
-            @request-open-room=${(e: CustomEvent) => {
-              this._selectedRoleName = e.detail.cloneId;
-              this._pageView = PageView.Room;
-            }}
-            style="margin: 7px 0;"
-          ></shared-room-card>
-        `
-      );
+      ),
+      roomInfo => encodeHashToBase64(roomInfo.linkActionHash),
+      roomInfo => html`
+        <shared-room-card
+          .groupRoomInfo=${roomInfo}
+          @request-open-room=${(e: CustomEvent) => {
+            this._selectedRoleName = e.detail.cloneId;
+            this._pageView = PageView.Room;
+          }}
+          style="margin: 7px 0;"
+        ></shared-room-card>
+      `
+    );
   }
 
   renderGroupRooms() {
@@ -454,7 +464,9 @@ export class PresenceApp extends LitElement {
           class="column"
           style="margin: 0 10px; align-items: flex-start; color: #e1e5fc;"
         >
-          <div class="secondary-font" style="margin-left: 5px;">${msg('+ Create New Shared Room')}</div>
+          <div class="secondary-font" style="margin-left: 5px;">
+            ${msg('+ Create New Shared Room')}
+          </div>
           <div class="row" style="align-items: center;">
             <input
               id="group-room-name-input"
@@ -507,7 +519,7 @@ export class PresenceApp extends LitElement {
           >
             <span
               style="position: fixed; bottom: 0; left: 5px; color: #c8ddf9; font-size: 16px;"
-              >v0.5.2</span
+              >${__APP_VERSION__}</span
             >
             <div class="column top-panel">
               <div style="position: absolute; top: 0; right: 20px;">
@@ -533,8 +545,13 @@ export class PresenceApp extends LitElement {
               </div>
               ${this._profilesStore
                 ? this._activeMainRoomParticipants.length === 0
-                  ? html`<span class="blue-dark">${msg('The main room is empty.')}</span>`
-                  : html`<div class="row blue-dark" style="align-items: center;">
+                  ? html`<span class="blue-dark"
+                      >${msg('The main room is empty.')}</span
+                    >`
+                  : html`<div
+                      class="row blue-dark"
+                      style="align-items: center;"
+                    >
                       <span style="margin-right: 10px;"
                         >${msg('Currently in the main room: ')}</span
                       >

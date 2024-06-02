@@ -59,6 +59,7 @@ export class AttachmentElement extends LitElement {
   async firstUpdated() {
     await this.updateAssetInfo();
   }
+
   protected async willUpdate(
     changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
   ) {

@@ -121,13 +121,14 @@ export class SharedRoomCard extends LitElement {
     await this.updateRoomInfo();
   }
 
-  async willUpdate(
-    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
-  ) {
-    if (changedProperties.has('groupRoomInfo')) {
-      await this.updateRoomInfo();
-    }
-  }
+  // Not requried anymore if repeat directive is used in the parent component
+  // async willUpdate(
+  //   changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  // ) {
+  //   if (changedProperties.has('groupRoomInfo')) {
+  //     await this.updateRoomInfo();
+  //   }
+  // }
 
   disconnectedCallback(): void {
     if (this._unsubscribe) this._unsubscribe();
