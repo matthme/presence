@@ -40,7 +40,12 @@ import {
 import { msg } from '@lit/localize';
 import { v4 as uuidv4 } from 'uuid';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
-import { mdiAccountGroup, mdiLock, mdiLockOpenOutline } from '@mdi/js';
+import {
+  mdiAccountGroup,
+  mdiLock,
+  mdiLockOpenOutline,
+  mdiRefresh,
+} from '@mdi/js';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -123,6 +128,9 @@ export class PresenceApp extends LitElement {
 
   @state()
   _clearActiveParticipantsInterval: number | undefined;
+
+  @state()
+  _refreshing = false;
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -436,6 +444,7 @@ export class PresenceApp extends LitElement {
   }
 
   renderSharedRoomCards(groupRooms: GroupRoomInfo[]) {
+    if (this._refreshing) return html`<span style="margin-top: 50px;">Refreshing...<span>`
     return repeat(
       groupRooms.sort((info_a, info_b) =>
         info_a.room.name.localeCompare(info_b.room.name)
@@ -564,6 +573,21 @@ export class PresenceApp extends LitElement {
                 : html``}
             </div>
             <div class="column bottom-panel">
+              <button
+                class="refresh-btn"
+                @click=${async () => {
+                  this._refreshing = true;
+                  await this.updateRoomLists();
+                  setTimeout(() => {
+                    this._refreshing = false;
+                  }, 200);
+                }}
+              >
+                <div class="row center-content">
+                  <sl-icon .src=${wrapPathInSvg(mdiRefresh)}></sl-icon>
+                  <span style="margin-left: 2px;"> ${msg('refresh')}</span>
+                </div>
+              </button>
               <div
                 class="row center-content"
                 style="border-radius: 15px; margin-top: 48px;"
@@ -694,6 +718,8 @@ export class PresenceApp extends LitElement {
       }
 
       .bottom-panel {
+        width: 100vw;
+        position: relative;
         align-items: center;
         color: #bbc4f2;
       }
@@ -777,8 +803,25 @@ export class PresenceApp extends LitElement {
         background: linear-gradient(#eaecf3, #eaecf3 20%, #ffffff);
       }
 
+      .refresh-btn {
+        background: transparent;
+        color: #e1e5fc;
+        font-size: 1.2rem;
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        border: none;
+        font-weight: 600;
+        font-family: 'Baloo 2 Variable', sans-serif;
+        cursor: pointer;
+      }
+
+      .refresh-btn:active {
+        color: #ffffff;
+      }
+
       .btn {
-        /* background: linear-gradient(#cdd3ec, #afb6da 30%, #afb6da, #929bca); */
+        /* background: linear-gradient(#cdd3ec, #afb6da 30%, #1b1d24, #929bca); */
         background: linear-gradient(#c2cae8, #a5add8 30%, #a5add8, #8994c7);
         /* background: linear-gradient(#aeb8e5, #96a1d4 30%, #96a1d4, #7a86c3); */
         /* background: linear-gradient(#b3bce4, #9ca6d4 30%, #9ca6d4, #838ec5); */
