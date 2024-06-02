@@ -1238,7 +1238,12 @@ export class RoomView extends LitElement {
 
   async pingAgents() {
     if (this._allAgents.value.status === 'complete') {
-      await this.roomStore.client.pingFrontend(this._allAgents.value.value);
+      // This could potentially be optimized by only pinging agents that are online according to Moss
+      const agentsToPing = this._allAgents.value.value.filter(
+        agent =>
+          agent.toString() !== this.roomStore.client.client.myPubKey.toString()
+      );
+      await this.roomStore.client.pingFrontend(agentsToPing);
     }
   }
 

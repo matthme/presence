@@ -1,6 +1,5 @@
 import {
   AppInfo,
-  CellId,
   CellType,
   ClonedCell,
   DnaHash,
