@@ -10,6 +10,7 @@
     "network": "hc s clean && npm run build:happ && UI_PORT=8888 concurrently \"npm start -w ui\" \"npm run launch:happ\"",
     "test": "npm run build:zomes && hc app pack workdir --recursive && npm t -w tests",
     "applet-dev": "concurrently \"UI_PORT=8888 npm run start -w ui\" \"we-dev-cli --agent-idx 1 --dev-config ./we.dev.config.ts\" \"sleep 10 && we-dev-cli --agent-idx 2 --dev-config ./we.dev.config.ts\"",
+    "applet-dev-3": "concurrently \"UI_PORT=8888 npm run start -w ui\" \"we-dev-cli --agent-idx 1 --dev-config ./we.dev.config.ts\" \"sleep 10 && we-dev-cli --agent-idx 2 --dev-config ./we.dev.config.ts\" \"sleep 10 && we-dev-cli --agent-idx 3 --dev-config ./we.dev.config.ts\"",
     "applet-dev-1": "concurrently \"UI_PORT=8888 npm run start -w ui\" \"we-dev-cli --agent-idx 1 --dev-config ./we.dev.config.ts\"",
     "help": "we-dev-cli --help",
     "launch:happ": "concurrently \"hc run-local-services --bootstrap-port 9998 --signal-port 9999\" \"echo pass | RUST_LOG=warn hc launch --piped -n $AGENTS workdir/presence.happ --ui-port $UI_PORT network --bootstrap http://127.0.0.1:9998 webrtc ws://127.0.0.1:9999\"",
@@ -20,15 +21,12 @@
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
-    "@lightningrodlabs/we-dev-cli": "0.11.14",
+    "@lightningrodlabs/we-dev-cli": "0.12.0-dev.5",
     "concurrently": "^6.2.1",
     "electron": "^25.6.0",
     "rimraf": "^3.0.2"
   },
   "engines": {
     "npm": ">=7.0.0"
-  },
-  "dependencies": {
-    "@holochain-open-dev/utils": "^0.16.3"
   }
 }

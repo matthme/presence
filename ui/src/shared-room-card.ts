@@ -1,6 +1,6 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { AgentPubKey, AppAgentClient, ClonedCell } from '@holochain/client';
+import { AgentPubKey, AppClient, ClonedCell } from '@holochain/client';
 import { localized, msg } from '@lit/localize';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
@@ -22,7 +22,7 @@ import './list-online-agents';
 export class SharedRoomCard extends LitElement {
   @consume({ context: clientContext })
   @state()
-  client!: AppAgentClient;
+  client!: AppClient;
 
   @property()
   groupRoomInfo!: GroupRoomInfo;
@@ -121,13 +121,14 @@ export class SharedRoomCard extends LitElement {
     await this.updateRoomInfo();
   }
 
-  async willUpdate(
-    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
-  ) {
-    if (changedProperties.has('groupRoomInfo')) {
-      await this.updateRoomInfo();
-    }
-  }
+  // Not requried anymore if repeat directive is used in the parent component
+  // async willUpdate(
+  //   changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  // ) {
+  //   if (changedProperties.has('groupRoomInfo')) {
+  //     await this.updateRoomInfo();
+  //   }
+  // }
 
   disconnectedCallback(): void {
     if (this._unsubscribe) this._unsubscribe();

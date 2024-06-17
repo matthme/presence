@@ -9,10 +9,10 @@ import {
   ActionHash,
   DnaHash,
 } from '@holochain/client';
-import { WeClient } from '@lightningrodlabs/we-applet';
+import { WeaveClient } from '@lightningrodlabs/we-applet';
 import { createContext } from '@lit/context';
 
-export const weClientContext = createContext<WeClient>('we_client');
+export const weaveClientContext = createContext<WeaveClient>('we_client');
 
 export type RoomInfo = {
   name: string;

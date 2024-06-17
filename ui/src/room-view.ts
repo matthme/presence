@@ -24,17 +24,18 @@ import {
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { localized, msg } from '@lit/localize';
 import { consume } from '@lit/context';
+import { repeat } from 'lit/directives/repeat.js';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
-import { WeClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
+import { WeaveClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
 import { EntryRecord } from '@holochain-open-dev/utils';
 
 import { roomStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { Attachment, RoomInfo, weClientContext } from './types';
+import { Attachment, RoomInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
 
@@ -100,9 +101,9 @@ export class RoomView extends LitElement {
   @state()
   roomStore!: RoomStore;
 
-  @consume({ context: weClientContext })
+  @consume({ context: weaveClientContext })
   @state()
-  _weClient!: WeClient;
+  _weaveClient!: WeaveClient;
 
   @property({ type: Boolean })
   private = false;
@@ -722,7 +723,7 @@ export class RoomView extends LitElement {
       });
     } else {
       try {
-        const screenSource = await this._weClient.userSelectScreen();
+        const screenSource = await this._weaveClient.userSelectScreen();
         this._screenShareStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -1237,12 +1238,17 @@ export class RoomView extends LitElement {
 
   async pingAgents() {
     if (this._allAgents.value.status === 'complete') {
-      await this.roomStore.client.pingFrontend(this._allAgents.value.value);
+      // This could potentially be optimized by only pinging agents that are online according to Moss
+      const agentsToPing = this._allAgents.value.value.filter(
+        agent =>
+          agent.toString() !== this.roomStore.client.client.myPubKey.toString()
+      );
+      await this.roomStore.client.pingFrontend(agentsToPing);
     }
   }
 
   async addAttachment() {
-    const wal = await this._weClient.userSelectWal();
+    const wal = await this._weaveClient.userSelectWal();
     console.log('Got WAL: ', wal);
     if (wal) {
       const newAttachment = await this.roomStore.client.createAttachment({
@@ -1389,22 +1395,22 @@ export class RoomView extends LitElement {
 
         return html`
           <div class="column attachments-list">
-            ${allDeduplicatedAttachments
-              .sort(
+            ${repeat(
+              allDeduplicatedAttachments.sort(
                 (entryRecord_a, entryRecord_b) =>
                   entryRecord_b.action.timestamp -
                   entryRecord_a.action.timestamp
-              )
-              .map(
-                entryRecord => html`
-                  <attachment-element
-                    style="margin-bottom: 8px;"
-                    .entryRecord=${entryRecord}
-                    @remove-attachment=${(e: CustomEvent) =>
-                      this.removeAttachment(e.detail)}
-                  ></attachment-element>
-                `
-              )}
+              ),
+              entryRecord => encodeHashToBase64(entryRecord.actionHash),
+              entryRecord => html`
+                <attachment-element
+                  style="margin-bottom: 8px;"
+                  .entryRecord=${entryRecord}
+                  @remove-attachment=${(e: CustomEvent) =>
+                    this.removeAttachment(e.detail)}
+                ></attachment-element>
+              `
+            )}
           </div>
         `;
       }
@@ -1670,58 +1676,58 @@ export class RoomView extends LitElement {
         </div>
         <!--Then other agents' screens -->
 
-        ${Object.entries(this._screenShareConnectionsIncoming)
-          .filter(([_, conn]) => conn.direction === 'incoming')
-          .map(
-            ([pubkeyB64, conn]) => html`
+        ${repeat(
+          Object.entries(this._screenShareConnectionsIncoming).filter(
+            ([_, conn]) => conn.direction === 'incoming'
+          ),
+          ([_pubkeyB64, conn]) => conn.connectionId,
+          ([pubkeyB64, conn]) => html`
+            <div
+              class="video-container screen-share ${this.idToLayout(
+                conn.connectionId
+              )}"
+              @dblclick=${() => this.toggleMaximized(conn.connectionId)}
+            >
+              <video
+                style="${conn.connected ? '' : 'display: none;'}"
+                id="${conn.connectionId}"
+                class="video-el"
+              ></video>
               <div
-                class="video-container screen-share ${this.idToLayout(
-                  conn.connectionId
-                )}"
-                @dblclick=${() => this.toggleMaximized(conn.connectionId)}
+                style="color: #b98484; ${conn.connected ? 'display: none' : ''}"
               >
-                <video
-                  style="${conn.connected ? '' : 'display: none;'}"
-                  id="${conn.connectionId}"
-                  class="video-el"
-                ></video>
-                <div
-                  style="color: #b98484; ${conn.connected
-                    ? 'display: none'
-                    : ''}"
-                >
-                  establishing connection...
-                </div>
-                <div
-                  style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
-                >
-                  <avatar-with-nickname
-                    .size=${36}
-                    .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
-                    style="height: 36px;"
-                  ></avatar-with-nickname>
-                </div>
-                <sl-icon
-                  title="${this._maximizedVideo === conn.connectionId
-                    ? 'minimize'
-                    : 'maximize'}"
-                  .src=${this._maximizedVideo === conn.connectionId
-                    ? wrapPathInSvg(mdiFullscreenExit)
-                    : wrapPathInSvg(mdiFullscreen)}
-                  tabindex="0"
-                  class="maximize-icon"
-                  @click=${() => {
-                    this.toggleMaximized(conn.connectionId);
-                  }}
-                  @keypress=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                      this.toggleMaximized(conn.connectionId);
-                    }
-                  }}
-                ></sl-icon>
+                establishing connection...
               </div>
-            `
-          )}
+              <div
+                style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
+              >
+                <avatar-with-nickname
+                  .size=${36}
+                  .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
+                  style="height: 36px;"
+                ></avatar-with-nickname>
+              </div>
+              <sl-icon
+                title="${this._maximizedVideo === conn.connectionId
+                  ? 'minimize'
+                  : 'maximize'}"
+                .src=${this._maximizedVideo === conn.connectionId
+                  ? wrapPathInSvg(mdiFullscreenExit)
+                  : wrapPathInSvg(mdiFullscreen)}
+                tabindex="0"
+                class="maximize-icon"
+                @click=${() => {
+                  this.toggleMaximized(conn.connectionId);
+                }}
+                @keypress=${(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    this.toggleMaximized(conn.connectionId);
+                  }
+                }}
+              ></sl-icon>
+            </div>
+          `
+        )}
 
         <!-- My own video stream -->
         <div
@@ -1761,7 +1767,9 @@ export class RoomView extends LitElement {
         </div>
 
         <!-- Video stream of others -->
-        ${Object.entries(this._openConnections).map(
+        ${repeat(
+          Object.entries(this._openConnections),
+          ([_pubkeyB64, conn]) => conn.connectionId,
           ([pubkeyB64, conn]) => html`
             <div
               class="video-container ${this.idToLayout(conn.connectionId)}"

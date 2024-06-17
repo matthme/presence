@@ -1,5 +1,5 @@
 import { EntryRecord, ZomeClient } from '@holochain-open-dev/utils';
-import { AgentPubKey, AppAgentClient, RoleName, Record, ActionHash } from '@holochain/client';
+import { AgentPubKey, AppClient, RoleName, Record, ActionHash } from '@holochain/client';
 import {
   Attachment,
   DescendentRoom,
@@ -12,7 +12,7 @@ import {
 
 export class RoomClient extends ZomeClient<RoomSignal> {
   constructor(
-    public client: AppAgentClient,
+    public client: AppClient,
     public roleName: RoleName,
     public zomeName = 'room'
   ) {

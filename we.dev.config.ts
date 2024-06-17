@@ -30,6 +30,16 @@ export default defineConfig({
             },
           },
         },
+        {
+          agentIdx: 3,
+          agentProfile: {
+            nickname: "Marsupilami Nr. 2",
+            avatar: {
+              type: "filesystem",
+              path: "./ui/marsupilami.jpeg",
+            },
+          },
+        },
       ],
       applets: [
         {
@@ -38,18 +48,18 @@ export default defineConfig({
           registeringAgent: 1,
           joiningAgents: [2],
         },
-        {
-          name: 'ZipZap',
-          instanceName: 'ZipZap',
-          registeringAgent: 1,
-          joiningAgents: [2],
-        },
-        {
-          name: 'KanDo',
-          instanceName: 'KanDo',
-          registeringAgent: 1,
-          joiningAgents: [2],
-        },
+        // {
+        //   name: 'ZipZap',
+        //   instanceName: 'ZipZap',
+        //   registeringAgent: 1,
+        //   joiningAgents: [2],
+        // },
+        // {
+        //   name: 'KanDo',
+        //   instanceName: 'KanDo',
+        //   registeringAgent: 1,
+        //   joiningAgents: [2],
+        // },
       ],
     },
   ],
@@ -65,7 +75,7 @@ export default defineConfig({
       },
       source: {
         type: "localhost",
-        happPath: "./workdir/presence.happ",
+        happPath: "/home/matthias/code/holochain/matthme/unzoom/workdir/presence.happ",
         uiPort: 8888,
       },
     },
