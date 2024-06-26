@@ -155,9 +155,7 @@ export class SharedRoomCard extends LitElement {
 
     this.dispatchEvent(
       new CustomEvent('request-open-room', {
-        detail: {
-          cloneId: this._myCell!.clone_id,
-        },
+        detail: this._myCell,
         composed: true,
         bubbles: true,
       })

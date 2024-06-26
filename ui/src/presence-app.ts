@@ -26,8 +26,10 @@ import {
 } from '@holochain/client';
 import { provide } from '@lit/context';
 import {
+  AppletServices,
   GroupPermissionType,
   GroupProfile,
+  NULL_HASH,
   WeaveClient,
   initializeHotReload,
   isWeContext,
@@ -42,6 +44,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import {
   mdiAccountGroup,
+  mdiDoor,
   mdiLock,
   mdiLockOpenOutline,
   mdiRefresh,
@@ -136,6 +139,9 @@ export class PresenceApp extends LitElement {
   _creatingRoom = false;
 
   @state()
+  externalWindow = false;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   disconnectedCallback(): void {
@@ -157,14 +163,65 @@ export class PresenceApp extends LitElement {
       }
     }
     if (isWeContext()) {
-      const weaveClient = await WeaveClient.connect();
+      const appletServices: AppletServices = {
+        creatables: {},
+        blockTypes: {},
+        getAssetInfo: async (appletClient, wal, _recordInfo) => {
+          // eslint-disable-next-line no-debugger
+          // debugger;
+          const appInfo = await appletClient.appInfo();
+          if (!appInfo) throw new Error('AppInfo undefined.');
+          const cellTypes = getCellTypes(appInfo as any);
+          const dnaHashB64 = encodeHashToBase64(wal.hrl[0]);
+          // alert(dnaHashB64);
+          const mainRoomCell = cellTypes.provisioned;
+          if (encodeHashToBase64(mainRoomCell.cell_id[0]) === dnaHashB64) {
+            return {
+              name: 'Main Room',
+              icon_src: wrapPathInSvg(mdiDoor),
+            };
+          }
+          // take room info from cached value if it exists
+          const maybeRoomInfo = this._groupRooms.find(roomInfo =>
+            encodeHashToBase64(roomInfo.room.dna_hash) === dnaHashB64
+          );
+          if (maybeRoomInfo) {
+            return {
+              name: maybeRoomInfo.room.name,
+              icon_src: wrapPathInSvg(mdiDoor),
+            };
+          }
+
+          const maybeClonedCell = cellTypes.cloned.find(
+            cell => encodeHashToBase64(cell.cell_id[0]) === dnaHashB64
+          );
+          if (maybeClonedCell) {
+            const roomClient = new RoomClient(
+              this.client,
+              maybeClonedCell.clone_id
+            );
+            const roomInfo = await roomClient.getRoomInfo();
+            if (roomInfo)
+              return {
+                name: roomInfo.name,
+                icon_src: wrapPathInSvg(mdiDoor),
+              };
+          }
+          return Promise.resolve(undefined);
+        },
+        search: () => Promise.resolve([]),
+        bindAsset: () => Promise.resolve(),
+      };
+      const weaveClient = await WeaveClient.connect(appletServices);
       this._weaveClient = weaveClient;
       if (
         weaveClient.renderInfo.type !== 'applet-view' ||
-        weaveClient.renderInfo.view.type !== 'main'
+        !['main', 'asset'].includes(weaveClient.renderInfo.view.type)
       )
-        throw new Error('This Applet only implements the applet main view.');
-      this.client = weaveClient.renderInfo.appletClient;
+        throw new Error(
+          'This Applet only implements the applet main and asset views.'
+        );
+      this.client = weaveClient.renderInfo.appletClient as any;
       this._profilesStore = new ProfilesStore(
         weaveClient.renderInfo.profilesClient
       );
@@ -172,11 +229,41 @@ export class PresenceApp extends LitElement {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
       this.client = await AppWebsocket.connect();
     }
+
+    if (
+      this._weaveClient.renderInfo.type === 'applet-view' &&
+      this._weaveClient.renderInfo.view.type === 'asset'
+    ) {
+      this.externalWindow = true;
+      const appInfo = await this.client.appInfo();
+      if (!appInfo) throw new Error('AppInfo is null');
+
+      const cellTypes = getCellTypes(appInfo);
+
+      const wal = this._weaveClient.renderInfo.view.wal;
+      const dnaHash = wal.hrl[0];
+      const dnaHashB64 = encodeHashToBase64(dnaHash);
+
+      if (encodeHashToBase64(cellTypes.provisioned.cell_id[0]) === dnaHashB64) {
+        this._selectedRoleName = 'presence';
+        this._pageView = PageView.Room;
+        return;
+      }
+      const clonedCell = cellTypes.cloned.find(
+        cellInfo => encodeHashToBase64(cellInfo.cell_id[0]) === dnaHashB64
+      );
+      if (!clonedCell) throw Error('No cell found for WAL');
+      this._selectedRoleName = clonedCell.clone_id;
+      this._pageView = PageView.Room;
+      return;
+    }
+
     this._mainRoomStore = new RoomStore(
       new RoomClient(this.client, 'presence', 'room')
     );
 
     const cellTypes = await this.updateRoomLists();
+
     this._provisionedCell = cellTypes.provisioned;
 
     const loadFinished = Date.now();
@@ -286,7 +373,7 @@ export class PresenceApp extends LitElement {
       this._creatingRoom = false;
     } catch (e) {
       this._creatingRoom = false;
-      throw(e);
+      throw e;
     }
   }
 
@@ -312,7 +399,8 @@ export class PresenceApp extends LitElement {
         throw new Error('Main Room Store is not defined.');
       // network seed is composed of
       const uuid = uuidv4();
-      const appletNetworkSeed = this._provisionedCell.dna_modifiers.network_seed;
+      const appletNetworkSeed =
+        this._provisionedCell.dna_modifiers.network_seed;
       const networkSeed = groupRoomNetworkSeed(appletNetworkSeed, uuid);
       const clonedCell = await this.client.createCloneCell({
         role_name: 'presence',
@@ -351,7 +439,7 @@ export class PresenceApp extends LitElement {
       this._creatingRoom = false;
     } catch (e) {
       this._creatingRoom = false;
-      throw(e);
+      throw e;
     }
   }
 
@@ -402,7 +490,7 @@ export class PresenceApp extends LitElement {
               ?disabled=${this._creatingRoom}
               @click=${async () => this.createPrivateRoom()}
             >
-            ${this._creatingRoom ? msg('...') : msg('Create')}
+              ${this._creatingRoom ? msg('...') : msg('Create')}
             </button>
           </div>
         </div>
@@ -448,9 +536,19 @@ export class PresenceApp extends LitElement {
           clonedCell => html`
             <private-room-card
               .clonedCell=${clonedCell}
-              @request-open-room=${(e: CustomEvent) => {
-                this._selectedRoleName = e.detail.cloneId;
-                this._pageView = PageView.Room;
+              @request-open-room=${async (e: CustomEvent) => {
+                try {
+                  await (this._weaveClient as any).openWal(
+                    {
+                      hrl: [clonedCell.cell_id[0], NULL_HASH],
+                    },
+                    'window'
+                  );
+                } catch (err) {
+                  console.warn('Failed to open room in external window: ', err);
+                  this._selectedRoleName = clonedCell.clone_id;
+                  this._pageView = PageView.Room;
+                }
               }}
               style="margin: 7px 0;"
             ></private-room-card>
@@ -462,7 +560,10 @@ export class PresenceApp extends LitElement {
   }
 
   renderSharedRoomCards(groupRooms: GroupRoomInfo[]) {
-    if (this._refreshing) return html`<span style="margin-top: 50px;">Refreshing...<span>`
+    if (this._refreshing)
+      return html`<span style="margin-top: 50px;"
+        >Refreshing...<span></span
+      ></span>`;
     return repeat(
       groupRooms.sort((info_a, info_b) =>
         info_a.room.name.localeCompare(info_b.room.name)
@@ -471,9 +572,19 @@ export class PresenceApp extends LitElement {
       roomInfo => html`
         <shared-room-card
           .groupRoomInfo=${roomInfo}
-          @request-open-room=${(e: CustomEvent) => {
-            this._selectedRoleName = e.detail.cloneId;
-            this._pageView = PageView.Room;
+          @request-open-room=${async (e: { detail: ClonedCell }) => {
+            try {
+              await (this._weaveClient as any).openWal(
+                {
+                  hrl: [e.detail.cell_id[0], NULL_HASH],
+                },
+                'window'
+              );
+            } catch (err) {
+              console.warn('Failed to open room in external window: ', err);
+              this._selectedRoleName = e.detail.clone_id;
+              this._pageView = PageView.Room;
+            }
           }}
           style="margin: 7px 0;"
         ></shared-room-card>
@@ -556,9 +667,15 @@ export class PresenceApp extends LitElement {
               <div style="margin-top: 120px; margin-bottom: 20px;">
                 <button
                   class="enter-main-room-btn"
-                  @click=${() => {
-                    this._selectedRoleName = 'presence';
-                    this._pageView = PageView.Room;
+                  @click=${async () => {
+                    await (this._weaveClient as any).openWal(
+                      {
+                        hrl: [this._provisionedCell!.cell_id[0], NULL_HASH],
+                      },
+                      'window'
+                    );
+                    // this._selectedRoleName = 'presence';
+                    // this._pageView = PageView.Room;
                   }}
                 >
                   <div class="row" style="align-items: center;">
@@ -667,7 +784,11 @@ export class PresenceApp extends LitElement {
           <room-container
             class="room-container"
             .roleName=${this._selectedRoleName}
-            @quit-room=${() => {
+            @quit-room=${async () => {
+              if (this.externalWindow) {
+                console.log('Closing window.');
+                await this._weaveClient.requestClose();
+              }
               this._pageView = PageView.Home;
             }}
           ></room-container>

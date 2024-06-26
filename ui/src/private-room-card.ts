@@ -126,9 +126,7 @@ export class PrivateRoomCard extends LitElement {
             @click=${() =>
               this.dispatchEvent(
                 new CustomEvent('request-open-room', {
-                  detail: {
-                    cloneId: this.clonedCell.clone_id,
-                  },
+                  detail: this.clonedCell,
                   composed: true,
                   bubbles: true,
                 })
