@@ -69,17 +69,17 @@ export class AttachmentElement extends LitElement {
   }
 
   async openAsset() {
-    await this._weaveClient.openWal(this._wal!);
+    if (this._wal) {
+      await this._weaveClient.openWal(this._wal);
+    }
   }
 
   removeAttachment() {
-    if (this._wal) {
-      this.dispatchEvent(
-        new CustomEvent('remove-attachment', {
-          detail: this.entryRecord,
-        })
-      );
-    }
+    this.dispatchEvent(
+      new CustomEvent('remove-attachment', {
+        detail: this.entryRecord,
+      })
+    );
   }
 
   render() {
@@ -95,12 +95,12 @@ export class AttachmentElement extends LitElement {
         }}
       >
         <div class="row" style="align-items: stretch;">
-          ${this._assetInfo
-            ? html`
-                <div
-                  class="row open-area"
-                  style="align-items: center; padding: 5px 12px;"
-                >
+          <div
+            class="row open-area ${this._assetInfo ? 'active' : ''}"
+            style="align-items: center; padding: 5px 12px;"
+          >
+            ${this._assetInfo
+              ? html`
                   ${this._assetAppletInfo
                     ? html`
                         <img
@@ -118,35 +118,33 @@ export class AttachmentElement extends LitElement {
                   />
 
                   ${this._assetInfo.assetInfo.name}
-                </div>
-                <sl-tooltip
-                  .content=${msg('remove for everyone')}
-                  style="color: white;"
-                  hoist
-                >
-                  <div
-                    tabindex="0"
-                    class="column center-content delete-btn tertiary-font"
-                    @click=${(e: any) => {
-                      this.removeAttachment();
-                      e.stopPropagation();
-                    }}
-                    @keypress=${(e: KeyboardEvent) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        this.removeAttachment();
-                      }
-                    }}
-                  >
-                    <sl-icon
-                      style="font-size: 23px;"
-                      .src=${wrapPathInSvg(mdiTrashCan)}
-                    ></sl-icon>
-                  </div>
-                </sl-tooltip>
-              `
-            : html`<div class="row center-content" style="margin: 0;">
-                Asset not found.
-              </div>`}
+                `
+              : html`Asset not found`}
+          </div>
+          <sl-tooltip
+            .content=${msg('remove for everyone')}
+            style="color: white;"
+            hoist
+          >
+            <div
+              tabindex="0"
+              class="column center-content delete-btn tertiary-font"
+              @click=${(e: any) => {
+                this.removeAttachment();
+                e.stopPropagation();
+              }}
+              @keypress=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  this.removeAttachment();
+                }
+              }}
+            >
+              <sl-icon
+                style="font-size: 23px;"
+                .src=${wrapPathInSvg(mdiTrashCan)}
+              ></sl-icon>
+            </div>
+          </sl-tooltip>
         </div>
       </div>
     `;
@@ -178,16 +176,16 @@ export class AttachmentElement extends LitElement {
         overflow: hidden;
       }
 
-      .open-area:hover {
+      .active:hover {
         background: #eaecfb;
       }
 
-      .open-area:focus-visible {
+      .active:focus-visible {
         background: #eaecfb;
       }
 
       .disabled {
-        cursor: auto;
+        cursor: default;
         opacity: 0.7;
       }
 

@@ -54,12 +54,12 @@ export default defineConfig({
         //   registeringAgent: 1,
         //   joiningAgents: [2],
         // },
-        // {
-        //   name: 'KanDo',
-        //   instanceName: 'KanDo',
-        //   registeringAgent: 1,
-        //   joiningAgents: [2],
-        // },
+        {
+          name: 'KanDo',
+          instanceName: 'KanDo',
+          registeringAgent: 1,
+          joiningAgents: [2],
+        },
       ],
     },
   ],
@@ -89,7 +89,7 @@ export default defineConfig({
       },
       source: {
         type: 'https',
-        url: 'https://github.com/holochain-apps/kando/releases/download/v0.9.3/kando.webhapp',
+        url: 'https://github.com/holochain-apps/kando/releases/download/v0.10.4/kando.webhapp',
       },
     },
     {

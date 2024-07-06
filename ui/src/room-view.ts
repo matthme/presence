@@ -652,7 +652,10 @@ export class RoomView extends LitElement {
     } else {
       try {
         this._mainStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            noiseSuppression: true,
+            echoCancellation: true,
+          },
         });
         this._microphone = true;
       } catch (e: any) {
@@ -662,7 +665,6 @@ export class RoomView extends LitElement {
         );
         return;
       }
-      const audioTrack = this._mainStream?.getAudioTracks()[0];
       Object.values(this._openConnections).forEach(conn => {
         conn.peer.addStream(this._mainStream!);
       });
