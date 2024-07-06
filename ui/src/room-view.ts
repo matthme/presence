@@ -383,6 +383,10 @@ export class RoomView extends LitElement {
       peer.destroy();
 
       const openConnections = this._openConnections;
+      const relevantConnection = openConnections[encodeHashToBase64(connectingAgent)];
+      if (this._maximizedVideo === relevantConnection.connectionId) {
+        this._maximizedVideo = undefined;
+      }
       delete openConnections[encodeHashToBase64(connectingAgent)];
       this._openConnections = openConnections;
       this.requestUpdate();
