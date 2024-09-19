@@ -9,7 +9,7 @@ import {
   ActionHash,
   DnaHash,
 } from '@holochain/client';
-import { WeaveClient } from '@lightningrodlabs/we-applet';
+import { WeaveClient } from '@theweave/api';
 import { createContext } from '@lit/context';
 
 export const weaveClientContext = createContext<WeaveClient>('we_client');

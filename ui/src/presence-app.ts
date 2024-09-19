@@ -33,7 +33,7 @@ import {
   WeaveClient,
   initializeHotReload,
   isWeContext,
-} from '@lightningrodlabs/we-applet';
+} from '@theweave/api';
 import { generateSillyPassword } from 'silly-password-generator';
 import {
   ProfilesStore,

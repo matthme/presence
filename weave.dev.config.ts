@@ -1,4 +1,4 @@
-import { defineConfig } from "@lightningrodlabs/we-dev-cli";
+import { defineConfig } from "@theweave/cli";
 
 export default defineConfig({
   groups: [
@@ -75,7 +75,7 @@ export default defineConfig({
       },
       source: {
         type: "localhost",
-        happPath: "/home/matthias/code/holochain/matthme/unzoom/workdir/presence.happ",
+        happPath: "/home/matthias/code/holochain/matthme/presence/workdir/presence.happ",
         uiPort: 8888,
       },
     },

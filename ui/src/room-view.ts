@@ -29,7 +29,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
-import { WeaveClient, weaveUrlFromWal } from '@lightningrodlabs/we-applet';
+import { WeaveClient, weaveUrlFromWal } from '@theweave/api';
 import { EntryRecord } from '@holochain-open-dev/utils';
 
 import { roomStoreContext } from './contexts';

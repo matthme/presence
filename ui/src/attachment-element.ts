@@ -12,7 +12,7 @@ import {
   WAL,
   WeaveClient,
   weaveUrlToLocation,
-} from '@lightningrodlabs/we-applet';
+} from '@theweave/api';
 import { EntryRecord } from '@holochain-open-dev/utils';
 import { mdiTrashCan } from '@mdi/js';
 
