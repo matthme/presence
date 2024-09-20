@@ -11,6 +11,7 @@ import { StoreSubscriber, lazyLoadAndPoll } from '@holochain-open-dev/stores';
 import SimplePeer from 'simple-peer';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  mdiAccount,
   mdiFullscreen,
   mdiFullscreenExit,
   mdiLock,
@@ -38,6 +39,7 @@ import './avatar-with-nickname';
 import { Attachment, RoomInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
+import './agent-connection-status';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -93,6 +95,49 @@ type PendingAccept = {
    */
   peer: SimplePeer.Instance;
 };
+
+/**
+ * Connection status with a peer
+ */
+export type ConnectionStatus =
+  | {
+      /**
+       * No WebRTC connection or freshly disconnected
+       */
+      type: 'Disconnected';
+    }
+  | {
+      /**
+       * Waiting for an init of a peer whose pubkey is alphabetically higher than ours
+       */
+      type: 'AwaitingInit';
+    }
+  | {
+      /**
+       * Waiting for an Accept of a peer whose pubkey is alphabetically lower than ours
+       */
+      type: 'InitSent';
+      attemptCount?: number;
+    }
+  | {
+      /**
+       * Waiting for SDP exchange to start
+       */
+      type: 'AcceptSent';
+      attemptCount?: number;
+    }
+  | {
+      /**
+       * SDP exchange is ongoing
+       */
+      type: 'SdpExchange';
+    }
+  | {
+      /**
+       * WebRTC connection is established
+       */
+      type: 'Connected';
+    };
 
 @localized()
 @customElement('room-view')
@@ -154,6 +199,49 @@ export class RoomView extends LitElement {
    */
   @state()
   _screenShareStream: MediaStream | undefined | null;
+
+  updateConnectionStatus(pubKey: AgentPubKeyB64, status: ConnectionStatus) {
+    if (status.type === 'InitSent') {
+      const currentStatus = this._connectionStatuses[pubKey];
+      if (currentStatus && currentStatus.type === 'InitSent') {
+        // increase number of attempts by 1
+        this._connectionStatuses[pubKey] = {
+          type: 'InitSent',
+          attemptCount: currentStatus.attemptCount
+            ? currentStatus.attemptCount + 1
+            : 1,
+        };
+      } else {
+        this._connectionStatuses[pubKey] = {
+          type: 'InitSent',
+          attemptCount: 1,
+        };
+      }
+      return;
+    }
+    if (status.type === 'AcceptSent') {
+      const currentStatus = this._connectionStatuses[pubKey];
+      if (currentStatus && currentStatus.type === 'AcceptSent') {
+        // increase number of attempts by 1
+        this._connectionStatuses[pubKey] = {
+          type: 'AcceptSent',
+          attemptCount: currentStatus.attemptCount
+            ? currentStatus.attemptCount + 1
+            : 1,
+        };
+      } else {
+        this._connectionStatuses[pubKey] = {
+          type: 'AcceptSent',
+          attemptCount: 1,
+        };
+      }
+      return;
+    }
+    this._connectionStatuses[pubKey] = status;
+  }
+
+  @state()
+  _connectionStatuses: Record<AgentPubKeyB64, ConnectionStatus> = {};
 
   /**
    * Connections where the Init/Accept handshake succeeded
@@ -230,6 +318,9 @@ export class RoomView extends LitElement {
   _showAttachmentsPanel = false;
 
   @state()
+  _panelMode: 'attachments' | 'people' = 'attachments';
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   sideClickListener = (e: MouseEvent) => {
@@ -251,6 +342,7 @@ export class RoomView extends LitElement {
     connectionId: string,
     initiator: boolean
   ): SimplePeer.Instance {
+    const pubKey64 = encodeHashToBase64(connectingAgent);
     const options: SimplePeer.Options = {
       initiator,
       config: {
@@ -357,7 +449,6 @@ export class RoomView extends LitElement {
     });
     peer.on('connect', async () => {
       console.log('#### CONNECTED');
-      const pubKey64 = encodeHashToBase64(connectingAgent);
       const pendingInits = this._pendingInits;
       delete pendingInits[pubKey64];
       this._pendingInits = pendingInits;
@@ -374,6 +465,8 @@ export class RoomView extends LitElement {
       openConnections[pubKey64] = relevantConnection;
       this._openConnections = openConnections;
 
+      this.updateConnectionStatus(pubKey64, { type: 'Connected' });
+
       this.requestUpdate();
       await this._joinAudio.play();
     });
@@ -383,12 +476,19 @@ export class RoomView extends LitElement {
       peer.destroy();
 
       const openConnections = this._openConnections;
-      const relevantConnection = openConnections[encodeHashToBase64(connectingAgent)];
-      if (this._maximizedVideo === relevantConnection.connectionId) {
+      const relevantConnection =
+        openConnections[encodeHashToBase64(connectingAgent)];
+      if (
+        relevantConnection &&
+        this._maximizedVideo === relevantConnection.connectionId
+      ) {
         this._maximizedVideo = undefined;
       }
       delete openConnections[encodeHashToBase64(connectingAgent)];
       this._openConnections = openConnections;
+
+      this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
+
       this.requestUpdate();
       await this._leaveAudio.play();
     });
@@ -397,8 +497,18 @@ export class RoomView extends LitElement {
       peer.destroy();
 
       const openConnections = this._openConnections;
+      const relevantConnection =
+        openConnections[encodeHashToBase64(connectingAgent)];
+      if (
+        relevantConnection &&
+        this._maximizedVideo === relevantConnection.connectionId
+      ) {
+        this._maximizedVideo = undefined;
+      }
       delete openConnections[encodeHashToBase64(connectingAgent)];
       this._openConnections = openConnections;
+
+      this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
 
       this.requestUpdate();
     });
@@ -845,6 +955,7 @@ export class RoomView extends LitElement {
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
               });
+              this.updateConnectionStatus(pubkeyB64, { type: 'InitSent' });
             } else {
               console.log(
                 `#--# SENDING INIT REQUEST NUMBER ${pendingInits.length + 1}.`
@@ -860,6 +971,7 @@ export class RoomView extends LitElement {
                   connection_id: newConnectionId,
                   to_agent: signal.from_agent,
                 });
+                this.updateConnectionStatus(pubkeyB64, { type: 'InitSent' });
               }
             }
           }
@@ -961,6 +1073,7 @@ export class RoomView extends LitElement {
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
+            this.updateConnectionStatus(pubKey64, { type: 'AcceptSent' });
           }
 
           /**
@@ -1039,6 +1152,9 @@ export class RoomView extends LitElement {
               const pendingInits = this._pendingInits;
               delete pendingInits[pubKey64];
               this._pendingInits = pendingInits;
+
+              this.updateConnectionStatus(pubKey64, { type: 'SdpExchange' });
+
               this.requestUpdate(); // reload rendered video containers
             }
           }
@@ -1098,6 +1214,8 @@ export class RoomView extends LitElement {
         case 'SdpData': {
           console.log('## Got SDP Data: ', signal.data);
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+
+          this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
 
           /**
            * Normal video/audio connections
@@ -1339,6 +1457,9 @@ export class RoomView extends LitElement {
       this._allAttachments.value.status === 'complete'
         ? this._allAttachments.value.value.length
         : undefined;
+    const numPeople = Object.values(this._connectionStatuses).filter(
+      status => !!status && status.type !== 'Disconnected'
+    ).length;
     return html`
       <div
         tabindex="0"
@@ -1359,6 +1480,11 @@ export class RoomView extends LitElement {
         <sl-icon
           .src=${wrapPathInSvg(mdiPaperclip)}
           style="transform: rotate(5deg); margin-left: -2px;"
+        ></sl-icon>
+        <div style="margin-bottom: -2px; margin-left: 2px;">${numPeople}</div>
+        <sl-icon
+          .src=${wrapPathInSvg(mdiAccount)}
+          style="transform: rotate(3deg); margin-left: -2px;"
         ></sl-icon>
       </div>
     `;
@@ -1425,6 +1551,70 @@ export class RoomView extends LitElement {
     }
   }
 
+  renderConnectionStatuses() {
+    if (this._allAgents.value.status === 'complete') {
+      const presentAgents = this._allAgents.value.value
+        .map(agent => encodeHashToBase64(agent))
+        .filter(pubkeyB64 => {
+          const status = this._connectionStatuses[pubkeyB64];
+          return !!status && status.type !== 'Disconnected';
+        })
+        .sort((key_a, key_b) => key_a.localeCompare(key_b));
+      const absentAgents = this._allAgents.value.value
+        .map(agent => encodeHashToBase64(agent))
+        .filter(pubkeyB64 => {
+          const status = this._connectionStatuses[pubkeyB64];
+          return !status || status.type === 'Disconnected';
+        })
+        .sort((key_a, key_b) => key_a.localeCompare(key_b));
+      return html`
+        <div
+          class="column"
+          style="padding-left: 10px; align-items: flex-start; margin-top: 10px; height: 100%;"
+        >
+          <div class="column" style="align-items: flex-end;">
+            <div class="connectivity-title">Present</div>
+            <hr class="divider" />
+          </div>
+          ${presentAgents.length > 0
+            ? repeat(
+                presentAgents,
+                pubkey => pubkey,
+                pubkey => html`
+                  <agent-connection-status
+                    .agentPubKey=${decodeHashFromBase64(pubkey)}
+                    .connectionStatus=${this._connectionStatuses[pubkey]}
+                  ></agent-connection-status>
+                `
+              )
+            : html`<span
+                style="color: #c3c9eb; font-size: 20px; font-style: italic; margin-top: 10px; opacity: 0.8;"
+                >look into the mirror - there's only you...</span
+              >`}
+          ${absentAgents.length > 0
+            ? html`
+                <div class="column" style="align-items: flex-end;">
+                  <div class="connectivity-title">Absent</div>
+                  <hr class="divider" />
+                </div>
+                ${repeat(
+                  absentAgents,
+                  pubkey => pubkey,
+                  pubkey => html`
+                    <agent-connection-status
+                      .agentPubKey=${decodeHashFromBase64(pubkey)}
+                      .connectionStatus=${this._connectionStatuses[pubkey]}
+                    ></agent-connection-status>
+                  `
+                )}
+              `
+            : html``}
+        </div>
+      `;
+    }
+    return html`Loading profiles...`;
+  }
+
   renderAttachmentPanel() {
     return html`
       <div
@@ -1450,24 +1640,72 @@ export class RoomView extends LitElement {
             ${msg('close X')}
           </div>
         </div>
-        <div
-          class="column"
-          style="padding: 0 20px; align-items: flex-start; position: relative; height: 100%;"
-        >
+        <div class="row sidepanel-tabs">
           <div
+            class="sidepanel-tab ${this._panelMode === 'attachments'
+              ? 'tab-selected'
+              : ''}"
             tabindex="0"
-            class="add-attachment-btn"
-            @click=${() => this.addAttachment()}
-            @keypress=${async (e: KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                await this.addAttachment();
-              }
+            @click=${() => {
+              this._panelMode = 'attachments';
+            }}
+            @keypress=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ')
+                this._panelMode = 'attachments';
             }}
           >
-            + Add Attachment
+          <div class="row center-content">
+              <sl-icon
+                .src=${wrapPathInSvg(mdiPaperclip)}
+                style="transform: rotate(5deg); margin-right: 2px;"
+              ></sl-icon>
+              attachments
+            </div>
           </div>
-          ${this.renderAttachments()}
+          <div
+            class="sidepanel-tab ${this._panelMode === 'people'
+              ? 'tab-selected'
+              : ''}"
+            tabindex="0"
+            @click=${() => {
+              this._panelMode = 'people';
+            }}
+            @keypress=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ')
+                this._panelMode = 'people';
+            }}
+          >
+            <div class="row center-content">
+              <sl-icon
+                .src=${wrapPathInSvg(mdiAccount)}
+                style="transform: rotate(2deg); margin-right: 2px;"
+              ></sl-icon>
+              people
+            </div>
+          </div>
         </div>
+        ${this._panelMode === 'people'
+          ? this.renderConnectionStatuses()
+          : html`
+              <div
+                class="column"
+                style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative; height: 100%;"
+              >
+                <div
+                  tabindex="0"
+                  class="add-attachment-btn"
+                  @click=${() => this.addAttachment()}
+                  @keypress=${async (e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      await this.addAttachment();
+                    }
+                  }}
+                >
+                  + Add Attachment
+                </div>
+                ${this.renderAttachments()}
+              </div>
+            `}
       </div>
     `;
   }
@@ -1867,6 +2105,35 @@ export class RoomView extends LitElement {
         /* background: #6f7599; */
       }
 
+      .sidepanel-tabs {
+        width: 100%;
+        align-items: center;
+        margin-top: 10px;
+        /* #ffffff80 */
+      }
+
+      .sidepanel-tab {
+        width: 50%;
+        height: 40px;
+        /* background: #ffffff10; */
+        background: linear-gradient(#6f7599c4, #6f759900);
+        cursor: pointer;
+        font-size: 24px;
+        color: #0d1543;
+        font-weight: 600;
+        padding-top: 4px;
+      }
+
+      .sidepanel-tab:hover {
+        /* background: #ffffff80; */
+        background: linear-gradient(#c6d2ff87, #6f759900);
+      }
+
+      .tab-selected {
+        /* background: #ffffff80; */
+        background: linear-gradient(#c6d2ff87, #6f759900);
+      }
+
       .attachments-list {
         justify-content: flex-start;
         align-items: flex-start;
@@ -1921,6 +2188,22 @@ export class RoomView extends LitElement {
 
       .add-attachment-btn:focus {
         color: white;
+      }
+
+      .divider {
+        height: 1px;
+        border: 0;
+        width: 380px;
+        background: #0d1543;
+        margin: 0 0 5px 0;
+      }
+
+      .connectivity-title {
+        font-style: italic;
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: -3px;
+        color: #0d1543;
       }
 
       .room-name {
