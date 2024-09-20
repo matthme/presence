@@ -5,6 +5,7 @@ import {
   DescendentRoom,
   InitAcceptInput,
   InitRequestInput,
+  PongInput,
   RoomInfo,
   RoomSignal,
   SdpDataInput,
@@ -78,8 +79,8 @@ export class RoomClient extends ZomeClient<RoomSignal> {
    * @param agentPubKey
    * @returns
    */
-  async pongFrontend(agentPubKey: AgentPubKey): Promise<void> {
-    return this.callZome('pong_ui', agentPubKey);
+  async pongFrontend(input: PongInput): Promise<void> {
+    return this.callZome('pong_ui', input);
   }
 
   async sendInitRequest(payload: InitRequestInput): Promise<void> {

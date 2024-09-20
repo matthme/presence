@@ -6,6 +6,7 @@ import {
   ProvisionedCell,
   RoleName,
 } from '@holochain/client';
+import { ConnectionStatus } from './room-view';
 
 export type CellTypes = {
   provisioned: ProvisionedCell;
@@ -82,4 +83,24 @@ export function roleNameForDnaHash(
     }
   }
   return undefined;
+}
+
+export function connectionStatusToColor(status?: ConnectionStatus, offlineColor = 'transparent'): string {
+  if (!status) return offlineColor;
+  switch (status.type) {
+    case 'Disconnected':
+      return 'transparent';
+    case 'AwaitingInit':
+      return 'gray';
+    case 'AcceptSent':
+      return 'blue';
+    case 'InitSent':
+      return 'blue';
+    case 'SdpExchange':
+      return 'yellow';
+    case 'Connected':
+      return '#48e708';
+    default:
+      return offlineColor;
+  }
 }
