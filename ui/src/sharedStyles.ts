@@ -50,4 +50,8 @@ export const sharedStyles = css`
     max-height: 100%;
     overflow-y: auto;
   }
+
+  .tooltip-filled {
+    --sl-tooltip-background-color: black;
+  }
 `;

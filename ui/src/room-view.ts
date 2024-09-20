@@ -40,6 +40,8 @@ import { Attachment, RoomInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
 import './agent-connection-status';
+import './agent-connection-status-icon';
+import './toggle-switch';
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -50,6 +52,8 @@ const ICE_CONFIG = [
  * If an InitRequest does not succeed within this duration (ms) another InitRequest will be sent
  */
 const INIT_RETRY_THRESHOLD = 5000;
+
+const PING_INTERVAL = 2000;
 
 type ConnectionId = string;
 
@@ -95,6 +99,17 @@ type PendingAccept = {
    */
   peer: SimplePeer.Instance;
 };
+
+type PongMetaData<T> = {
+  formatVersion: number;
+  data: T;
+};
+
+type PongMetaDataV1 = {
+  connectionStatuses: ConnectionStatuses;
+};
+
+type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
 
 /**
  * Connection status with a peer
@@ -201,47 +216,60 @@ export class RoomView extends LitElement {
   _screenShareStream: MediaStream | undefined | null;
 
   updateConnectionStatus(pubKey: AgentPubKeyB64, status: ConnectionStatus) {
+    const connectionStatuses = this._connectionStatuses;
     if (status.type === 'InitSent') {
       const currentStatus = this._connectionStatuses[pubKey];
       if (currentStatus && currentStatus.type === 'InitSent') {
         // increase number of attempts by 1
-        this._connectionStatuses[pubKey] = {
+        connectionStatuses[pubKey] = {
           type: 'InitSent',
           attemptCount: currentStatus.attemptCount
             ? currentStatus.attemptCount + 1
             : 1,
         };
       } else {
-        this._connectionStatuses[pubKey] = {
+        connectionStatuses[pubKey] = {
           type: 'InitSent',
           attemptCount: 1,
         };
       }
+      this._connectionStatuses = connectionStatuses;
       return;
     }
     if (status.type === 'AcceptSent') {
       const currentStatus = this._connectionStatuses[pubKey];
       if (currentStatus && currentStatus.type === 'AcceptSent') {
         // increase number of attempts by 1
-        this._connectionStatuses[pubKey] = {
+        connectionStatuses[pubKey] = {
           type: 'AcceptSent',
           attemptCount: currentStatus.attemptCount
             ? currentStatus.attemptCount + 1
             : 1,
         };
       } else {
-        this._connectionStatuses[pubKey] = {
+        connectionStatuses[pubKey] = {
           type: 'AcceptSent',
           attemptCount: 1,
         };
       }
+      this._connectionStatuses = connectionStatuses;
       return;
     }
-    this._connectionStatuses[pubKey] = status;
+    connectionStatuses[pubKey] = status;
+    this._connectionStatuses = connectionStatuses;
   }
 
   @state()
-  _connectionStatuses: Record<AgentPubKeyB64, ConnectionStatus> = {};
+  _connectionStatuses: ConnectionStatuses = {};
+
+  @state()
+  _othersConnectionStatuses: Record<
+    AgentPubKeyB64,
+    {
+      lastUpdated: number;
+      statuses: ConnectionStatuses;
+    }
+  > = {};
 
   /**
    * Connections where the Init/Accept handshake succeeded
@@ -319,6 +347,9 @@ export class RoomView extends LitElement {
 
   @state()
   _panelMode: 'attachments' | 'people' = 'attachments';
+
+  @state()
+  _showConnectionDetails = false;
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -918,7 +949,16 @@ export class RoomView extends LitElement {
             signal.from_agent.toString() !==
             this.roomStore.client.client.myPubKey.toString()
           ) {
-            await this.roomStore.client.pongFrontend(signal.from_agent);
+            const metaData: PongMetaData<PongMetaDataV1> = {
+              formatVersion: 1,
+              data: {
+                connectionStatuses: this._connectionStatuses,
+              },
+            };
+            await this.roomStore.client.pongFrontend({
+              to_agent: signal.from_agent,
+              meta_data: JSON.stringify(metaData),
+            });
           }
           break;
         }
@@ -926,7 +966,23 @@ export class RoomView extends LitElement {
         case 'PongUi': {
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
           const now = Date.now();
-          console.log('Got PongUI from ', pubkeyB64);
+          console.log(`Got PongUI from ${pubkeyB64}: `, signal);
+
+          // Update their connection statuses
+          try {
+            const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(
+              signal.meta_data
+            );
+            const othersConnectionStatuses = this._othersConnectionStatuses;
+            othersConnectionStatuses[pubkeyB64] = {
+              lastUpdated: now,
+              statuses: metaData.data.connectionStatuses,
+            };
+            this._othersConnectionStatuses = othersConnectionStatuses;
+            this.requestUpdate();
+          } catch (e) {
+            console.warn('Failed to parse pong meta data.');
+          }
 
           /**
            * Normal video/audio stream
@@ -1215,7 +1271,13 @@ export class RoomView extends LitElement {
           console.log('## Got SDP Data: ', signal.data);
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
 
-          this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
+          // If not connected already, update the status do SdpExchange (SDP Exchange also happens when already connected)
+          if (
+            this._connectionStatuses[pubkeyB64] &&
+            this._connectionStatuses[pubkeyB64].type !== 'Connected'
+          ) {
+            this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
+          }
 
           /**
            * Normal video/audio connections
@@ -1350,11 +1412,11 @@ export class RoomView extends LitElement {
           break;
       }
     });
-    // ping all agents that are not already connected to you every 3 seconds
+    // ping all agents that are not already connected to you every PING_INTERVAL milliseconds
     await this.pingAgents();
     this.pingInterval = window.setInterval(async () => {
       await this.pingAgents();
-    }, 2000);
+    }, PING_INTERVAL);
     this._leaveAudio.volume = 0.05;
     this._joinAudio.volume = 0.07;
     this._roomInfo = await this.roomStore.client.getRoomInfo();
@@ -1450,6 +1512,32 @@ export class RoomView extends LitElement {
     if (this.roomStore.client.roleName === 'presence') return msg('Main Room');
     if (this._roomInfo) return this._roomInfo.name;
     return '[unknown]';
+  }
+
+  renderConnectionDetailsToggle() {
+    return html`
+      <div class="row toggle-switch-container" style="align-items: center;">
+        <toggle-switch
+          class="toggle-switch ${this._showConnectionDetails ? 'active' : ''}"
+          .toggleState=${this._showConnectionDetails}
+          @toggle-on=${() => {
+            this._showConnectionDetails = true;
+          }}
+          @toggle-off=${() => {
+            this._showConnectionDetails = false;
+          }}
+        ></toggle-switch>
+        <span
+          class="secondary-font"
+          style="margin-left: 7px; ${this._showConnectionDetails
+            ? 'opacity: 0.8;'
+            : 'opacity: 0.5;'}"
+          >${this._showConnectionDetails
+            ? 'Hide connection details'
+            : 'Show connection details'}</span
+        >
+      </div>
+    `;
   }
 
   renderAttachmentButton() {
@@ -1589,7 +1677,7 @@ export class RoomView extends LitElement {
               )
             : html`<span
                 style="color: #c3c9eb; font-size: 20px; font-style: italic; margin-top: 10px; opacity: 0.8;"
-                >look into the mirror - there's only you...</span
+                >look into the mirror, there's no one else :)</span
               >`}
           ${absentAgents.length > 0
             ? html`
@@ -1654,7 +1742,7 @@ export class RoomView extends LitElement {
                 this._panelMode = 'attachments';
             }}
           >
-          <div class="row center-content">
+            <div class="row center-content">
               <sl-icon
                 .src=${wrapPathInSvg(mdiPaperclip)}
                 style="transform: rotate(5deg); margin-right: 2px;"
@@ -1869,6 +1957,44 @@ export class RoomView extends LitElement {
     `;
   }
 
+  renderOtherAgentConnectionStatuses(pubkeyb64: AgentPubKeyB64) {
+    const statuses = this._othersConnectionStatuses[pubkeyb64];
+    if (!statuses)
+      return html`<span
+        class="tertiary-font"
+        style="color: #c3c9eb; font-size: 16px;"
+        >Unkown connection statuses</span
+      >`;
+
+    const nConnections = Object.keys(statuses.statuses).length;
+
+    const now = Date.now();
+    // if the info is older than >2.8 PING_INTERVAL, show the info opaque to indicated that it's outdated
+    const staleInfo = now - statuses.lastUpdated > 2.8 * PING_INTERVAL;
+    const sortedStatuses = Object.entries(statuses.statuses).sort(
+      ([pubkey_a, _a], [pubkey_b, b]) => pubkey_a.localeCompare(pubkey_b)
+    );
+    return html`
+      <div class="row" style="align-items: center;">
+        ${repeat(
+          sortedStatuses,
+          ([pubkeyb64, _status]) => pubkeyb64,
+          ([pubkeyb64, status]) =>
+            html`<agent-connection-status-icon
+              style="${staleInfo ? 'opacity: 0.5;' : ''}"
+              .agentPubKey=${decodeHashFromBase64(pubkeyb64)}
+              .connectionStatus=${status}
+            ></agent-connection-status-icon>`
+        )}
+        <span
+          class="tertiary-font"
+          style="color: #c3c9eb; font-size: 24px; margin-left: 5px;"
+          >(${nConnections})</span
+        >
+      </div>
+    `;
+  }
+
   render() {
     return html`
       <div class="row center-content room-name">
@@ -2036,6 +2162,16 @@ export class RoomView extends LitElement {
               >
                 establishing connection...
               </div>
+              <!-- Connection states indicators -->
+              ${this._showConnectionDetails
+                ? html`<div
+                    style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
+                  >
+                    ${this.renderOtherAgentConnectionStatuses(pubkeyB64)}
+                  </div>`
+                : html``}
+
+              <!-- Avatar and nickname -->
               <div
                 style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
               >
@@ -2058,6 +2194,7 @@ export class RoomView extends LitElement {
       ${this.renderToggles()}
       ${this._showAttachmentsPanel ? this.renderAttachmentPanel() : undefined}
       ${this._showAttachmentsPanel ? undefined : this.renderAttachmentButton()}
+      ${this.renderConnectionDetailsToggle()}
 
       <div
         class="error-message secondary-font"
@@ -2211,6 +2348,26 @@ export class RoomView extends LitElement {
         bottom: 5px;
         left: 15px;
         color: #6f7599;
+      }
+
+      .toggle-switch-container {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: #c3c9eb;
+        font-size: 20px;
+      }
+
+      .toggle-switch {
+        opacity: 0.6;
+      }
+
+      /* .toggle-switch:hover {
+        opacity: 1;
+      } */
+
+      .active {
+        opacity: 1;
       }
 
       .attachments-btn {

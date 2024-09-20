@@ -14,6 +14,7 @@ pub enum SignalPayload {
     },
     PongUi {
         from_agent: AgentPubKey,
+        meta_data: String,
     },
     InitRequest {
         from_agent: AgentPubKey,
@@ -91,17 +92,24 @@ pub fn ping_ui(agents_pub_keys: Vec<AgentPubKey>) -> ExternResult<()> {
     send_remote_signal(encoded_signal, agents_pub_keys)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PongInput {
+    to_agent: AgentPubKey,
+    meta_data: String,
+}
+
 /// Respond with a pong to a PongUi signal. Needs to be actively called by the UI.
 #[hdk_extern]
-pub fn pong_ui(agent_pub_key: AgentPubKey) -> ExternResult<()> {
+pub fn pong_ui(input: PongInput) -> ExternResult<()> {
     let signal_payload = SignalPayload::PongUi {
         from_agent: agent_info()?.agent_initial_pubkey,
+        meta_data: input.meta_data,
     };
 
     let encoded_signal = ExternIO::encode(signal_payload)
         .map_err(|err| wasm_error!(WasmErrorInner::Guest(err.into())))?;
 
-    send_remote_signal(encoded_signal, vec![agent_pub_key])
+    send_remote_signal(encoded_signal, vec![input.to_agent])
 }
 
 #[derive(Serialize, Deserialize, Debug)]

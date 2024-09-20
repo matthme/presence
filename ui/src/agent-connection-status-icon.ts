@@ -22,8 +22,8 @@ import { ConnectionStatus } from './room-view';
 import { connectionStatusToColor } from './utils';
 
 @localized()
-@customElement('agent-connection-status')
-export class AgentConnectionStatus extends LitElement {
+@customElement('agent-connection-status-icon')
+export class AgentConnectionStatusIcon extends LitElement {
   /** Public properties */
 
   /**
@@ -36,7 +36,7 @@ export class AgentConnectionStatus extends LitElement {
    * Size of the avatar image in pixels.
    */
   @property({ type: Number })
-  size = 40;
+  size = 30;
 
   @property()
   connectionStatus: ConnectionStatus | undefined;
@@ -120,35 +120,32 @@ export class AgentConnectionStatus extends LitElement {
           ? 'opacity: 0.5'
           : ''}"
       >
-        ${profile && profile.entry.fields.avatar
-          ? html`
-              <img
-                style="height: ${this.size}px; width: ${this
-                  .size}px; border-radius: 50%;"
-                src=${profile.entry.fields.avatar}
-                alt="${profile.entry.nickname}'s avatar"
-              />
-            `
-          : html`
-              <holo-identicon
-                .disableCopy=${true}
-                .disableTooltip=${true}
-                .hash=${this.agentPubKey}
-                .size=${this.size}
-                title="${encodeHashToBase64(this.agentPubKey)}"
-              >
-              </holo-identicon>
-            `}
-        <div class="column" style="align-items: flex-start;">
-          <span
-            style="margin-left: 10px; margin-bottom: -12px; font-size: 23px; font-weight: 600; color: #c3c9eb;"
-            >${profile ? profile.entry.nickname : 'Unknown'}</span
-          >
-          <span
-            style="margin-left: 12px; font-size: 14px; color: ${connectionStatusToColor(this.connectionStatus, 'gray')}; font-weight: 600;"
-            >${this.statusToText(this.connectionStatus)}</span
-          >
-        </div>
+        <sl-tooltip class="tooltip-filled" placement="top" hoist content=${`${profile ? profile.entry.nickname : 'Unknown'} (${this.statusToText(this.connectionStatus)})`}>
+          ${profile && profile.entry.fields.avatar
+            ? html`
+                <img
+                  style="height: ${this.size}px; width: ${this
+                    .size}px; border-radius: 50%; border: 3px solid ${connectionStatusToColor(
+                    this.connectionStatus
+                  )};"
+                  src=${profile.entry.fields.avatar}
+                  alt="${profile.entry.nickname}'s avatar"
+                />
+              `
+            : html`
+                <holo-identicon
+                  .disableCopy=${true}
+                  .disableTooltip=${true}
+                  .hash=${this.agentPubKey}
+                  .size=${this.size}
+                  title="${encodeHashToBase64(this.agentPubKey)}"
+                  style="border: 3px solid ${connectionStatusToColor(
+                    this.connectionStatus
+                  )};"
+                >
+                </holo-identicon>
+              `}
+        </sl-tooltip>
       </div>
     `;
   }
@@ -163,6 +160,10 @@ export class AgentConnectionStatus extends LitElement {
       case 'complete':
         return this.renderProfile(this._agentProfile.value.value);
       case 'error':
+        console.error(
+          'Failed to get agent profile: ',
+          this._agentProfile.value.status
+        );
         return html`
           <display-error
             tooltip
@@ -175,5 +176,18 @@ export class AgentConnectionStatus extends LitElement {
     }
   }
 
-  static styles = [sharedStyles, css``];
+  static styles = [
+    sharedStyles,
+    css`
+      .tooltip-filled {
+        --sl-tooltip-background-color: #c3c9eb;
+        --sl-tooltip-arrow-size: 6px;
+        --sl-tooltip-border-radius: 5px;
+        --sl-tooltip-padding: 4px;
+        --sl-tooltip-font-size: 14px;
+        --sl-tooltip-color: #0d1543;
+        --sl-tooltip-font-family: 'Ubuntu', sans-serif;
+      }
+    `,
+  ];
 }
