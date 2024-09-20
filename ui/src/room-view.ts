@@ -356,7 +356,6 @@ export class RoomView extends LitElement {
 
   sideClickListener = (e: MouseEvent) => {
     if (this._showAttachmentsPanel) {
-      console.log('TURNING OFF');
       this._showAttachmentsPanel = false;
     }
   };
@@ -1520,6 +1519,9 @@ export class RoomView extends LitElement {
         <toggle-switch
           class="toggle-switch ${this._showConnectionDetails ? 'active' : ''}"
           .toggleState=${this._showConnectionDetails}
+          @click=${(e: Event) => {
+            e.stopPropagation();
+          }}
           @toggle-on=${() => {
             this._showConnectionDetails = true;
           }}
@@ -1529,7 +1531,8 @@ export class RoomView extends LitElement {
         ></toggle-switch>
         <span
           class="secondary-font"
-          style="margin-left: 7px; ${this._showConnectionDetails
+          style="cursor: default; margin-left: 7px; ${this
+            ._showConnectionDetails
             ? 'opacity: 0.8;'
             : 'opacity: 0.5;'}"
           >${this._showConnectionDetails
@@ -1975,13 +1978,15 @@ export class RoomView extends LitElement {
       ([pubkey_a, _a], [pubkey_b, b]) => pubkey_a.localeCompare(pubkey_b)
     );
     return html`
-      <div class="row" style="align-items: center;">
+      <div class="row" style="align-items: center; flex-wrap: wrap;">
         ${repeat(
           sortedStatuses,
           ([pubkeyb64, _status]) => pubkeyb64,
           ([pubkeyb64, status]) =>
             html`<agent-connection-status-icon
-              style="${staleInfo ? 'opacity: 0.5;' : ''}"
+              style="margin-right: 2px; margin-bottom: 2px; ${staleInfo
+                ? 'opacity: 0.5;'
+                : ''}"
               .agentPubKey=${decodeHashFromBase64(pubkeyb64)}
               .connectionStatus=${status}
             ></agent-connection-status-icon>`

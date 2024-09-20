@@ -80,6 +80,20 @@ export default defineConfig({
       },
     },
     {
+      name: "presence webhapp",
+      subtitle: "video calls",
+      description:
+        "Be present.",
+      icon: {
+        type: "filesystem",
+        path: "./ui/icon.png",
+      },
+      source: {
+        type: "filesystem",
+        path: "/home/matthias/code/holochain/matthme/presence/workdir/presence.webhapp",
+      },
+    },
+    {
       name: 'KanDo',
       subtitle: 'KanBan board on Holochain',
       description: 'KanBan board',
