@@ -42,6 +42,9 @@ import './attachment-element';
 import './agent-connection-status';
 import './agent-connection-status-icon';
 import './toggle-switch';
+import { sortConnectionStatuses } from './utils';
+
+declare const __APP_VERSION__: string;
 
 const ICE_CONFIG = [
   { urls: 'stun:global.stun.twilio.com:3478' },
@@ -107,6 +110,8 @@ type PongMetaData<T> = {
 
 type PongMetaDataV1 = {
   connectionStatuses: ConnectionStatuses;
+  knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
+  appVersion?: string;
 };
 
 type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
@@ -154,6 +159,17 @@ export type ConnectionStatus =
       type: 'Connected';
     };
 
+type AgentInfo = {
+  pubkey: AgentPubKeyB64;
+  /**
+   * If I know from the all_agents anchor that this agent exists in the Room, the
+   * type is "known". If I've learnt about this agent only from other's Pong meta data
+   * or from receiving a Pong from that agent themselves the type is "told".
+   */
+  type: 'known' | 'told';
+  appVersion?: string;
+};
+
 @localized()
 @customElement('room-view')
 export class RoomView extends LitElement {
@@ -171,7 +187,7 @@ export class RoomView extends LitElement {
   @state()
   pingInterval: number | undefined;
 
-  _allAgents = new StoreSubscriber(
+  _allAgentsFromAnchor = new StoreSubscriber(
     this,
     () => this.roomStore.allAgents,
     () => [this.roomStore]
@@ -190,6 +206,9 @@ export class RoomView extends LitElement {
       }, 5000),
     () => [this.roomStore]
   );
+
+  @state()
+  _knownAgents: Record<AgentPubKeyB64, AgentInfo> = {};
 
   @state()
   _recentAttachmentChanges: Record<string, EntryRecord<Attachment>[]> = {
@@ -268,6 +287,7 @@ export class RoomView extends LitElement {
     {
       lastUpdated: number;
       statuses: ConnectionStatuses;
+      knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
     }
   > = {};
 
@@ -952,6 +972,8 @@ export class RoomView extends LitElement {
               formatVersion: 1,
               data: {
                 connectionStatuses: this._connectionStatuses,
+                knownAgents: this._knownAgents,
+                appVersion: __APP_VERSION__,
               },
             };
             await this.roomStore.client.pongFrontend({
@@ -967,7 +989,7 @@ export class RoomView extends LitElement {
           const now = Date.now();
           console.log(`Got PongUI from ${pubkeyB64}: `, signal);
 
-          // Update their connection statuses
+          // Update their connection statuses and the list of known agents
           try {
             const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(
               signal.meta_data
@@ -976,8 +998,39 @@ export class RoomView extends LitElement {
             othersConnectionStatuses[pubkeyB64] = {
               lastUpdated: now,
               statuses: metaData.data.connectionStatuses,
+              knownAgents: metaData.data.knownAgents,
             };
             this._othersConnectionStatuses = othersConnectionStatuses;
+
+            // Update known agents based on the agents that they know
+            const knownAgents = this._knownAgents;
+            const maybeKnownAgent = knownAgents[pubkeyB64];
+            if (maybeKnownAgent) {
+              maybeKnownAgent.appVersion = metaData.data.appVersion;
+            } else {
+              knownAgents[pubkeyB64] = {
+                pubkey: pubkeyB64,
+                type: 'told',
+                appVersion: metaData.data.appVersion,
+              };
+            }
+            if (metaData.data.knownAgents) {
+              const myPubKeyB64 = encodeHashToBase64(
+                this.roomStore.client.client.myPubKey
+              );
+              Object.entries(metaData.data.knownAgents).forEach(
+                ([agentB64, agentInfo]) => {
+                  if (!knownAgents[agentB64] && agentB64 !== myPubKeyB64) {
+                    knownAgents[agentB64] = {
+                      pubkey: agentB64,
+                      type: 'told',
+                      appVersion: agentInfo.appVersion,
+                    };
+                  }
+                }
+              );
+            }
+            this._knownAgents = knownAgents;
             this.requestUpdate();
           } catch (e) {
             console.warn('Failed to parse pong meta data.');
@@ -1422,14 +1475,38 @@ export class RoomView extends LitElement {
   }
 
   async pingAgents() {
-    if (this._allAgents.value.status === 'complete') {
-      // This could potentially be optimized by only pinging agents that are online according to Moss
-      const agentsToPing = this._allAgents.value.value.filter(
-        agent =>
-          agent.toString() !== this.roomStore.client.client.myPubKey.toString()
+    if (this._allAgentsFromAnchor.value.status === 'complete') {
+      // Update known agents
+      const myPubKeyB64 = encodeHashToBase64(
+        this.roomStore.client.client.myPubKey
       );
-      await this.roomStore.client.pingFrontend(agentsToPing);
+      const knownAgents = this._knownAgents;
+      this._allAgentsFromAnchor.value.value
+        .map(agent => encodeHashToBase64(agent))
+        .forEach(agentB64 => {
+          if (agentB64 !== myPubKeyB64) {
+            knownAgents[agentB64] = { pubkey: agentB64, type: 'known' };
+          }
+        });
+      this._knownAgents = knownAgents;
     }
+    // Update connection statuses with known people for which we do not yet have a connection status
+    const connectionStatuses = this._connectionStatuses;
+    Object.keys(this._knownAgents).forEach(agentB64 => {
+      if (!connectionStatuses[agentB64]) {
+        connectionStatuses[agentB64] = {
+          type: 'Disconnected',
+        };
+      }
+    });
+    this._connectionStatuses = connectionStatuses;
+
+    // Ping known agents
+    // This could potentially be optimized by only pinging agents that are online according to Moss (which would only work in shared rooms though)
+    const agentsToPing = Object.keys(this._knownAgents).map(pubkeyB64 =>
+      decodeHashFromBase64(pubkeyB64)
+    );
+    await this.roomStore.client.pingFrontend(agentsToPing);
   }
 
   async addAttachment() {
@@ -1643,33 +1720,53 @@ export class RoomView extends LitElement {
   }
 
   renderConnectionStatuses() {
-    if (this._allAgents.value.status === 'complete') {
-      const presentAgents = this._allAgents.value.value
-        .map(agent => encodeHashToBase64(agent))
-        .filter(pubkeyB64 => {
-          const status = this._connectionStatuses[pubkeyB64];
-          return !!status && status.type !== 'Disconnected';
-        })
-        .sort((key_a, key_b) => key_a.localeCompare(key_b));
-      const absentAgents = this._allAgents.value.value
-        .map(agent => encodeHashToBase64(agent))
-        .filter(pubkeyB64 => {
-          const status = this._connectionStatuses[pubkeyB64];
-          return !status || status.type === 'Disconnected';
-        })
-        .sort((key_a, key_b) => key_a.localeCompare(key_b));
-      return html`
-        <div
-          class="column"
-          style="padding-left: 10px; align-items: flex-start; margin-top: 10px; height: 100%;"
-        >
-          <div class="column" style="align-items: flex-end;">
-            <div class="connectivity-title">Present</div>
-            <hr class="divider" />
-          </div>
-          ${presentAgents.length > 0
-            ? repeat(
-                presentAgents,
+    const knownAgentsKeysB64 = Object.keys(this._knownAgents);
+
+    const presentAgents = knownAgentsKeysB64
+      .filter(pubkeyB64 => {
+        const status = this._connectionStatuses[pubkeyB64];
+        return !!status && status.type !== 'Disconnected';
+      })
+      .sort((key_a, key_b) => key_a.localeCompare(key_b));
+    const absentAgents = knownAgentsKeysB64
+      .filter(pubkeyB64 => {
+        const status = this._connectionStatuses[pubkeyB64];
+        return !status || status.type === 'Disconnected';
+      })
+      .sort((key_a, key_b) => key_a.localeCompare(key_b));
+    return html`
+      <div
+        class="column"
+        style="padding-left: 10px; align-items: flex-start; margin-top: 10px; height: 100%;"
+      >
+        <div class="column" style="align-items: flex-end;">
+          <div class="connectivity-title">Present</div>
+          <hr class="divider" />
+        </div>
+        ${presentAgents.length > 0
+          ? repeat(
+              presentAgents,
+              pubkey => pubkey,
+              pubkey => html`
+                <agent-connection-status
+                  .agentPubKey=${decodeHashFromBase64(pubkey)}
+                  .connectionStatus=${this._connectionStatuses[pubkey]}
+                  .appVersion=${this._knownAgents[pubkey].appVersion}
+                ></agent-connection-status>
+              `
+            )
+          : html`<span
+              style="color: #c3c9eb; font-size: 20px; font-style: italic; margin-top: 10px; opacity: 0.8;"
+              >no one else present.</span
+            >`}
+        ${absentAgents.length > 0
+          ? html`
+              <div class="column" style="align-items: flex-end;">
+                <div class="connectivity-title">Absent</div>
+                <hr class="divider" />
+              </div>
+              ${repeat(
+                absentAgents,
                 pubkey => pubkey,
                 pubkey => html`
                   <agent-connection-status
@@ -1677,33 +1774,11 @@ export class RoomView extends LitElement {
                     .connectionStatus=${this._connectionStatuses[pubkey]}
                   ></agent-connection-status>
                 `
-              )
-            : html`<span
-                style="color: #c3c9eb; font-size: 20px; font-style: italic; margin-top: 10px; opacity: 0.8;"
-                >look into the mirror, there's no one else :)</span
-              >`}
-          ${absentAgents.length > 0
-            ? html`
-                <div class="column" style="align-items: flex-end;">
-                  <div class="connectivity-title">Absent</div>
-                  <hr class="divider" />
-                </div>
-                ${repeat(
-                  absentAgents,
-                  pubkey => pubkey,
-                  pubkey => html`
-                    <agent-connection-status
-                      .agentPubKey=${decodeHashFromBase64(pubkey)}
-                      .connectionStatus=${this._connectionStatuses[pubkey]}
-                    ></agent-connection-status>
-                  `
-                )}
-              `
-            : html``}
-        </div>
-      `;
-    }
-    return html`Loading profiles...`;
+              )}
+            `
+          : html``}
+      </div>
+    `;
   }
 
   renderAttachmentPanel() {
@@ -1969,27 +2044,39 @@ export class RoomView extends LitElement {
         >Unkown connection statuses</span
       >`;
 
-    const nConnections = Object.keys(statuses.statuses).length;
+    const nConnections = Object.values(statuses.statuses).filter(
+      status => status.type === 'Connected'
+    ).length;
 
     const now = Date.now();
     // if the info is older than >2.8 PING_INTERVAL, show the info opaque to indicated that it's outdated
     const staleInfo = now - statuses.lastUpdated > 2.8 * PING_INTERVAL;
     const sortedStatuses = Object.entries(statuses.statuses).sort(
-      ([pubkey_a, _a], [pubkey_b, b]) => pubkey_a.localeCompare(pubkey_b)
+      sortConnectionStatuses
     );
     return html`
       <div class="row" style="align-items: center; flex-wrap: wrap;">
         ${repeat(
           sortedStatuses,
           ([pubkeyb64, _status]) => pubkeyb64,
-          ([pubkeyb64, status]) =>
-            html`<agent-connection-status-icon
+          ([pubkeyb64, status]) => {
+            // Check whether the agent for which the statuses are rendered has only been told by others that
+            // the rendered agent exists
+            const onlyToldAbout = !!(
+              statuses.knownAgents &&
+              statuses.knownAgents[pubkeyb64] &&
+              statuses.knownAgents[pubkeyb64].type === 'told'
+            );
+
+            return html`<agent-connection-status-icon
               style="margin-right: 2px; margin-bottom: 2px; ${staleInfo
                 ? 'opacity: 0.5;'
                 : ''}"
               .agentPubKey=${decodeHashFromBase64(pubkeyb64)}
               .connectionStatus=${status}
-            ></agent-connection-status-icon>`
+              .onlyToldAbout=${onlyToldAbout}
+            ></agent-connection-status-icon>`;
+          }
         )}
         <span
           class="tertiary-font"

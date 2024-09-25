@@ -1,4 +1,5 @@
 import {
+  AgentPubKeyB64,
   AppInfo,
   CellType,
   ClonedCell,
@@ -103,4 +104,25 @@ export function connectionStatusToColor(status?: ConnectionStatus, offlineColor 
     default:
       return offlineColor;
   }
+}
+
+export const sortConnectionStatuses = (a: [AgentPubKeyB64, ConnectionStatus], b: [AgentPubKeyB64, ConnectionStatus]) => {
+  const [pubkey_a, status_a] = a;
+  const [pubkey_b, status_b] = b;
+  // If both have equal connection status, sort by pubkey
+  if (status_a.type === status_b.type) {
+    return pubkey_a.localeCompare(pubkey_b);
+  }
+  // Disconnected is last
+  if (status_a.type === "Disconnected") return 1;
+  if (status_b.type === "Disconnected") return -1;
+  // Everything else gets sorted by pubkey
+  return pubkey_a.localeCompare(pubkey_b);
+
+  // Connected is first - this is not being used for now as it may be harder to follow
+  // state changes visually if the icons move around
+  // if (status_a.type === "Connected") return 1;
+  // if (status_b.type === "Connected") return -1;
+
+
 }
