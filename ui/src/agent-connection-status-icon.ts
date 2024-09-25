@@ -1,5 +1,5 @@
 import { consume } from '@lit/context';
-import { hashProperty, sharedStyles } from '@holochain-open-dev/elements';
+import { hashProperty } from '@holochain-open-dev/elements';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { property, customElement } from 'lit/decorators.js';
 import { AgentPubKey, encodeHashToBase64 } from '@holochain/client';
@@ -20,6 +20,7 @@ import {
 import { EntryRecord } from '@holochain-open-dev/utils';
 import { ConnectionStatus } from './room-view';
 import { connectionStatusToColor } from './utils';
+import { sharedStyles } from './sharedStyles';
 
 @localized()
 @customElement('agent-connection-status-icon')
@@ -40,6 +41,9 @@ export class AgentConnectionStatusIcon extends LitElement {
 
   @property()
   connectionStatus: ConnectionStatus | undefined;
+
+  @property()
+  onlyToldAbout = false;
 
   /** Dependencies */
 
@@ -113,14 +117,33 @@ export class AgentConnectionStatusIcon extends LitElement {
 
   renderProfile(profile: EntryRecord<Profile> | undefined) {
     return html`
-      <div
-        class="row"
-        style="align-items: center; margin: 0; padding: 0; ${!this
-          .connectionStatus || this.connectionStatus.type === 'Disconnected'
-          ? 'opacity: 0.5'
-          : ''}"
+      <sl-tooltip
+        class="tooltip-filled"
+        placement="top"
+        hoist
+        content=${`${
+          profile ? profile.entry.nickname : 'Unknown'
+        } (${this.statusToText(this.connectionStatus)})\n new line`}
       >
-        <sl-tooltip class="tooltip-filled" placement="top" hoist content=${`${profile ? profile.entry.nickname : 'Unknown'} (${this.statusToText(this.connectionStatus)})`}>
+        <div
+          class="row"
+          style="position: relative; align-items: center; margin: 0; padding: 0; ${!this
+            .connectionStatus || this.connectionStatus.type === 'Disconnected'
+            ? 'opacity: 0.5'
+            : ''}"
+        >
+          ${this.onlyToldAbout
+            ? html`
+                <sl-tooltip
+                  hoist
+                  class="tooltip-filled tooltip-red"
+                  placement="bottom"
+                  content="has only learnt through signals from others that this person is part of the room"
+                >
+                  <div class="only-told-indicator tertiary-font">!</div>
+                </sl-tooltip>
+              `
+            : html``}
           ${profile && profile.entry.fields.avatar
             ? html`
                 <img
@@ -145,8 +168,8 @@ export class AgentConnectionStatusIcon extends LitElement {
                 >
                 </holo-identicon>
               `}
-        </sl-tooltip>
-      </div>
+        </div>
+      </sl-tooltip>
     `;
   }
 
@@ -187,6 +210,23 @@ export class AgentConnectionStatusIcon extends LitElement {
         --sl-tooltip-font-size: 14px;
         --sl-tooltip-color: #0d1543;
         --sl-tooltip-font-family: 'Ubuntu', sans-serif;
+      }
+
+      .tooltip-red {
+        --sl-tooltip-background-color: #ebc3c3;
+      }
+
+      .only-told-indicator {
+        position: absolute;
+        bottom: -1px;
+        right: -1px;
+        font-weight: bold;
+        color: white;
+        font-size: 12px;
+        background: red;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
       }
     `,
   ];

@@ -41,6 +41,9 @@ export class AgentConnectionStatus extends LitElement {
   @property()
   connectionStatus: ConnectionStatus | undefined;
 
+  @property()
+  appVersion: string | undefined;
+
   /** Dependencies */
 
   /**
@@ -115,6 +118,7 @@ export class AgentConnectionStatus extends LitElement {
     return html`
       <div
         class="row"
+        title="${this.appVersion ? `Uses Presence v${this.appVersion}` : `Uses unknown Presence version`}"
         style="align-items: center; margin: 0; padding: 0; ${!this
           .connectionStatus || this.connectionStatus.type === 'Disconnected'
           ? 'opacity: 0.5'
