@@ -1,13 +1,7 @@
 import { sharedStyles } from '@holochain-open-dev/elements';
 import { css, html, LitElement } from 'lit';
-import { property, customElement, state } from 'lit/decorators.js';
+import { property, customElement } from 'lit/decorators.js';
 import { localized } from '@lit/localize';
-
-import '@holochain-open-dev/elements/dist/elements/display-error.js';
-import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
-import '@shoelace-style/shoelace/dist/components/avatar/avatar.js';
-import '@shoelace-style/shoelace/dist/components/skeleton/skeleton.js';
-import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 
 @localized()
 @customElement('toggle-switch')

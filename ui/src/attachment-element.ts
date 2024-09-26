@@ -5,7 +5,6 @@ import { consume } from '@lit/context';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import {
   AppletInfo,
   AssetLocationAndInfo,

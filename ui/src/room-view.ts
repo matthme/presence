@@ -29,7 +29,6 @@ import { repeat } from 'lit/directives/repeat.js';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import { WeaveClient, weaveUrlFromWal } from '@theweave/api';
 import { EntryRecord } from '@holochain-open-dev/utils';
 
@@ -1305,7 +1304,7 @@ export class RoomView extends LitElement {
                 video: true,
                 audio: false,
                 connected: false,
-                direction: 'outgoing', // if we initiated the request, we're the one's delivering the stream
+                direction: 'outgoing', // if we initiated the request, we're the ones delivering the stream
               };
               this._screenShareConnectionsOutgoing =
                 screenShareConnectionsOutgoing;
@@ -1320,8 +1319,8 @@ export class RoomView extends LitElement {
         }
 
         case 'SdpData': {
-          console.log('## Got SDP Data: ', signal.data);
           const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+          console.log(`## Got SDP Data from : ${pubkeyB64}:\n`, signal.data);
 
           // If not connected already, update the status do SdpExchange (SDP Exchange also happens when already connected)
           if (

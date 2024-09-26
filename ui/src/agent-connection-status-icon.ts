@@ -7,7 +7,6 @@ import { localized, msg } from '@lit/localize';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
 
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
-import '@holochain-open-dev/elements/dist/elements/holo-identicon.js';
 import '@shoelace-style/shoelace/dist/components/avatar/avatar.js';
 import '@shoelace-style/shoelace/dist/components/skeleton/skeleton.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -21,6 +20,7 @@ import { EntryRecord } from '@holochain-open-dev/utils';
 import { ConnectionStatus } from './room-view';
 import { connectionStatusToColor } from './utils';
 import { sharedStyles } from './sharedStyles';
+import './holo-identicon';
 
 @localized()
 @customElement('agent-connection-status-icon')
@@ -69,17 +69,6 @@ export class AgentConnectionStatusIcon extends LitElement {
     if (changedProperties.has('agentPubKey')) {
       this.requestUpdate();
     }
-  }
-
-  renderIdenticon() {
-    return html` <holo-identicon
-      .disableCopy=${true}
-      .disableTooltip=${true}
-      .hash=${this.agentPubKey}
-      .size=${this.size}
-      title="${encodeHashToBase64(this.agentPubKey)}"
-    >
-    </holo-identicon>`;
   }
 
   /**
@@ -162,7 +151,7 @@ export class AgentConnectionStatusIcon extends LitElement {
                   .hash=${this.agentPubKey}
                   .size=${this.size}
                   title="${encodeHashToBase64(this.agentPubKey)}"
-                  style="border: 3px solid ${connectionStatusToColor(
+                  style="border-radius: 50%; border: 3px solid ${connectionStatusToColor(
                     this.connectionStatus
                   )};"
                 >
@@ -187,13 +176,7 @@ export class AgentConnectionStatusIcon extends LitElement {
           'Failed to get agent profile: ',
           this._agentProfile.value.status
         );
-        return html`
-          <display-error
-            tooltip
-            .headline=${msg("Error fetching the agent's avatar")}
-            .error=${this._agentProfile.value.error}
-          ></display-error>
-        `;
+        return this.renderProfile(undefined);
       default:
         return html``;
     }
