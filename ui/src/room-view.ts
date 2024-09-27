@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -109,6 +110,7 @@ type PongMetaData<T> = {
 
 type PongMetaDataV1 = {
   connectionStatuses: ConnectionStatuses;
+  screenShareConnectionStatuses?: ConnectionStatuses;
   knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
   appVersion?: string;
 };
@@ -277,15 +279,76 @@ export class RoomView extends LitElement {
     this._connectionStatuses = connectionStatuses;
   }
 
+  updateScreenShareConnectionStatus(
+    pubKey: AgentPubKeyB64,
+    status: ConnectionStatus
+  ) {
+    const connectionStatuses = this._screenShareConnectionStatuses;
+    if (status.type === 'InitSent') {
+      const currentStatus = this._screenShareConnectionStatuses[pubKey];
+      if (currentStatus && currentStatus.type === 'InitSent') {
+        // increase number of attempts by 1
+        connectionStatuses[pubKey] = {
+          type: 'InitSent',
+          attemptCount: currentStatus.attemptCount
+            ? currentStatus.attemptCount + 1
+            : 1,
+        };
+      } else {
+        connectionStatuses[pubKey] = {
+          type: 'InitSent',
+          attemptCount: 1,
+        };
+      }
+      this._screenShareConnectionStatuses = connectionStatuses;
+      return;
+    }
+    if (status.type === 'AcceptSent') {
+      const currentStatus = this._screenShareConnectionStatuses[pubKey];
+      if (currentStatus && currentStatus.type === 'AcceptSent') {
+        // increase number of attempts by 1
+        connectionStatuses[pubKey] = {
+          type: 'AcceptSent',
+          attemptCount: currentStatus.attemptCount
+            ? currentStatus.attemptCount + 1
+            : 1,
+        };
+      } else {
+        connectionStatuses[pubKey] = {
+          type: 'AcceptSent',
+          attemptCount: 1,
+        };
+      }
+      this._screenShareConnectionStatuses = connectionStatuses;
+      return;
+    }
+    connectionStatuses[pubKey] = status;
+    this._screenShareConnectionStatuses = connectionStatuses;
+  }
+
   @state()
   _connectionStatuses: ConnectionStatuses = {};
 
+  /**
+   * Connection statuses of other peers to one's own screen
+   */
+  @state()
+  _screenShareConnectionStatuses: ConnectionStatuses = {};
+
+  /**
+   * Connection statuses of other peers from their perspective. Is sent to us
+   * via remote signals (as part of pingAgents())
+   */
   @state()
   _othersConnectionStatuses: Record<
     AgentPubKeyB64,
     {
       lastUpdated: number;
       statuses: ConnectionStatuses;
+      /**
+       * Connection statuses to their screen share in case their sharing screen
+       */
+      screenShareStatuses?: ConnectionStatuses;
       knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
     }
   > = {};
@@ -637,6 +700,9 @@ export class RoomView extends LitElement {
       } else {
         this._screenShareConnectionsIncoming = screenShareConnections;
       }
+
+      this.updateScreenShareConnectionStatus(pubKey64, { type: 'Connected' });
+
       this.requestUpdate();
     });
     peer.on('close', () => {
@@ -660,6 +726,10 @@ export class RoomView extends LitElement {
         this._maximizedVideo = undefined;
       }
 
+      this.updateScreenShareConnectionStatus(pubkeyB64, {
+        type: 'Disconnected',
+      });
+
       this.requestUpdate();
     });
     peer.on('error', e => {
@@ -677,6 +747,10 @@ export class RoomView extends LitElement {
         delete screenShareConnections[pubkeyB64];
         this._screenShareConnectionsIncoming = screenShareConnections;
       }
+
+      this.updateScreenShareConnectionStatus(pubkeyB64, {
+        type: 'Disconnected',
+      });
 
       this.requestUpdate();
     });
@@ -971,6 +1045,9 @@ export class RoomView extends LitElement {
               formatVersion: 1,
               data: {
                 connectionStatuses: this._connectionStatuses,
+                screenShareConnectionStatuses: this._screenShareStream
+                  ? this._screenShareConnectionStatuses
+                  : undefined,
                 knownAgents: this._knownAgents,
                 appVersion: __APP_VERSION__,
               },
@@ -997,6 +1074,7 @@ export class RoomView extends LitElement {
             othersConnectionStatuses[pubkeyB64] = {
               lastUpdated: now,
               statuses: metaData.data.connectionStatuses,
+              screenShareStatuses: metaData.data.screenShareConnectionStatuses,
               knownAgents: metaData.data.knownAgents,
             };
             this._othersConnectionStatuses = othersConnectionStatuses;
@@ -1109,6 +1187,9 @@ export class RoomView extends LitElement {
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
               });
+              this.updateScreenShareConnectionStatus(pubkeyB64, {
+                type: 'InitSent',
+              });
             } else {
               console.log(
                 `#--# SENDING SCREEN SHARE INIT REQUEST NUMBER ${
@@ -1132,6 +1213,9 @@ export class RoomView extends LitElement {
                   to_agent: signal.from_agent,
                 });
               }
+              this.updateScreenShareConnectionStatus(pubkeyB64, {
+                type: 'InitSent',
+              });
             }
           }
           break;
@@ -1314,6 +1398,10 @@ export class RoomView extends LitElement {
               const pendingScreenShareInits = this._pendingScreenShareInits;
               delete pendingScreenShareInits[pubKey64];
               this._pendingScreenShareInits = pendingScreenShareInits;
+              this.updateScreenShareConnectionStatus(pubKey64, {
+                type: 'SdpExchange',
+              });
+
               this.requestUpdate(); // reload rendered video containers
             }
           }
@@ -2036,23 +2124,68 @@ export class RoomView extends LitElement {
     `;
   }
 
-  renderOtherAgentConnectionStatuses(pubkeyb64: AgentPubKeyB64) {
-    const statuses = this._othersConnectionStatuses[pubkeyb64];
-    if (!statuses)
-      return html`<span
-        class="tertiary-font"
-        style="color: #c3c9eb; font-size: 16px;"
-        >Unkown connection statuses</span
-      >`;
+  /**
+   * Renders connection statuses of agents with icons in a row.
+   *
+   * @param type
+   * @param pubkeyb64
+   * @returns
+   */
+  renderAgentConnectionStatuses(
+    type: 'video' | 'my-screen-share' | 'their-screen-share',
+    pubkeyb64?: AgentPubKeyB64
+  ) {
+    let knownAgents: Record<AgentPubKeyB64, AgentInfo> | undefined;
+    let staleInfo: boolean;
+    let connectionStatuses: ConnectionStatuses;
 
-    const nConnections = Object.values(statuses.statuses).filter(
+    if (type === 'my-screen-share') {
+      knownAgents = this._knownAgents;
+      staleInfo = false;
+      connectionStatuses = this._screenShareConnectionStatuses;
+    } else {
+      if (!pubkeyb64)
+        throw Error(
+          "For rendering connection statuses of type 'video' or 'their-screen-share', a public key must be provided."
+        );
+      const statuses = this._othersConnectionStatuses[pubkeyb64];
+      if (!statuses)
+        return html`<span
+          class="tertiary-font"
+          style="color: #c3c9eb; font-size: 16px;"
+          >Unkown connection statuses</span
+        >`;
+
+      knownAgents = statuses.knownAgents;
+      const now = Date.now();
+      staleInfo = now - statuses.lastUpdated > 2.8 * PING_INTERVAL;
+
+      switch (type) {
+        case 'video': {
+          connectionStatuses = statuses.statuses;
+          break;
+        }
+        case 'their-screen-share': {
+          if (!statuses.screenShareStatuses)
+            return html`<span
+              class="tertiary-font"
+              style="color: #c3c9eb; font-size: 16px;"
+              >Unkown connection statuses</span
+            >`;
+          connectionStatuses = statuses.screenShareStatuses;
+          break;
+        }
+        default:
+          throw new Error(`Unknown connection type: ${type}`);
+      }
+    }
+
+    const nConnections = Object.values(connectionStatuses).filter(
       status => status.type === 'Connected'
     ).length;
 
-    const now = Date.now();
     // if the info is older than >2.8 PING_INTERVAL, show the info opaque to indicated that it's outdated
-    const staleInfo = now - statuses.lastUpdated > 2.8 * PING_INTERVAL;
-    const sortedStatuses = Object.entries(statuses.statuses).sort(
+    const sortedStatuses = Object.entries(connectionStatuses).sort(
       sortConnectionStatuses
     );
     return html`
@@ -2064,9 +2197,9 @@ export class RoomView extends LitElement {
             // Check whether the agent for which the statuses are rendered has only been told by others that
             // the rendered agent exists
             const onlyToldAbout = !!(
-              statuses.knownAgents &&
-              statuses.knownAgents[pubkeyb64] &&
-              statuses.knownAgents[pubkeyb64].type === 'told'
+              knownAgents &&
+              knownAgents[pubkeyb64] &&
+              knownAgents[pubkeyb64].type === 'told'
             );
 
             return html`<agent-connection-status-icon
@@ -2109,6 +2242,17 @@ export class RoomView extends LitElement {
           @dblclick=${() => this.toggleMaximized('my-own-screen')}
         >
           <video muted id="my-own-screen" class="video-el"></video>
+
+          <!-- Connection states indicators -->
+          ${this._showConnectionDetails
+            ? html`<div
+                style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
+              >
+                ${this.renderAgentConnectionStatuses('my-screen-share')}
+              </div>`
+            : html``}
+
+          <!-- Avatar and nickname -->
           <div
             style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
           >
@@ -2161,6 +2305,17 @@ export class RoomView extends LitElement {
               >
                 establishing connection...
               </div>
+
+              <!-- Connection states indicators -->
+              ${this._showConnectionDetails
+                ? html`<div
+                    style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
+                  >
+                    ${this.renderAgentConnectionStatuses('their-screen-share', pubkeyB64)}
+                  </div>`
+                : html``}
+
+                <!-- Avatar and nickname -->
               <div
                 style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
               >
@@ -2211,6 +2366,8 @@ export class RoomView extends LitElement {
               : ''}"
             .src=${wrapPathInSvg(mdiVideoOff)}
           ></sl-icon>
+
+          <!-- Avatar and nickname -->
           <div
             style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
           >
@@ -2255,12 +2412,13 @@ export class RoomView extends LitElement {
               >
                 establishing connection...
               </div>
+
               <!-- Connection states indicators -->
               ${this._showConnectionDetails
                 ? html`<div
                     style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
                   >
-                    ${this.renderOtherAgentConnectionStatuses(pubkeyB64)}
+                    ${this.renderAgentConnectionStatuses('video', pubkeyB64)}
                   </div>`
                 : html``}
 
@@ -2287,7 +2445,7 @@ export class RoomView extends LitElement {
       ${this.renderToggles()}
       ${this._showAttachmentsPanel ? this.renderAttachmentPanel() : undefined}
       ${this._showAttachmentsPanel ? undefined : this.renderAttachmentButton()}
-      ${this.renderConnectionDetailsToggle()}
+      ${this._maximizedVideo ? html`` : this.renderConnectionDetailsToggle()}
 
       <div
         class="error-message secondary-font"

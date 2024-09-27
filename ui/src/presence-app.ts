@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import '@fontsource/pacifico';
 import '@fontsource/gabriela';
 import '@fontsource-variable/noto-sans-sc';
