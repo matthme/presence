@@ -1081,6 +1081,8 @@ export class RoomView extends LitElement {
                 this.updateConnectionStatus(pubkeyB64, { type: 'InitSent' });
               }
             }
+          } else if (!alreadyOpen && !pendingInits) {
+            this.updateConnectionStatus(pubkeyB64, { type: 'AwaitingInit' });
           }
 
           /**
