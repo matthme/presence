@@ -112,7 +112,7 @@ export class AgentConnectionStatusIcon extends LitElement {
         hoist
         content=${`${
           profile ? profile.entry.nickname : 'Unknown'
-        } (${this.statusToText(this.connectionStatus)})\n new line`}
+        } (${this.statusToText(this.connectionStatus)})`}
       >
         <div
           class="row"
