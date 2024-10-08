@@ -224,7 +224,7 @@ export class PresenceApp extends LitElement {
         );
       this.client = weaveClient.renderInfo.appletClient as any;
       this._profilesStore = new ProfilesStore(
-        weaveClient.renderInfo.profilesClient
+        weaveClient.renderInfo.profilesClient as any
       );
     } else {
       // We pass an unused string as the url because it will dynamically be replaced in launcher environments
