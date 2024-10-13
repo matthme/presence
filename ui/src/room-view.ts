@@ -2132,7 +2132,7 @@ export class RoomView extends LitElement {
    * @returns
    */
   renderAgentConnectionStatuses(
-    type: 'video' | 'my-screen-share' | 'their-screen-share',
+    type: 'video' | 'my-video' | 'my-screen-share' | 'their-screen-share',
     pubkeyb64?: AgentPubKeyB64
   ) {
     let knownAgents: Record<AgentPubKeyB64, AgentInfo> | undefined;
@@ -2143,6 +2143,10 @@ export class RoomView extends LitElement {
       knownAgents = this._knownAgents;
       staleInfo = false;
       connectionStatuses = this._screenShareConnectionStatuses;
+    } else if (type === 'my-video') {
+      knownAgents = this._knownAgents;
+      staleInfo = false;
+      connectionStatuses = this._connectionStatuses;
     } else {
       if (!pubkeyb64)
         throw Error(
@@ -2311,11 +2315,14 @@ export class RoomView extends LitElement {
                 ? html`<div
                     style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
                   >
-                    ${this.renderAgentConnectionStatuses('their-screen-share', pubkeyB64)}
+                    ${this.renderAgentConnectionStatuses(
+                      'their-screen-share',
+                      pubkeyB64
+                    )}
                   </div>`
                 : html``}
 
-                <!-- Avatar and nickname -->
+              <!-- Avatar and nickname -->
               <div
                 style="display: flex; flex-direction: row; align-items: center; position: absolute; bottom: 10px; right: 10px; background: none;"
               >
@@ -2366,6 +2373,15 @@ export class RoomView extends LitElement {
               : ''}"
             .src=${wrapPathInSvg(mdiVideoOff)}
           ></sl-icon>
+
+          <!-- Connection states indicators -->
+          ${this._showConnectionDetails
+            ? html`<div
+                style="display: flex; flex-direction: row; align-items: center; position: absolute; top: 10px; left: 10px; background: none;"
+              >
+                ${this.renderAgentConnectionStatuses('my-video')}
+              </div>`
+            : html``}
 
           <!-- Avatar and nickname -->
           <div
