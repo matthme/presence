@@ -11,3 +11,4 @@
 .hc
 .running
 ui/*.png
+!ui/icon.png
