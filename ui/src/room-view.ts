@@ -1107,7 +1107,7 @@ export class RoomView extends LitElement {
                     knownAgents[agentB64] = {
                       pubkey: agentB64,
                       type: 'told',
-                      lastSeen: agentInfo.lastSeen,
+                      lastSeen: undefined, // We did not receive a Pong from them directly
                       appVersion: agentInfo.appVersion,
                     };
                   }
@@ -1581,7 +1581,22 @@ export class RoomView extends LitElement {
         .map(agent => encodeHashToBase64(agent))
         .forEach(agentB64 => {
           if (agentB64 !== myPubKeyB64) {
-            knownAgents[agentB64] = { pubkey: agentB64, type: 'known' };
+            const alreadyKnown = knownAgents[agentB64];
+            if (alreadyKnown && alreadyKnown.type !== 'known') {
+              knownAgents[agentB64] = {
+                pubkey: agentB64,
+                type: 'known',
+                lastSeen: alreadyKnown.lastSeen,
+                appVersion: alreadyKnown.appVersion,
+              };
+            } else if (!alreadyKnown) {
+              knownAgents[agentB64] = {
+                pubkey: agentB64,
+                type: 'known',
+                lastSeen: undefined,
+                appVersion: undefined,
+              };
+            }
           }
         });
       this._knownAgents = knownAgents;
@@ -2213,7 +2228,9 @@ export class RoomView extends LitElement {
               knownAgents[pubkeyb64].type === 'told'
             );
 
-            const lastSeen = knownAgents ? knownAgents[pubkeyb64].lastSeen : undefined;
+            const lastSeen = knownAgents
+              ? knownAgents[pubkeyb64].lastSeen
+              : undefined;
 
             return html`<agent-connection-status-icon
               style="margin-right: 2px; margin-bottom: 2px; ${staleInfo
