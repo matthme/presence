@@ -48,7 +48,7 @@ export class AttachmentElement extends LitElement {
       this._error = 'Invalid URL';
       return;
     }
-    this._assetInfo = await this._weaveClient.assetInfo(weaveLocation.wal);
+    this._assetInfo = await this._weaveClient.assets.assetInfo(weaveLocation.wal);
     this._wal = weaveLocation.wal;
     this._assetAppletInfo = this._assetInfo
       ? await this._weaveClient.appletInfo(this._assetInfo.appletHash)
@@ -69,7 +69,7 @@ export class AttachmentElement extends LitElement {
 
   async openAsset() {
     if (this._wal) {
-      await this._weaveClient.openWal(this._wal);
+      await this._weaveClient.openAsset(this._wal);
     }
   }
 

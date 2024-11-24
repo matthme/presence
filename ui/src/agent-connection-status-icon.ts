@@ -45,6 +45,9 @@ export class AgentConnectionStatusIcon extends LitElement {
   @property()
   onlyToldAbout = false;
 
+  @property()
+  lastSeen: number | undefined;
+
   /** Dependencies */
 
   /**
@@ -132,7 +135,20 @@ export class AgentConnectionStatusIcon extends LitElement {
                   <div class="only-told-indicator tertiary-font">!</div>
                 </sl-tooltip>
               `
-            : html``}
+            : html`
+                <sl-tooltip
+                  hoist
+                  class="tooltip-filled"
+                  placement="bottom"
+                  content="${lastSeenToText(this.lastSeen)}"
+                  style="--sl-tooltip-background-color: ${lastSeenToColor(this.lastSeen)};"
+                >
+                  <div
+                    class="last-seen-indicator"
+                    style="background: ${lastSeenToColor(this.lastSeen)};"
+                  ></div>
+                </sl-tooltip>
+              `}
           ${profile && profile.entry.fields.avatar
             ? html`
                 <img
@@ -211,6 +227,32 @@ export class AgentConnectionStatusIcon extends LitElement {
         width: 14px;
         height: 14px;
       }
+
+      .last-seen-indicator {
+        position: absolute;
+        bottom: -1px;
+        right: -1px;
+        font-weight: bold;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+      }
     `,
   ];
+}
+
+function lastSeenToText(lastSeen: number | undefined) {
+  if (!lastSeen) return 'No remote signals received in the last 30 seconds.';
+  const now = Date.now();
+  if (now - lastSeen < 15000) return 'Last remote signal received no longer than 15 seconds ago.';
+  if (now - lastSeen < 30000) return 'Last remote signal received no longer than 30 seconds ago.';
+  return 'No remote signals received in the last 30 seconds.';
+}
+
+function lastSeenToColor(lastSeen: number | undefined) {
+  if (!lastSeen) return 'gray';
+  const now = Date.now();
+  if (now - lastSeen < 15000) return '#48e708';
+  if (now - lastSeen < 30000) return '#ffd900';
+  return 'gray';
 }

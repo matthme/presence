@@ -168,6 +168,10 @@ type AgentInfo = {
    * or from receiving a Pong from that agent themselves the type is "told".
    */
   type: 'known' | 'told';
+  /**
+   * last time when a PongUi from this agent was received
+   */
+  lastSeen?: number;
   appVersion?: string;
 };
 
@@ -1084,10 +1088,12 @@ export class RoomView extends LitElement {
             const maybeKnownAgent = knownAgents[pubkeyB64];
             if (maybeKnownAgent) {
               maybeKnownAgent.appVersion = metaData.data.appVersion;
+              maybeKnownAgent.lastSeen = Date.now();
             } else {
               knownAgents[pubkeyB64] = {
                 pubkey: pubkeyB64,
                 type: 'told',
+                lastSeen: Date.now(),
                 appVersion: metaData.data.appVersion,
               };
             }
@@ -1101,6 +1107,7 @@ export class RoomView extends LitElement {
                     knownAgents[agentB64] = {
                       pubkey: agentB64,
                       type: 'told',
+                      lastSeen: agentInfo.lastSeen,
                       appVersion: agentInfo.appVersion,
                     };
                   }
@@ -1599,7 +1606,7 @@ export class RoomView extends LitElement {
   }
 
   async addAttachment() {
-    const wal = await this._weaveClient.userSelectWal();
+    const wal = await this._weaveClient.assets.userSelectAsset();
     console.log('Got WAL: ', wal);
     if (wal) {
       const newAttachment = await this.roomStore.client.createAttachment({
@@ -2206,6 +2213,8 @@ export class RoomView extends LitElement {
               knownAgents[pubkeyb64].type === 'told'
             );
 
+            const lastSeen = knownAgents ? knownAgents[pubkeyb64].lastSeen : undefined;
+
             return html`<agent-connection-status-icon
               style="margin-right: 2px; margin-bottom: 2px; ${staleInfo
                 ? 'opacity: 0.5;'
@@ -2213,6 +2222,7 @@ export class RoomView extends LitElement {
               .agentPubKey=${decodeHashFromBase64(pubkeyb64)}
               .connectionStatus=${status}
               .onlyToldAbout=${onlyToldAbout}
+              .lastSeen=${lastSeen}
             ></agent-connection-status-icon>`;
           }
         )}
