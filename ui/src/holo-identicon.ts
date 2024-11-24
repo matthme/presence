@@ -4,7 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import renderIcon from '@holo-host/identicon';
 import { classMap } from 'lit/directives/class-map.js';
 import { encodeHashToBase64, HoloHash } from '@holochain/client';
-import { localized, msg } from '@lit/localize';
+import { localized } from '@lit/localize';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { hashProperty } from '@holochain-open-dev/elements';
 
