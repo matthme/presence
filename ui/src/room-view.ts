@@ -1621,7 +1621,7 @@ export class RoomView extends LitElement {
   }
 
   async addAttachment() {
-    const wal = await this._weaveClient.assets.userSelectAsset();
+    const wal = await this._weaveClient.userSelectWal();
     console.log('Got WAL: ', wal);
     if (wal) {
       const newAttachment = await this.roomStore.client.createAttachment({

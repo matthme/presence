@@ -211,6 +211,7 @@ export class PresenceApp extends LitElement {
           return Promise.resolve(undefined);
         },
         search: () => Promise.resolve([]),
+        bindAsset: () => Promise.resolve(),
       };
       const weaveClient = await WeaveClient.connect(appletServices);
       this._weaveClient = weaveClient;
