@@ -539,7 +539,7 @@ export class PresenceApp extends LitElement {
               .clonedCell=${clonedCell}
               @request-open-room=${async (e: CustomEvent) => {
                 try {
-                  await (this._weaveClient as any).openAsset(
+                  await (this._weaveClient as any).openWal(
                     {
                       hrl: [clonedCell.cell_id[0], NULL_HASH],
                     },
@@ -575,7 +575,7 @@ export class PresenceApp extends LitElement {
           .groupRoomInfo=${roomInfo}
           @request-open-room=${async (e: { detail: ClonedCell }) => {
             try {
-              await (this._weaveClient as any).openAsset(
+              await (this._weaveClient as any).openWal(
                 {
                   hrl: [e.detail.cell_id[0], NULL_HASH],
                 },
@@ -669,7 +669,7 @@ export class PresenceApp extends LitElement {
                 <button
                   class="enter-main-room-btn"
                   @click=${async () => {
-                    await (this._weaveClient as any).openAsset(
+                    await (this._weaveClient as any).openWal(
                       {
                         hrl: [this._provisionedCell!.cell_id[0], NULL_HASH],
                       },
