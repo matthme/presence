@@ -1144,6 +1144,7 @@ export class RoomView extends LitElement {
                 { connectionId: newConnectionId, t0: now },
               ];
               await this.roomStore.client.sendInitRequest({
+                connection_type: 'video',
                 connection_id: newConnectionId,
                 to_agent: signal.from_agent,
               });
@@ -1160,6 +1161,7 @@ export class RoomView extends LitElement {
                 pendingInits.push({ connectionId: newConnectionId, t0: now });
                 this._pendingInits[pubkeyB64] = pendingInits;
                 await this.roomStore.client.sendInitRequest({
+                  connection_type: 'video',
                   connection_id: newConnectionId,
                   to_agent: signal.from_agent,
                 });
@@ -1270,6 +1272,7 @@ export class RoomView extends LitElement {
             this._pendingAccepts = allPendingAccepts;
 
             await this.roomStore.client.sendInitAccept({
+              connection_type: 'video',
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
@@ -1301,6 +1304,7 @@ export class RoomView extends LitElement {
             this._pendingScreenShareAccepts = allPendingAccepts;
 
             await this.roomStore.client.sendInitAccept({
+              connection_type: 'screen',
               connection_id: signal.connection_id,
               to_agent: signal.from_agent,
             });
