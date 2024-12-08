@@ -18,6 +18,7 @@ import {
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
   mdiPaperclip,
+  mdiPhoneRefresh,
   mdiVideo,
   mdiVideoOff,
 } from '@mdi/js';
@@ -27,6 +28,7 @@ import { consume } from '@lit/context';
 import { repeat } from 'lit/directives/repeat.js';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { WeaveClient, weaveUrlFromWal } from '@theweave/api';
 import { EntryRecord } from '@holochain-open-dev/utils';
@@ -331,15 +333,15 @@ export class RoomView extends LitElement {
           this.notifyError(event.error);
           break;
         }
-        case "my-audio-off": {
+        case 'my-audio-off': {
           this._microphone = false;
           break;
         }
-        case "my-audio-on": {
+        case 'my-audio-on': {
           this._microphone = true;
           break;
         }
-        case "my-video-on": {
+        case 'my-video-on': {
           const myVideo = this.shadowRoot?.getElementById(
             'my-own-stream'
           ) as HTMLVideoElement;
@@ -348,7 +350,7 @@ export class RoomView extends LitElement {
           this._camera = true;
           break;
         }
-        case "my-video-off": {
+        case 'my-video-off': {
           this._camera = false;
           break;
         }
@@ -394,14 +396,14 @@ export class RoomView extends LitElement {
           break;
         }
         case 'peer-screen-share-stream': {
-          console.log("&&&& GOT SCREEN STREAM");
+          console.log('&&&& GOT SCREEN STREAM');
           // We want to make sure that the video element is actually in the DOM
           // so we add a timeout here.
           setTimeout(() => {
             const videoEl = this.shadowRoot?.getElementById(
               event.connectionId
             ) as HTMLVideoElement | undefined;
-            console.log("&&&& Trying to set video element (screen share)");
+            console.log('&&&& Trying to set video element (screen share)');
             if (videoEl) {
               videoEl.autoplay = true;
               videoEl.srcObject = event.stream;
@@ -1165,6 +1167,16 @@ export class RoomView extends LitElement {
                   .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
                   style="height: 36px;"
                 ></avatar-with-nickname>
+                <sl-tooltip content="reconnect" class="tooltip-filled">
+                  <sl-icon-button
+                    class="phone-refresh"
+                    style="margin-left: 4px; margin-bottom: -5px;"
+                    src=${wrapPathInSvg(mdiPhoneRefresh)}
+                    @click=${() => {
+                      this.streamsStore.disconnectFromPeerScreen(pubkeyB64);
+                    }}
+                  ></sl-icon-button>
+                </sl-tooltip>
               </div>
               <sl-icon
                 title="${this._maximizedVideo === conn.connectionId
@@ -1281,6 +1293,16 @@ export class RoomView extends LitElement {
                   .agentPubKey=${decodeHashFromBase64(pubkeyB64)}
                   style="height: 36px;"
                 ></avatar-with-nickname>
+                <sl-tooltip content="reconnect" class="tooltip-filled">
+                  <sl-icon-button
+                    class="phone-refresh"
+                    style="margin-left: 4px; margin-bottom: -5px;"
+                    src=${wrapPathInSvg(mdiPhoneRefresh)}
+                    @click=${() => {
+                      this.streamsStore.disconnectFromPeerVideo(pubkeyB64);
+                    }}
+                  ></sl-icon-button>
+                </sl-tooltip>
               </div>
               <sl-icon
                 style="position: absolute; bottom: 10px; left: 10px; color: red; height: 30px; width: 30px; ${conn.audio
@@ -1716,6 +1738,27 @@ export class RoomView extends LitElement {
         color: #facece;
         box-shadow: 0 0 3px 2px #050b21;
         /* left: calc(50% - 150px); */
+      }
+
+      sl-icon-button::part(base) {
+        color: #24d800;
+      }
+      sl-icon-button::part(base):hover,
+      sl-icon-button::part(base):focus {
+        color: #8dff76;
+      }
+      sl-icon-button::part(base):active {
+        color: #8dff76;
+      }
+
+      .tooltip-filled {
+        --sl-tooltip-background-color: #c3c9eb;
+        --sl-tooltip-arrow-size: 6px;
+        --sl-tooltip-border-radius: 5px;
+        --sl-tooltip-padding: 4px;
+        --sl-tooltip-font-size: 14px;
+        --sl-tooltip-color: #0d1543;
+        --sl-tooltip-font-family: 'Ubuntu', sans-serif;
       }
     `,
   ];

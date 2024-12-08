@@ -647,6 +647,18 @@ export class StreamsStore {
     }
   }
 
+  disconnectFromPeerVideo(pubKeyB64: AgentPubKeyB64) {
+    const relevantConnection = get(this._openConnections)[pubKeyB64];
+    if (relevantConnection) relevantConnection.peer.destroy();
+  }
+
+  disconnectFromPeerScreen(pubKeyB64: AgentPubKeyB64) {
+    const relevantConnection = get(this._screenShareConnectionsIncoming)[
+      pubKeyB64
+    ];
+    if (relevantConnection) relevantConnection.peer.destroy();
+  }
+
   // ===========================================================================================
   // WEBRTC STREAMS
   // ===========================================================================================
