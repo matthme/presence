@@ -39,13 +39,13 @@ export type PongInput = {
 export type InitAcceptInput = {
   connection_id: string;
   to_agent: AgentPubKey;
-  connection_type?: string;
+  connection_type?: 'screen' | 'video';
 };
 
 export type InitRequestInput = {
   connection_id: string;
   to_agent: AgentPubKey;
-  connection_type?: string;
+  connection_type?: 'screen' | 'video';
 };
 
 export type SdpDataInput = {
