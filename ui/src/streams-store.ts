@@ -5,7 +5,13 @@ import {
   decodeHashFromBase64,
   encodeHashToBase64,
 } from '@holochain/client';
-import { get, writable, Writable } from '@holochain-open-dev/stores';
+import {
+  derived,
+  get,
+  Readable,
+  writable,
+  Writable,
+} from '@holochain-open-dev/stores';
 import { v4 as uuidv4 } from 'uuid';
 import { RoomSignal } from './types';
 import { RoomClient } from './room-client';
@@ -39,7 +45,7 @@ const ICE_CONFIG = [
  *
  */
 
-type StoreEventPayload =
+export type StoreEventPayload =
   | {
       type: 'my-video-on';
     }
@@ -126,7 +132,7 @@ type StoreEventPayload =
  */
 const INIT_RETRY_THRESHOLD = 5000;
 
-const PING_INTERVAL = 2000;
+export const PING_INTERVAL = 2000;
 
 type ConnectionId = string;
 
@@ -185,7 +191,7 @@ type PongMetaDataV1 = {
   appVersion?: string;
 };
 
-type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
+export type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
 
 /**
  * Connection status with a peer
@@ -196,6 +202,12 @@ export type ConnectionStatus =
        * No WebRTC connection or freshly disconnected
        */
       type: 'Disconnected';
+    }
+  | {
+      /**
+       * Agent has been blocked by us
+       */
+      type: 'Blocked';
     }
   | {
       /**
@@ -230,7 +242,7 @@ export type ConnectionStatus =
       type: 'Connected';
     };
 
-type AgentInfo = {
+export type AgentInfo = {
   pubkey: AgentPubKeyB64;
   /**
    * If I know from the all_agents anchor that this agent exists in the Room, the
@@ -266,6 +278,8 @@ export class StreamsStore {
 
   private eventCallback: (ev: StoreEventPayload) => any = () => undefined;
 
+  blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
+
   constructor(
     roomStore: RoomStore,
     screenSourceSelection: () => Promise<string>
@@ -279,6 +293,10 @@ export class StreamsStore {
     // the Unsubscribe function
     this.signalUnsubscribe = this.roomClient.onSignal(async signal =>
       this.handleSignal(signal)
+    );
+    const blockedAgentsJson = window.sessionStorage.getItem('blockedAgents');
+    this.blockedAgents.set(
+      blockedAgentsJson ? JSON.parse(blockedAgentsJson) : []
     );
   }
 
@@ -361,9 +379,15 @@ export class StreamsStore {
       const connectionStatuses = currentValue;
       Object.keys(get(this._knownAgents)).forEach(agentB64 => {
         if (!connectionStatuses[agentB64]) {
-          connectionStatuses[agentB64] = {
-            type: 'Disconnected',
-          };
+          if (get(this.blockedAgents).includes(agentB64)) {
+            connectionStatuses[agentB64] = {
+              type: 'Blocked',
+            };
+          } else {
+            connectionStatuses[agentB64] = {
+              type: 'Disconnected',
+            };
+          }
         }
       });
       return connectionStatuses;
@@ -371,9 +395,9 @@ export class StreamsStore {
 
     // Ping known agents
     // This could potentially be optimized by only pinging agents that are online according to Moss (which would only work in shared rooms though)
-    const agentsToPing = Object.keys(get(this._knownAgents)).map(pubkeyB64 =>
-      decodeHashFromBase64(pubkeyB64)
-    );
+    const agentsToPing = Object.keys(get(this._knownAgents))
+      .filter(agent => !get(this.blockedAgents).includes(agent))
+      .map(pubkeyB64 => decodeHashFromBase64(pubkeyB64));
     await this.roomStore.client.pingFrontend(agentsToPing);
   }
 
@@ -657,6 +681,52 @@ export class StreamsStore {
       pubKeyB64
     ];
     if (relevantConnection) relevantConnection.peer.destroy();
+  }
+
+  blockAgent(pubKey64: AgentPubKeyB64) {
+    const currentlyBlockedAgents = get(this.blockedAgents);
+    if (!currentlyBlockedAgents.includes(pubKey64)) {
+      this.blockedAgents.set([...currentlyBlockedAgents, pubKey64]);
+    }
+    const blockedAgentsJson = window.sessionStorage.getItem('blockedAgents');
+    const blockedAgents: AgentPubKeyB64[] = blockedAgentsJson
+      ? JSON.parse(blockedAgentsJson)
+      : [];
+    if (!blockedAgents.includes(pubKey64))
+      window.sessionStorage.setItem(
+        'blockedAgents',
+        JSON.stringify([...blockedAgents, pubKey64])
+      );
+    this.disconnectFromPeerVideo(pubKey64);
+    this.disconnectFromPeerScreen(pubKey64);
+    setTimeout(() => {
+      this._connectionStatuses.update(currentValue => {
+        const connectionStatuses = currentValue;
+        connectionStatuses[pubKey64] = {
+          type: 'Blocked',
+        };
+        return connectionStatuses;
+      });
+    }, 500);
+  }
+
+  unblockAgent(pubKey64: AgentPubKeyB64) {
+    const currentlyBlockedAgents = get(this.blockedAgents);
+    this.blockedAgents.set(
+      currentlyBlockedAgents.filter(pubkey => pubkey !== pubKey64)
+    );
+    const blockedAgentsJson = window.sessionStorage.getItem('blockedAgents');
+    const blockedAgents: AgentPubKeyB64[] = blockedAgentsJson
+      ? JSON.parse(blockedAgentsJson)
+      : [];
+    window.sessionStorage.setItem(
+      'blockedAgents',
+      JSON.stringify(blockedAgents.filter(pubkey => pubkey !== pubKey64))
+    );
+  }
+
+  isAgentBlocked(pubKey64: AgentPubKeyB64): Readable<boolean> {
+    return derived(this.blockedAgents, val => val.includes(pubKey64));
   }
 
   // ===========================================================================================
@@ -1263,6 +1333,7 @@ export class StreamsStore {
    */
   async handlePingUi(signal: Extract<RoomSignal, { type: 'PingUi' }>) {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
+    if (get(this.blockedAgents).includes(pubkeyB64)) return;
     console.log(`Got PingUi from ${pubkeyB64}: `, signal);
     if (pubkeyB64 !== this.myPubKeyB64) {
       const metaData: PongMetaData<PongMetaDataV1> = {

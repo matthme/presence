@@ -43,136 +43,12 @@ import './agent-connection-status';
 import './agent-connection-status-icon';
 import './toggle-switch';
 import { sortConnectionStatuses } from './utils';
-import { StreamsStore } from './streams-store';
-
-const ICE_CONFIG = [
-  { urls: 'stun:global.stun.twilio.com:3478' },
-  { urls: 'stun:stun.l.google.com:19302' },
-];
-
-/**
- * If an InitRequest does not succeed within this duration (ms) another InitRequest will be sent
- */
-const INIT_RETRY_THRESHOLD = 5000;
-
-const PING_INTERVAL = 2000;
-
-type ConnectionId = string;
-
-type RTCMessage =
-  | {
-      type: 'action';
-      message: 'video-off' | 'audio-off' | 'audio-on';
-    }
-  | {
-      type: 'text';
-      message: string;
-    };
-
-type OpenConnectionInfo = {
-  connectionId: ConnectionId;
-  peer: SimplePeer.Instance;
-  video: boolean;
-  audio: boolean;
-  connected: boolean;
-  direction: 'outgoing' | 'incoming' | 'duplex'; // In which direction streams are expected
-};
-
-type PendingInit = {
-  /**
-   * UUID to identify the connection
-   */
-  connectionId: ConnectionId;
-  /**
-   * Timestamp when init was sent. If InitAccept is not received within a certain duration
-   * after t0, a next InitRequest is sent.
-   */
-  t0: number;
-};
-
-type PendingAccept = {
-  /**
-   * UUID to identify the connection
-   */
-  connectionId: ConnectionId;
-  /**
-   * Peer instance that was created with this accept. Gets destroyed if another Peer object makes it through
-   * to connected state instead for a connection with the same Agent.
-   */
-  peer: SimplePeer.Instance;
-};
-
-type PongMetaData<T> = {
-  formatVersion: number;
-  data: T;
-};
-
-type PongMetaDataV1 = {
-  connectionStatuses: ConnectionStatuses;
-  screenShareConnectionStatuses?: ConnectionStatuses;
-  knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
-  appVersion?: string;
-};
-
-type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
-
-/**
- * Connection status with a peer
- */
-export type ConnectionStatus =
-  | {
-      /**
-       * No WebRTC connection or freshly disconnected
-       */
-      type: 'Disconnected';
-    }
-  | {
-      /**
-       * Waiting for an init of a peer whose pubkey is alphabetically higher than ours
-       */
-      type: 'AwaitingInit';
-    }
-  | {
-      /**
-       * Waiting for an Accept of a peer whose pubkey is alphabetically lower than ours
-       */
-      type: 'InitSent';
-      attemptCount?: number;
-    }
-  | {
-      /**
-       * Waiting for SDP exchange to start
-       */
-      type: 'AcceptSent';
-      attemptCount?: number;
-    }
-  | {
-      /**
-       * SDP exchange is ongoing
-       */
-      type: 'SdpExchange';
-    }
-  | {
-      /**
-       * WebRTC connection is established
-       */
-      type: 'Connected';
-    };
-
-type AgentInfo = {
-  pubkey: AgentPubKeyB64;
-  /**
-   * If I know from the all_agents anchor that this agent exists in the Room, the
-   * type is "known". If I've learnt about this agent only from other's Pong meta data
-   * or from receiving a Pong from that agent themselves the type is "told".
-   */
-  type: 'known' | 'told';
-  /**
-   * last time when a PongUi from this agent was received
-   */
-  lastSeen?: number;
-  appVersion?: string;
-};
+import {
+  AgentInfo,
+  ConnectionStatuses,
+  PING_INTERVAL,
+  StreamsStore,
+} from './streams-store';
 
 @localized()
 @customElement('room-view')
@@ -643,13 +519,17 @@ export class RoomView extends LitElement {
     const presentAgents = knownAgentsKeysB64
       .filter(pubkeyB64 => {
         const status = this._connectionStatuses.value[pubkeyB64];
-        return !!status && status.type !== 'Disconnected';
+        return (
+          !!status &&
+          status.type !== 'Disconnected' &&
+          status.type !== 'Blocked'
+        );
       })
       .sort((key_a, key_b) => key_a.localeCompare(key_b));
     const absentAgents = knownAgentsKeysB64
       .filter(pubkeyB64 => {
         const status = this._connectionStatuses.value[pubkeyB64];
-        return !status || status.type === 'Disconnected';
+        return !status || status.type === 'Disconnected' || status.type === "Blocked";
       })
       .sort((key_a, key_b) => key_a.localeCompare(key_b));
     return html`
@@ -667,6 +547,7 @@ export class RoomView extends LitElement {
               pubkey => pubkey,
               pubkey => html`
                 <agent-connection-status
+                  style="width: 100%;"
                   .agentPubKey=${decodeHashFromBase64(pubkey)}
                   .connectionStatus=${this._connectionStatuses.value[pubkey]}
                   .appVersion=${this._knownAgents.value[pubkey].appVersion}
@@ -688,6 +569,7 @@ export class RoomView extends LitElement {
                 pubkey => pubkey,
                 pubkey => html`
                   <agent-connection-status
+                    style="width: 100%;"
                     .agentPubKey=${decodeHashFromBase64(pubkey)}
                     .connectionStatus=${this._connectionStatuses.value[pubkey]}
                   ></agent-connection-status>

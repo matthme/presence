@@ -17,7 +17,7 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { ConnectionStatus } from './room-view';
+import { ConnectionStatus } from './streams-store';
 import { connectionStatusToColor } from './utils';
 import { sharedStyles } from './sharedStyles';
 import './holo-identicon';
@@ -102,6 +102,8 @@ export class AgentConnectionStatusIcon extends LitElement {
         }...`;
       case 'SdpExchange':
         return 'exchanging SDP data...';
+      case "Blocked":
+        return "Blocked";
       default:
         return 'unknown status type';
     }

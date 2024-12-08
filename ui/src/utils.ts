@@ -7,7 +7,7 @@ import {
   ProvisionedCell,
   RoleName,
 } from '@holochain/client';
-import { ConnectionStatus } from './room-view';
+import { ConnectionStatus } from './streams-store';
 
 export type CellTypes = {
   provisioned: ProvisionedCell;
@@ -101,6 +101,8 @@ export function connectionStatusToColor(status?: ConnectionStatus, offlineColor 
       return 'yellow';
     case 'Connected':
       return '#48e708';
+    case "Blocked":
+      return '#c72100';
     default:
       return offlineColor;
   }

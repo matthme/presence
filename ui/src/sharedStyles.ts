@@ -13,6 +13,14 @@ export const sharedStyles = css`
     font-family: 'Ubuntu', sans-serif;
   }
 
+  .flex-1 {
+    flex: 1;
+  }
+
+  .flex {
+    display: flex;
+  }
+
   .column {
     display: flex;
     flex-direction: column;
