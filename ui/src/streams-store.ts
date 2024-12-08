@@ -816,8 +816,8 @@ export class StreamsStore {
             relevantConnection.video = true;
           }
           screenShareConnections[pubKey64] = relevantConnection;
-          return screenShareConnections;
         }
+        return screenShareConnections;
       });
 
       // TODO CALL CALLBACK THAT SCREEN SHARE CONNECTED (Should turn on video autoplay)
@@ -1587,8 +1587,4 @@ export class StreamsStore {
       }
     }
   }
-
-  /**
-   * methods
-   */
 }
