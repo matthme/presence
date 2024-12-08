@@ -161,8 +161,11 @@ export class StreamsStore {
 
   allAgents: AgentPubKey[] = [];
 
-  constructor(roomStore: RoomStore) {
+  screenSourceSelection: () => Promise<string>;
+
+  constructor(roomStore: RoomStore, screenSourceSelection: () => Promise<string>) {
     this.roomStore = roomStore;
+    this.screenSourceSelection = screenSourceSelection;
     const roomClient = roomStore.client;
     this.roomClient = roomClient;
     this.myPubKey = roomClient.client.myPubKey;
@@ -174,8 +177,8 @@ export class StreamsStore {
     );
   }
 
-  async connect(roomStore: RoomStore): Promise<StreamsStore> {
-    const streamsStore = new StreamsStore(roomStore);
+  async connect(roomStore: RoomStore, screenSourceSelection: () => Promise<string>): Promise<StreamsStore> {
+    const streamsStore = new StreamsStore(roomStore, screenSourceSelection);
 
     this.roomStore.allAgents.subscribe(val => {
       if (val.status === 'complete') {
@@ -197,6 +200,19 @@ export class StreamsStore {
     if (this.pingInterval) window.clearInterval(this.pingInterval);
     if (this.signalUnsubscribe) this.signalUnsubscribe();
     // TODO Close all connections and stop all streams
+    Object.values(get(this._openConnections)).forEach(conn => {
+      conn.peer.destroy();
+    });
+    this.videoOff();
+    this.audioOff();
+    this.screenShareOff();
+    this.mainStream = null;
+    this.screenShareStream = null;
+    this._openConnections.set({});
+    this._screenShareConnectionsOutgoing.set({});
+    this._screenShareConnectionsIncoming.set({});
+    this._pendingAccepts = {};
+    this._pendingInits = {};
   }
 
   async pingAgents() {
@@ -247,6 +263,243 @@ export class StreamsStore {
       decodeHashFromBase64(pubkeyB64)
     );
     await this.roomStore.client.pingFrontend(agentsToPing);
+  }
+
+  async videoOn() {
+    if (this.mainStream) {
+      if (this.mainStream.getVideoTracks()[0]) {
+        console.log('### CASE A');
+        this.mainStream.getVideoTracks()[0].enabled = true;
+      } else {
+        console.log('### CASE B');
+        let videoStream: MediaStream | undefined;
+        try {
+          videoStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
+        } catch (e: any) {
+          console.error(`Failed to get media devices (video): ${e.toString()}`);
+
+          // TODO CALL ERROR CALLBACK
+          return;
+        }
+        if (!videoStream) {
+          // TODO CALL ERROR CALLBACK
+          console.error('Video stream undefined after getUserMedia.');
+          return;
+        }
+        this.mainStream.addTrack(videoStream.getVideoTracks()[0]);
+        /// TODO CALL OWN VIDEO ON CALLBACK
+        try {
+          Object.values(get(this._openConnections)).forEach(conn => {
+            conn.peer.addTrack(
+              videoStream.getVideoTracks()[0],
+              this.mainStream!
+            );
+          });
+        } catch (e: any) {
+          console.error(`Failed to add video track: ${e.toString()}`);
+        }
+      }
+    } else {
+      try {
+        this.mainStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+      } catch (e: any) {
+        console.error(`Failed to get media devices (video): ${e.toString()}`);
+        // TODO CALL ERROR CALLBACK
+        return;
+      }
+      /// TODO CALL OWN VIDEO ON CALLBACK
+      try {
+        Object.values(get(this._openConnections)).forEach(conn => {
+          conn.peer.addStream(this.mainStream!);
+        });
+      } catch (e: any) {
+        console.error(`Failed to add video track: ${e.toString()}`);
+        // TODO CALL ERROR CALLBACK
+      }
+    }
+  }
+
+  videoOff() {
+    if (this.mainStream) {
+      this.mainStream.getVideoTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.stop();
+      });
+      Object.values(get(this._openConnections)).forEach(conn => {
+        try {
+          this.mainStream!.getVideoTracks().forEach(track => {
+            conn.peer.removeTrack(track, this.mainStream!);
+          });
+        } catch (e) {
+          console.warn('Could not remove video track from peer: ', e);
+          // TODO CALL WARN CALLBACK
+        }
+        const msg: RTCMessage = {
+          type: 'action',
+          message: 'video-off',
+        };
+        try {
+          conn.peer.send(JSON.stringify(msg));
+        } catch (e) {
+          console.warn('Could not send video-off message to peer: ', e);
+          // TODO CALL WARN CALLBACK
+        }
+      });
+      this.mainStream.getVideoTracks().forEach(track => {
+        this.mainStream!.removeTrack(track);
+      });
+      // TODO CALL MY-VIDEO-OFF CALLBACK
+    }
+  }
+
+  async audioOn() {
+    if (this.mainStream) {
+      if (this.mainStream.getAudioTracks()[0]) {
+        this.mainStream.getAudioTracks()[0].enabled = true;
+      } else {
+        let audioStream: MediaStream | undefined;
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              noiseSuppression: true,
+              echoCancellation: true,
+            },
+          });
+        } catch (e: any) {
+          console.error(`Failed to get media devices (audio): ${e.toString()}`);
+          // TODO CALL ERROR CALLBACK
+          return;
+        }
+        try {
+          this.mainStream.addTrack(audioStream.getAudioTracks()[0]);
+          Object.values(get(this._openConnections)).forEach(conn => {
+            conn.peer.addTrack(
+              audioStream.getAudioTracks()[0],
+              this.mainStream!
+            );
+          });
+        } catch (e: any) {
+          console.error(`Failed to add video track: ${e.toString()}`);
+        }
+      }
+    } else {
+      try {
+        this.mainStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: true,
+            echoCancellation: true,
+          },
+        });
+        // TODO CALL MY-AUDIO-ON CALLBACK
+      } catch (e: any) {
+        console.error(`Failed to get media devices (audio): ${e.toString()}`);
+        // TODO CALL ERROR CALLBACK
+        return;
+      }
+      Object.values(get(this._openConnections)).forEach(conn => {
+        conn.peer.addStream(this.mainStream!);
+      });
+    }
+    // TODO CALL MY-AUDIO-ON CALLBACK
+    Object.values(get(this._openConnections)).forEach(conn => {
+      const msg: RTCMessage = {
+        type: 'action',
+        message: 'audio-on',
+      };
+      try {
+        conn.peer.send(JSON.stringify(msg));
+      } catch (e: any) {
+        console.error(
+          "Failed to send 'audio-on' message to peer: ",
+          e.toString()
+        );
+        // TODO CALL ERROR CALLBACK
+      }
+    });
+  }
+
+  audioOff() {
+    console.log('### AUDIO OFF');
+    console.log(
+      'this._mainStream.getTracks(): ',
+      this.mainStream?.getTracks()
+    );
+    if (this.mainStream) {
+      console.log('### DISABLING ALL AUDIO TRACKS');
+      this.mainStream.getAudioTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = false;
+        console.log('### DISABLED AUDIO TRACK: ', track);
+      });
+      Object.values(get(this._openConnections)).forEach(conn => {
+        const msg: RTCMessage = {
+          type: 'action',
+          message: 'audio-off',
+        };
+        try {
+          conn.peer.send(JSON.stringify(msg));
+        } catch (e: any) {
+          console.error(
+            'Failed to send audio-off message to peer: ',
+            e.toString()
+          );
+        }
+      });
+      // TODO CALL MY-AUDIO-OFF CALLBACK
+    }
+  }
+
+  async screenShareOn() {
+    if (this.screenShareStream) {
+      this.screenShareStream.getVideoTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.enabled = true;
+      });
+    } else {
+      try {
+        const screenSource = await this.screenSourceSelection();
+        this.screenShareStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: screenSource,
+            },
+          } as any,
+        });
+      } catch (e: any) {
+        console.error(
+          `Failed to get media devices (screen share): ${e.toString()}`
+        );
+      }
+      // TODO CALL MY-SCREEN-SHARE-ON CALLBACK
+      Object.values(get(this._screenShareConnectionsOutgoing)).forEach(conn => {
+        if (this.screenShareStream) {
+          conn.peer.addStream(this.screenShareStream);
+        }
+      });
+    }
+  }
+
+  /**
+   * Turning screen sharing off is equivalent to closing the corresponding peer connection
+   */
+  screenShareOff() {
+    if (this.screenShareStream) {
+      this.screenShareStream.getVideoTracks().forEach(track => {
+        // eslint-disable-next-line no-param-reassign
+        track.stop();
+      });
+      Object.values(get(this._screenShareConnectionsOutgoing)).forEach(conn => {
+        conn.peer.destroy();
+      });
+      this.screenShareStream = null;
+      // TODO CALL MY-SCREEN-SHARE-OFF CALLBACK
+    }
   }
 
   // ===========================================================================================
@@ -498,11 +751,11 @@ export class StreamsStore {
 
       peer.destroy();
 
-      this._openConnections.update((currentValue) => {
+      this._openConnections.update(currentValue => {
         const openConnections = currentValue;
         delete openConnections[pubKey64];
         return openConnections;
-      })
+      });
 
       this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
 
@@ -515,13 +768,160 @@ export class StreamsStore {
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
         delete openConnections[pubKey64];
-        return  openConnections;
+        return openConnections;
       });
 
       this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
 
       // TODO CALL CALLBACK THAT AGENT LEFT;
     });
+
+    return peer;
+  }
+
+  createScreenSharePeer(
+    connectingAgent: AgentPubKey,
+    connectionId: string,
+    initiator: boolean
+  ): SimplePeer.Instance {
+    const pubKey64 = encodeHashToBase64(connectingAgent);
+    const options: SimplePeer.Options = {
+      initiator,
+      config: { iceServers: ICE_CONFIG },
+      objectMode: true,
+      trickle: true,
+    };
+    const peer = new SimplePeer(options);
+    peer.on('signal', async data => {
+      this.roomStore.client.sendSdpData({
+        to_agent: connectingAgent,
+        connection_id: connectionId,
+        data: JSON.stringify(data),
+      });
+    });
+    peer.on('stream', stream => {
+      console.log(
+        '#### GOT SCREEN SHARE STREAM. With tracks: ',
+        stream.getTracks()
+      );
+
+      this._screenShareConnectionsIncoming.update(currentValue => {
+        const screenShareConnections = currentValue;
+        const relevantConnection = screenShareConnections[pubKey64];
+        if (relevantConnection) {
+          if (stream.getAudioTracks().length > 0) {
+            relevantConnection.audio = true;
+          }
+          if (stream.getVideoTracks().length > 0) {
+            relevantConnection.video = true;
+          }
+          screenShareConnections[pubKey64] = relevantConnection;
+          return screenShareConnections;
+        }
+      });
+
+      // TODO CALL CALLBACK THAT SCREEN SHARE CONNECTED (Should turn on video autoplay)
+    });
+    peer.on('track', track => {
+      console.log('#### GOT TRACK: ', track);
+      this._screenShareConnectionsIncoming.update(currentValue => {
+        const screenShareConnections = currentValue;
+        const relevantConnection = screenShareConnections[pubKey64];
+        if (track.kind === 'audio') {
+          relevantConnection.audio = true;
+        }
+        if (track.kind === 'video') {
+          relevantConnection.video = true;
+        }
+        screenShareConnections[pubKey64] = relevantConnection;
+        return screenShareConnections;
+      });
+    });
+    peer.on('connect', () => {
+      console.log('#### SCREEN SHARE CONNECTED');
+
+      const screenShareConnections = initiator
+        ? get(this._screenShareConnectionsOutgoing)
+        : get(this._screenShareConnectionsIncoming);
+
+      const relevantConnection = screenShareConnections[pubKey64];
+
+      relevantConnection.connected = true;
+
+      // if we are already sharing the screen, add the relevant stream
+      if (
+        this.screenShareStream &&
+        relevantConnection.direction === 'outgoing'
+      ) {
+        relevantConnection.peer.addStream(this.screenShareStream);
+      }
+
+      screenShareConnections[pubKey64] = relevantConnection;
+
+      if (initiator) {
+        this._screenShareConnectionsOutgoing.update(currentValue => {
+          const screenShareConnections = currentValue;
+          screenShareConnections[pubKey64] = relevantConnection;
+          return screenShareConnections;
+        });
+      } else {
+        this._screenShareConnectionsIncoming.update(currentValue => {
+          const screenShareConnections = currentValue;
+          screenShareConnections[pubKey64] = relevantConnection;
+          return screenShareConnections;
+        });
+      }
+
+      this.updateScreenShareConnectionStatus(pubKey64, { type: 'Connected' });
+    });
+    peer.on('close', () => {
+      console.log('#### GOT SCREEN SHARE CLOSE EVENT ####');
+
+      peer.destroy();
+
+      if (initiator) {
+        this._screenShareConnectionsOutgoing.update(currentValue => {
+          const screenShareConnections = currentValue;
+          delete screenShareConnections[pubKey64];
+          return screenShareConnections;
+        });
+      } else {
+        this._screenShareConnectionsIncoming.update(currentValue => {
+          const screenShareConnections = currentValue;
+          delete screenShareConnections[pubKey64];
+          return screenShareConnections;
+        });
+      }
+
+      // TODO CALL CALLBACK OF SCREENSHARE CONNECTION CLOSED
+
+      this.updateScreenShareConnectionStatus(pubKey64, {
+        type: 'Disconnected',
+      });
+    });
+    peer.on('error', e => {
+      console.log('#### GOT SCREEN SHARE ERROR EVENT ####: ', e);
+      peer.destroy();
+
+      if (initiator) {
+        this._screenShareConnectionsOutgoing.update(currentValue => {
+          const screenShareConnections = currentValue;
+          delete screenShareConnections[pubKey64];
+          return screenShareConnections;
+        });
+      } else {
+        this._screenShareConnectionsIncoming.update(currentValue => {
+          const screenShareConnections = currentValue;
+          delete screenShareConnections[pubKey64];
+          return screenShareConnections;
+        });
+      }
+
+      this.updateScreenShareConnectionStatus(pubKey64, {
+        type: 'Disconnected',
+      });
+    });
+
     return peer;
   }
 
@@ -765,7 +1165,9 @@ export class StreamsStore {
       if (!pendingInits) {
         console.log('#### SENDING FIRST INIT REQUEST.');
         const newConnectionId = uuidv4();
-        this._pendingInits[pubkeyB64] = [{ connectionId: newConnectionId, t0: now }];
+        this._pendingInits[pubkeyB64] = [
+          { connectionId: newConnectionId, t0: now },
+        ];
         await this.roomClient.sendInitRequest({
           connection_type: 'video',
           connection_id: newConnectionId,
@@ -1149,7 +1551,8 @@ export class StreamsStore {
        * Peer Instances for PendingAccepts of this agent and delete the
        * PendingAccepts
        */
-      const pendingScreenShareAccepts = this._pendingScreenShareAccepts[pubkeyB64];
+      const pendingScreenShareAccepts =
+        this._pendingScreenShareAccepts[pubkeyB64];
       if (pendingScreenShareAccepts) {
         const maybePendingAccept = pendingScreenShareAccepts.find(
           pendingAccept => pendingAccept.connectionId === signal.connection_id
