@@ -19,6 +19,91 @@ const ICE_CONFIG = [
 ];
 
 /**
+ * EVENTS:
+ *
+ * my-video-on
+ * my-video-off
+ * my-audio-on
+ * my-audio-off
+ * my-screen-share-on
+ * my-screen-share-off
+ *
+ * peer-connected
+ * peer-disconnected
+ * peer-audio-on
+ * peer-audio-off
+ * peer-video-on
+ * peer-video-off
+ *
+ * error
+ *
+ */
+
+type StoreEventPayload =
+  | {
+      type: 'my-video-on';
+    }
+  | {
+      type: 'my-video-off';
+    }
+  | {
+      type: 'my-audio-on';
+    }
+  | {
+      type: 'my-audio-off';
+    }
+  | {
+      type: 'my-screen-share-on';
+    }
+  | {
+      type: 'my-screen-share-off';
+    }
+  | {
+      type: 'peer-audio-on';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-audio-off';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-video-on';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-video-off';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-screen-share-on';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-screen-share-off';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-connected';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-disconnected';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-screen-share-connected';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'peer-screen-share-disconnected';
+      pubKeyB64: AgentPubKeyB64;
+    }
+  | {
+      type: 'error';
+      error: string;
+    };
+
+/**
  * If an InitRequest does not succeed within this duration (ms) another InitRequest will be sent
  */
 const INIT_RETRY_THRESHOLD = 5000;
@@ -147,28 +232,30 @@ type AgentInfo = {
  * holochain peers
  */
 export class StreamsStore {
-  roomClient: RoomClient;
+  private roomClient: RoomClient;
 
-  myPubKey: AgentPubKey;
+  private myPubKeyB64: AgentPubKeyB64;
 
-  myPubKeyB64: AgentPubKeyB64;
+  private signalUnsubscribe: () => void;
 
-  signalUnsubscribe: () => void;
+  private pingInterval: number | undefined;
 
-  pingInterval: number | undefined;
+  private roomStore: RoomStore;
 
-  roomStore: RoomStore;
+  private allAgents: AgentPubKey[] = [];
 
-  allAgents: AgentPubKey[] = [];
+  private screenSourceSelection: () => Promise<string>;
 
-  screenSourceSelection: () => Promise<string>;
+  private eventCallback: (ev: StoreEventPayload) => any = () => undefined;
 
-  constructor(roomStore: RoomStore, screenSourceSelection: () => Promise<string>) {
+  constructor(
+    roomStore: RoomStore,
+    screenSourceSelection: () => Promise<string>
+  ) {
     this.roomStore = roomStore;
     this.screenSourceSelection = screenSourceSelection;
     const roomClient = roomStore.client;
     this.roomClient = roomClient;
-    this.myPubKey = roomClient.client.myPubKey;
     this.myPubKeyB64 = encodeHashToBase64(roomClient.client.myPubKey);
     // TODO potentially move this to a connect() method which also returns
     // the Unsubscribe function
@@ -177,7 +264,10 @@ export class StreamsStore {
     );
   }
 
-  async connect(roomStore: RoomStore, screenSourceSelection: () => Promise<string>): Promise<StreamsStore> {
+  async connect(
+    roomStore: RoomStore,
+    screenSourceSelection: () => Promise<string>
+  ): Promise<StreamsStore> {
     const streamsStore = new StreamsStore(roomStore, screenSourceSelection);
 
     this.roomStore.allAgents.subscribe(val => {
@@ -213,6 +303,10 @@ export class StreamsStore {
     this._screenShareConnectionsIncoming.set({});
     this._pendingAccepts = {};
     this._pendingInits = {};
+  }
+
+  onEvent(cb: (ev: StoreEventPayload) => any) {
+    this.eventCallback = cb;
   }
 
   async pingAgents() {
@@ -278,18 +372,27 @@ export class StreamsStore {
             video: true,
           });
         } catch (e: any) {
-          console.error(`Failed to get media devices (video): ${e.toString()}`);
-
-          // TODO CALL ERROR CALLBACK
+          const error = `Failed to get media devices (video): ${e.toString()}`;
+          console.error(error);
+          this.eventCallback({
+            type: 'error',
+            error,
+          });
           return;
         }
         if (!videoStream) {
-          // TODO CALL ERROR CALLBACK
-          console.error('Video stream undefined after getUserMedia.');
+          const error = 'Video stream undefined after getUserMedia.';
+          console.error(error);
+          this.eventCallback({
+            type: 'error',
+            error,
+          });
           return;
         }
         this.mainStream.addTrack(videoStream.getVideoTracks()[0]);
-        /// TODO CALL OWN VIDEO ON CALLBACK
+        this.eventCallback({
+          type: 'my-video-on',
+        });
         try {
           Object.values(get(this._openConnections)).forEach(conn => {
             conn.peer.addTrack(
@@ -307,18 +410,23 @@ export class StreamsStore {
           video: true,
         });
       } catch (e: any) {
-        console.error(`Failed to get media devices (video): ${e.toString()}`);
-        // TODO CALL ERROR CALLBACK
+        const error = `Failed to get media devices (video): ${e.toString()}`;
+        console.error(error);
+        this.eventCallback({
+          type: 'error',
+          error,
+        });
         return;
       }
-      /// TODO CALL OWN VIDEO ON CALLBACK
+      this.eventCallback({
+        type: 'my-video-on',
+      });
       try {
         Object.values(get(this._openConnections)).forEach(conn => {
           conn.peer.addStream(this.mainStream!);
         });
       } catch (e: any) {
         console.error(`Failed to add video track: ${e.toString()}`);
-        // TODO CALL ERROR CALLBACK
       }
     }
   }
@@ -336,7 +444,6 @@ export class StreamsStore {
           });
         } catch (e) {
           console.warn('Could not remove video track from peer: ', e);
-          // TODO CALL WARN CALLBACK
         }
         const msg: RTCMessage = {
           type: 'action',
@@ -346,13 +453,14 @@ export class StreamsStore {
           conn.peer.send(JSON.stringify(msg));
         } catch (e) {
           console.warn('Could not send video-off message to peer: ', e);
-          // TODO CALL WARN CALLBACK
         }
       });
       this.mainStream.getVideoTracks().forEach(track => {
         this.mainStream!.removeTrack(track);
       });
-      // TODO CALL MY-VIDEO-OFF CALLBACK
+      this.eventCallback({
+        type: 'my-video-off',
+      });
     }
   }
 
@@ -370,8 +478,12 @@ export class StreamsStore {
             },
           });
         } catch (e: any) {
-          console.error(`Failed to get media devices (audio): ${e.toString()}`);
-          // TODO CALL ERROR CALLBACK
+          const error = `Failed to get media devices (audio): ${e.toString()}`;
+          console.error(error);
+          this.eventCallback({
+            type: 'error',
+            error,
+          });
           return;
         }
         try {
@@ -394,17 +506,25 @@ export class StreamsStore {
             echoCancellation: true,
           },
         });
-        // TODO CALL MY-AUDIO-ON CALLBACK
+        this.eventCallback({
+          type: 'my-audio-on',
+        });
       } catch (e: any) {
-        console.error(`Failed to get media devices (audio): ${e.toString()}`);
-        // TODO CALL ERROR CALLBACK
+        const error = `Failed to get media devices (audio): ${e.toString()}`;
+        console.error(error);
+        this.eventCallback({
+          type: 'error',
+          error,
+        });
         return;
       }
       Object.values(get(this._openConnections)).forEach(conn => {
         conn.peer.addStream(this.mainStream!);
       });
     }
-    // TODO CALL MY-AUDIO-ON CALLBACK
+    this.eventCallback({
+      type: 'my-audio-on',
+    });
     Object.values(get(this._openConnections)).forEach(conn => {
       const msg: RTCMessage = {
         type: 'action',
@@ -417,17 +537,13 @@ export class StreamsStore {
           "Failed to send 'audio-on' message to peer: ",
           e.toString()
         );
-        // TODO CALL ERROR CALLBACK
       }
     });
   }
 
   audioOff() {
     console.log('### AUDIO OFF');
-    console.log(
-      'this._mainStream.getTracks(): ',
-      this.mainStream?.getTracks()
-    );
+    console.log('this._mainStream.getTracks(): ', this.mainStream?.getTracks());
     if (this.mainStream) {
       console.log('### DISABLING ALL AUDIO TRACKS');
       this.mainStream.getAudioTracks().forEach(track => {
@@ -449,7 +565,9 @@ export class StreamsStore {
           );
         }
       });
-      // TODO CALL MY-AUDIO-OFF CALLBACK
+      this.eventCallback({
+        type: 'my-audio-off',
+      });
     }
   }
 
@@ -472,17 +590,24 @@ export class StreamsStore {
           } as any,
         });
       } catch (e: any) {
-        console.error(
-          `Failed to get media devices (screen share): ${e.toString()}`
-        );
+        const error = `Failed to get media devices (screen share): ${e.toString()}`;
+        console.error(error);
+        this.eventCallback({
+          type: 'error',
+          error,
+        });
       }
-      // TODO CALL MY-SCREEN-SHARE-ON CALLBACK
+      // If there's an error here it's potentially possible that 'my-screen-share-on' further
+      // down never gets emitted.
       Object.values(get(this._screenShareConnectionsOutgoing)).forEach(conn => {
         if (this.screenShareStream) {
           conn.peer.addStream(this.screenShareStream);
         }
       });
     }
+    this.eventCallback({
+      type: 'my-screen-share-on',
+    });
   }
 
   /**
@@ -498,7 +623,9 @@ export class StreamsStore {
         conn.peer.destroy();
       });
       this.screenShareStream = null;
-      // TODO CALL MY-SCREEN-SHARE-OFF CALLBACK
+      this.eventCallback({
+        type: 'my-screen-share-off',
+      });
     }
   }
 
@@ -623,7 +750,7 @@ export class StreamsStore {
     connectionId: string,
     initiator: boolean
   ): SimplePeer.Instance {
-    const pubKey64 = encodeHashToBase64(connectingAgent);
+    const pubKeyB64 = encodeHashToBase64(connectingAgent);
     const options: SimplePeer.Options = {
       initiator,
       config: {
@@ -647,27 +774,27 @@ export class StreamsStore {
           if (msg.message === 'video-off') {
             this._openConnections.update(currentValue => {
               const openConnections = currentValue;
-              const relevantConnection = openConnections[pubKey64];
+              const relevantConnection = openConnections[pubKeyB64];
               relevantConnection.video = false;
-              openConnections[pubKey64] = relevantConnection;
+              openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
             });
           }
           if (msg.message === 'audio-off') {
             this._openConnections.update(currentValue => {
               const openConnections = currentValue;
-              const relevantConnection = openConnections[pubKey64];
+              const relevantConnection = openConnections[pubKeyB64];
               relevantConnection.audio = false;
-              openConnections[pubKey64] = relevantConnection;
+              openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
             });
           }
           if (msg.message === 'audio-on') {
             this._openConnections.update(currentValue => {
               const openConnections = currentValue;
-              const relevantConnection = openConnections[pubKey64];
+              const relevantConnection = openConnections[pubKeyB64];
               relevantConnection.audio = true;
-              openConnections[pubKey64] = relevantConnection;
+              openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
             });
           }
@@ -682,55 +809,68 @@ export class StreamsStore {
     });
     peer.on('stream', stream => {
       console.log('#### GOT STREAM with tracks: ', stream.getTracks());
+      const withAudio = stream.getAudioTracks().length > 0;
+      const withVideo = stream.getVideoTracks().length > 0;
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
-        const relevantConnection = openConnections[pubKey64];
+        const relevantConnection = openConnections[pubKeyB64];
         if (relevantConnection) {
-          if (stream.getAudioTracks().length > 0) {
+          if (withAudio) {
             relevantConnection.audio = true;
           }
-          if (stream.getVideoTracks().length > 0) {
+          if (withVideo) {
             relevantConnection.video = true;
           }
-          openConnections[encodeHashToBase64(connectingAgent)] =
-            relevantConnection;
-          // TODO CALL CALLBACK HERE FOR AGENT JOINED --> should make sure that video element is ready.
-          // try {
-          //   const videoEl = this.shadowRoot?.getElementById(connectionId) as
-          //     | HTMLVideoElement
-          //     | undefined;
-          //   if (videoEl) {
-          //     videoEl.autoplay = true;
-          //     videoEl.srcObject = stream;
-          //   }
-          // } catch (e) {
-          //   console.error('Failed to play video: ', e);
-          // }
+          openConnections[pubKeyB64] = relevantConnection;
         }
         return openConnections;
       });
+      if (withAudio) {
+        this.eventCallback({
+          type: 'peer-audio-on',
+          pubKeyB64,
+        });
+      }
+      if (withVideo) {
+        this.eventCallback({
+          type: 'peer-video-on',
+          pubKeyB64,
+        });
+      }
     });
     peer.on('track', track => {
       console.log('#### GOT TRACK: ', track);
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
-        const relevantConnection = openConnections[pubKey64];
+        const relevantConnection = openConnections[pubKeyB64];
         if (track.kind === 'audio') {
           relevantConnection.audio = true;
         }
         if (track.kind === 'video') {
           relevantConnection.video = true;
         }
-        openConnections[pubKey64] = relevantConnection;
+        openConnections[pubKeyB64] = relevantConnection;
         return openConnections;
       });
+      if (track.kind === 'audio') {
+        this.eventCallback({
+          type: 'peer-audio-on',
+          pubKeyB64,
+        });
+      }
+      if (track.kind === 'video') {
+        this.eventCallback({
+          type: 'peer-video-on',
+          pubKeyB64,
+        });
+      }
     });
     peer.on('connect', async () => {
       console.log('#### CONNECTED');
-      delete this._pendingInits[pubKey64];
+      delete this._pendingInits[pubKeyB64];
 
       const openConnections = get(this._openConnections);
-      const relevantConnection = openConnections[pubKey64];
+      const relevantConnection = openConnections[pubKeyB64];
       relevantConnection.connected = true;
 
       // if we are already sharing video or audio, add the relevant streams
@@ -740,11 +880,15 @@ export class StreamsStore {
 
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
-        openConnections[pubKey64] = relevantConnection;
+        openConnections[pubKeyB64] = relevantConnection;
         return openConnections;
       });
 
-      this.updateConnectionStatus(pubKey64, { type: 'Connected' });
+      this.updateConnectionStatus(pubKeyB64, { type: 'Connected' });
+      this.eventCallback({
+        type: 'peer-connected',
+        pubKeyB64,
+      });
     });
     peer.on('close', async () => {
       console.log('#### GOT CLOSE EVENT ####');
@@ -753,13 +897,15 @@ export class StreamsStore {
 
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
-        delete openConnections[pubKey64];
+        delete openConnections[pubKeyB64];
         return openConnections;
       });
 
-      this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
-
-      // TODO CALL CALLBACK THAT AGENT LEFT;
+      this.updateConnectionStatus(pubKeyB64, { type: 'Disconnected' });
+      this.eventCallback({
+        type: 'peer-disconnected',
+        pubKeyB64,
+      });
     });
     peer.on('error', e => {
       console.log('#### GOT ERROR EVENT ####: ', e);
@@ -767,13 +913,15 @@ export class StreamsStore {
 
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
-        delete openConnections[pubKey64];
+        delete openConnections[pubKeyB64];
         return openConnections;
       });
 
-      this.updateConnectionStatus(pubKey64, { type: 'Disconnected' });
-
-      // TODO CALL CALLBACK THAT AGENT LEFT;
+      this.updateConnectionStatus(pubKeyB64, { type: 'Disconnected' });
+      this.eventCallback({
+        type: 'peer-disconnected',
+        pubKeyB64,
+      });
     });
 
     return peer;
@@ -784,7 +932,7 @@ export class StreamsStore {
     connectionId: string,
     initiator: boolean
   ): SimplePeer.Instance {
-    const pubKey64 = encodeHashToBase64(connectingAgent);
+    const pubKeyB64 = encodeHashToBase64(connectingAgent);
     const options: SimplePeer.Options = {
       initiator,
       config: { iceServers: ICE_CONFIG },
@@ -804,10 +952,9 @@ export class StreamsStore {
         '#### GOT SCREEN SHARE STREAM. With tracks: ',
         stream.getTracks()
       );
-
       this._screenShareConnectionsIncoming.update(currentValue => {
         const screenShareConnections = currentValue;
-        const relevantConnection = screenShareConnections[pubKey64];
+        const relevantConnection = screenShareConnections[pubKeyB64];
         if (relevantConnection) {
           if (stream.getAudioTracks().length > 0) {
             relevantConnection.audio = true;
@@ -815,26 +962,33 @@ export class StreamsStore {
           if (stream.getVideoTracks().length > 0) {
             relevantConnection.video = true;
           }
-          screenShareConnections[pubKey64] = relevantConnection;
+          screenShareConnections[pubKeyB64] = relevantConnection;
         }
         return screenShareConnections;
       });
 
-      // TODO CALL CALLBACK THAT SCREEN SHARE CONNECTED (Should turn on video autoplay)
+      this.eventCallback({
+        type: 'peer-screen-share-on',
+        pubKeyB64,
+      });
     });
     peer.on('track', track => {
       console.log('#### GOT TRACK: ', track);
       this._screenShareConnectionsIncoming.update(currentValue => {
         const screenShareConnections = currentValue;
-        const relevantConnection = screenShareConnections[pubKey64];
+        const relevantConnection = screenShareConnections[pubKeyB64];
         if (track.kind === 'audio') {
           relevantConnection.audio = true;
         }
         if (track.kind === 'video') {
           relevantConnection.video = true;
         }
-        screenShareConnections[pubKey64] = relevantConnection;
+        screenShareConnections[pubKeyB64] = relevantConnection;
         return screenShareConnections;
+      });
+      this.eventCallback({
+        type: 'peer-screen-share-on',
+        pubKeyB64,
       });
     });
     peer.on('connect', () => {
@@ -844,7 +998,7 @@ export class StreamsStore {
         ? get(this._screenShareConnectionsOutgoing)
         : get(this._screenShareConnectionsIncoming);
 
-      const relevantConnection = screenShareConnections[pubKey64];
+      const relevantConnection = screenShareConnections[pubKeyB64];
 
       relevantConnection.connected = true;
 
@@ -856,23 +1010,27 @@ export class StreamsStore {
         relevantConnection.peer.addStream(this.screenShareStream);
       }
 
-      screenShareConnections[pubKey64] = relevantConnection;
+      screenShareConnections[pubKeyB64] = relevantConnection;
 
       if (initiator) {
         this._screenShareConnectionsOutgoing.update(currentValue => {
           const screenShareConnections = currentValue;
-          screenShareConnections[pubKey64] = relevantConnection;
+          screenShareConnections[pubKeyB64] = relevantConnection;
           return screenShareConnections;
         });
       } else {
         this._screenShareConnectionsIncoming.update(currentValue => {
           const screenShareConnections = currentValue;
-          screenShareConnections[pubKey64] = relevantConnection;
+          screenShareConnections[pubKeyB64] = relevantConnection;
           return screenShareConnections;
+        });
+        this.eventCallback({
+          type: 'peer-screen-share-connected',
+          pubKeyB64,
         });
       }
 
-      this.updateScreenShareConnectionStatus(pubKey64, { type: 'Connected' });
+      this.updateScreenShareConnectionStatus(pubKeyB64, { type: 'Connected' });
     });
     peer.on('close', () => {
       console.log('#### GOT SCREEN SHARE CLOSE EVENT ####');
@@ -882,20 +1040,22 @@ export class StreamsStore {
       if (initiator) {
         this._screenShareConnectionsOutgoing.update(currentValue => {
           const screenShareConnections = currentValue;
-          delete screenShareConnections[pubKey64];
+          delete screenShareConnections[pubKeyB64];
           return screenShareConnections;
         });
       } else {
         this._screenShareConnectionsIncoming.update(currentValue => {
           const screenShareConnections = currentValue;
-          delete screenShareConnections[pubKey64];
+          delete screenShareConnections[pubKeyB64];
           return screenShareConnections;
+        });
+        this.eventCallback({
+          type: 'peer-screen-share-disconnected',
+          pubKeyB64,
         });
       }
 
-      // TODO CALL CALLBACK OF SCREENSHARE CONNECTION CLOSED
-
-      this.updateScreenShareConnectionStatus(pubKey64, {
+      this.updateScreenShareConnectionStatus(pubKeyB64, {
         type: 'Disconnected',
       });
     });
@@ -906,18 +1066,22 @@ export class StreamsStore {
       if (initiator) {
         this._screenShareConnectionsOutgoing.update(currentValue => {
           const screenShareConnections = currentValue;
-          delete screenShareConnections[pubKey64];
+          delete screenShareConnections[pubKeyB64];
           return screenShareConnections;
         });
       } else {
         this._screenShareConnectionsIncoming.update(currentValue => {
           const screenShareConnections = currentValue;
-          delete screenShareConnections[pubKey64];
+          delete screenShareConnections[pubKeyB64];
           return screenShareConnections;
+        });
+        this.eventCallback({
+          type: 'peer-screen-share-disconnected',
+          pubKeyB64,
         });
       }
 
-      this.updateScreenShareConnectionStatus(pubKey64, {
+      this.updateScreenShareConnectionStatus(pubKeyB64, {
         type: 'Disconnected',
       });
     });
