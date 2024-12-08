@@ -61,42 +61,60 @@ type StoreEventPayload =
   | {
       type: 'peer-audio-on';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
+    }
+  | {
+      type: 'peer-stream';
+      pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
+      stream: MediaStream;
     }
   | {
       type: 'peer-audio-off';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'peer-video-on';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'peer-video-off';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
-      type: 'peer-screen-share-on';
+      type: 'peer-screen-share-stream';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
+      stream: MediaStream;
     }
   | {
-      type: 'peer-screen-share-off';
+      type: 'peer-screen-share-track';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
+      track: MediaStreamTrack;
     }
   | {
       type: 'peer-connected';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'peer-disconnected';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'peer-screen-share-connected';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'peer-screen-share-disconnected';
       pubKeyB64: AgentPubKeyB64;
+      connectionId: ConnectionId;
     }
   | {
       type: 'error';
@@ -264,29 +282,29 @@ export class StreamsStore {
     );
   }
 
-  async connect(
+  static async connect(
     roomStore: RoomStore,
     screenSourceSelection: () => Promise<string>
   ): Promise<StreamsStore> {
     const streamsStore = new StreamsStore(roomStore, screenSourceSelection);
 
-    this.roomStore.allAgents.subscribe(val => {
+    roomStore.allAgents.subscribe(val => {
       if (val.status === 'complete') {
-        this.allAgents = val.value;
+        streamsStore.allAgents = val.value;
       } else if (val.status === 'error') {
         console.error('Failed to get all agents: ', val.error);
       }
     });
 
     // ping all agents that are not already connected to you every PING_INTERVAL milliseconds
-    await this.pingAgents();
-    this.pingInterval = window.setInterval(async () => {
-      await this.pingAgents();
+    await streamsStore.pingAgents();
+    streamsStore.pingInterval = window.setInterval(async () => {
+      await streamsStore.pingAgents();
     }, PING_INTERVAL);
     return streamsStore;
   }
 
-  async disconnect() {
+  disconnect() {
     if (this.pingInterval) window.clearInterval(this.pingInterval);
     if (this.signalUnsubscribe) this.signalUnsubscribe();
     // TODO Close all connections and stop all streams
@@ -396,7 +414,7 @@ export class StreamsStore {
         try {
           Object.values(get(this._openConnections)).forEach(conn => {
             conn.peer.addTrack(
-              videoStream.getVideoTracks()[0],
+              videoStream!.getVideoTracks()[0],
               this.mainStream!
             );
           });
@@ -490,7 +508,7 @@ export class StreamsStore {
           this.mainStream.addTrack(audioStream.getAudioTracks()[0]);
           Object.values(get(this._openConnections)).forEach(conn => {
             conn.peer.addTrack(
-              audioStream.getAudioTracks()[0],
+              audioStream!.getAudioTracks()[0],
               this.mainStream!
             );
           });
@@ -825,18 +843,12 @@ export class StreamsStore {
         }
         return openConnections;
       });
-      if (withAudio) {
-        this.eventCallback({
-          type: 'peer-audio-on',
-          pubKeyB64,
-        });
-      }
-      if (withVideo) {
-        this.eventCallback({
-          type: 'peer-video-on',
-          pubKeyB64,
-        });
-      }
+      this.eventCallback({
+        type: 'peer-stream',
+        pubKeyB64,
+        connectionId,
+        stream,
+      });
     });
     peer.on('track', track => {
       console.log('#### GOT TRACK: ', track);
@@ -856,12 +868,14 @@ export class StreamsStore {
         this.eventCallback({
           type: 'peer-audio-on',
           pubKeyB64,
+          connectionId,
         });
       }
       if (track.kind === 'video') {
         this.eventCallback({
           type: 'peer-video-on',
           pubKeyB64,
+          connectionId,
         });
       }
     });
@@ -888,6 +902,7 @@ export class StreamsStore {
       this.eventCallback({
         type: 'peer-connected',
         pubKeyB64,
+        connectionId,
       });
     });
     peer.on('close', async () => {
@@ -905,6 +920,7 @@ export class StreamsStore {
       this.eventCallback({
         type: 'peer-disconnected',
         pubKeyB64,
+        connectionId,
       });
     });
     peer.on('error', e => {
@@ -921,6 +937,7 @@ export class StreamsStore {
       this.eventCallback({
         type: 'peer-disconnected',
         pubKeyB64,
+        connectionId,
       });
     });
 
@@ -968,8 +985,10 @@ export class StreamsStore {
       });
 
       this.eventCallback({
-        type: 'peer-screen-share-on',
+        type: 'peer-screen-share-stream',
         pubKeyB64,
+        connectionId,
+        stream,
       });
     });
     peer.on('track', track => {
@@ -987,8 +1006,10 @@ export class StreamsStore {
         return screenShareConnections;
       });
       this.eventCallback({
-        type: 'peer-screen-share-on',
+        type: 'peer-screen-share-track',
         pubKeyB64,
+        connectionId,
+        track,
       });
     });
     peer.on('connect', () => {
@@ -1027,6 +1048,7 @@ export class StreamsStore {
         this.eventCallback({
           type: 'peer-screen-share-connected',
           pubKeyB64,
+          connectionId,
         });
       }
 
@@ -1052,6 +1074,7 @@ export class StreamsStore {
         this.eventCallback({
           type: 'peer-screen-share-disconnected',
           pubKeyB64,
+          connectionId,
         });
       }
 
@@ -1078,6 +1101,7 @@ export class StreamsStore {
         this.eventCallback({
           type: 'peer-screen-share-disconnected',
           pubKeyB64,
+          connectionId,
         });
       }
 
