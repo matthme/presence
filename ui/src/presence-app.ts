@@ -183,8 +183,9 @@ export class PresenceApp extends LitElement {
             };
           }
           // take room info from cached value if it exists
-          const maybeRoomInfo = this._groupRooms.find(roomInfo =>
-            encodeHashToBase64(roomInfo.room.dna_hash) === dnaHashB64
+          const maybeRoomInfo = this._groupRooms.find(
+            roomInfo =>
+              encodeHashToBase64(roomInfo.room.dna_hash) === dnaHashB64
           );
           if (maybeRoomInfo) {
             return {
@@ -356,12 +357,15 @@ export class PresenceApp extends LitElement {
         return;
       }
       const randomWords = generateSillyPassword({ wordCount: 5 });
-      const clonedCell = await this.client.createCloneCell({
-        role_name: 'presence',
-        modifiers: {
-          network_seed: `privateRoom#${randomWords}`,
+      const clonedCell = await this._weaveClient.createCloneCell(
+        {
+          role_name: 'presence',
+          modifiers: {
+            network_seed: `privateRoom#${randomWords}`,
+          },
         },
-      });
+        false // This is a private clone
+      );
       const roomClient = new RoomClient(this.client, clonedCell.clone_id);
       await roomClient.setRoomInfo({
         name: roomNameInput.value,
@@ -402,13 +406,16 @@ export class PresenceApp extends LitElement {
       const appletNetworkSeed =
         this._provisionedCell.dna_modifiers.network_seed;
       const networkSeed = groupRoomNetworkSeed(appletNetworkSeed, uuid);
-      const clonedCell = await this.client.createCloneCell({
-        role_name: 'presence',
-        modifiers: {
-          network_seed: networkSeed,
+      const clonedCell = await this._weaveClient.createCloneCell(
+        {
+          role_name: 'presence',
+          modifiers: {
+            network_seed: networkSeed,
+          },
+          name: roomNameInput.value,
         },
-        name: roomNameInput.value,
-      });
+        true // This is a public clone
+      );
 
       // register it in the main room
       const descendentRoom = {
@@ -454,12 +461,15 @@ export class PresenceApp extends LitElement {
       this.notifyError('Error: Secret words must not be empty.');
       throw new Error('Secret words must not be empty.');
     }
-    const clonedCell = await this.client.createCloneCell({
-      role_name: 'presence',
-      modifiers: {
-        network_seed: `privateRoom#${secretWordsInput.value}`,
+    const clonedCell = await this._weaveClient.createCloneCell(
+      {
+        role_name: 'presence',
+        modifiers: {
+          network_seed: `privateRoom#${secretWordsInput.value}`,
+        },
       },
-    });
+      false // This is a private clone
+    );
     this._personalRooms = [clonedCell, ...this._personalRooms];
     secretWordsInput.value = '';
   }

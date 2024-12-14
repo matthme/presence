@@ -1,7 +1,8 @@
-import { LitElement, PropertyValueMap, css, html } from 'lit';
+import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { AgentPubKey, AppClient, ClonedCell } from '@holochain/client';
 import { localized, msg } from '@lit/localize';
+import { WeaveClient } from '@theweave/api';
 
 import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
@@ -10,7 +11,7 @@ import { consume } from '@lit/context';
 import { sharedStyles } from './sharedStyles';
 import { clientContext } from './contexts';
 import { RoomClient } from './room-client';
-import { RoomInfo } from './types';
+import { RoomInfo, weaveClientContext } from './types';
 import { getCellTypes, groupRoomNetworkSeed } from './utils';
 import { GroupRoomInfo } from './presence-app';
 
@@ -23,6 +24,10 @@ export class SharedRoomCard extends LitElement {
   @consume({ context: clientContext })
   @state()
   client!: AppClient;
+
+  @consume({ context: weaveClientContext })
+  @state()
+  _weaveClient!: WeaveClient;
 
   @property()
   groupRoomInfo!: GroupRoomInfo;
@@ -140,12 +145,15 @@ export class SharedRoomCard extends LitElement {
       console.log('Installing cell.');
       // network seed must be defined at this point
       if (!this._networkSeed) throw new Error('Network seed undefined.');
-      this._myCell = await this.client.createCloneCell({
-        role_name: 'presence',
-        modifiers: {
-          network_seed: this._networkSeed,
+      this._myCell = await this._weaveClient.createCloneCell(
+        {
+          role_name: 'presence',
+          modifiers: {
+            network_seed: this._networkSeed,
+          },
         },
-      });
+        true // This is a public clone
+      );
       const roomClient = new RoomClient(this.client, this._myCell.clone_id);
       const roomInfo = await roomClient.getRoomInfo();
       if (roomInfo) {
@@ -164,8 +172,7 @@ export class SharedRoomCard extends LitElement {
 
   renderActiveParticipants() {
     if (!this._myCell) {
-      return html`<span
-      style="font-size: 18px; opacity: 0.8;"
+      return html`<span style="font-size: 18px; opacity: 0.8;"
         >${msg(
           'Join this room at least once to be able to see participants'
         )}</span
@@ -212,7 +219,10 @@ export class SharedRoomCard extends LitElement {
             </div>
           </button>
         </div>
-        <div class="row" style="flex: 1; width: calc(100% - 4px); justify-content: flex-end;">
+        <div
+          class="row"
+          style="flex: 1; width: calc(100% - 4px); justify-content: flex-end;"
+        >
           ${this.renderActiveParticipants()}
         </div>
       </div>
