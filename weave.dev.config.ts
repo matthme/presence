@@ -1,6 +1,7 @@
 import { defineConfig } from "@theweave/cli";
 
 export default defineConfig({
+  toolCurations: [],
   groups: [
     {
       name: "Tennis Club",
