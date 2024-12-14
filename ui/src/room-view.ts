@@ -170,6 +170,9 @@ export class RoomView extends LitElement {
   _leaveAudio = new Audio('percussive-drum-hit.mp3');
 
   @state()
+  _reconnectAudio = new Audio('old-phone-ring-connect.mp3#t=0,3.5');
+
+  @state()
   _showAttachmentsPanel = false;
 
   @state()
@@ -299,6 +302,7 @@ export class RoomView extends LitElement {
     });
     this._leaveAudio.volume = 0.05;
     this._joinAudio.volume = 0.07;
+    this._reconnectAudio.volume = 0.1;
     this._roomInfo = await this.roomStore.client.getRoomInfo();
   }
 
