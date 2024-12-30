@@ -366,6 +366,9 @@ export class PresenceApp extends LitElement {
         },
         false // This is a private clone
       );
+      // Get AppInfo to update cachedAppInfo in AppClient (this should be fixed either with
+      // a workaround in Moss or in the js-client)
+      await this.client.appInfo();
       const roomClient = new RoomClient(this.client, clonedCell.clone_id);
       await roomClient.setRoomInfo({
         name: roomNameInput.value,
@@ -474,6 +477,9 @@ export class PresenceApp extends LitElement {
       },
       false // This is a private clone
     );
+    // Get AppInfo to update cachedAppInfo in AppClient (this should be fixed either with
+    // a workaround in Moss or in the js-client)
+    await this.client.appInfo();
     this._personalRooms = [clonedCell, ...this._personalRooms];
     secretWordsInput.value = '';
   }
