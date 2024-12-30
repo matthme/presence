@@ -154,6 +154,9 @@ export class SharedRoomCard extends LitElement {
         },
         true // This is a public clone
       );
+      // Get AppInfo to update cachedAppInfo in AppClient (this should be fixed either with
+      // a workaround in Moss or in the js-client)
+      await this.client.appInfo();
       const roomClient = new RoomClient(this.client, this._myCell.clone_id);
       const roomInfo = await roomClient.getRoomInfo();
       if (roomInfo) {

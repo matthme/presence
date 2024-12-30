@@ -73,7 +73,8 @@
       "no-use-before-define": "off",
       "lines-between-class-members": "off",
       "no-shadow": "off",
-      "no-nested-ternary": "off"
+      "no-nested-ternary": "off",
+      "no-console": "off"
     }
   },
   "prettier": {
