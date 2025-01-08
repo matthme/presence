@@ -8,17 +8,15 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import {
   AppletInfo,
   AssetLocationAndInfo,
-  WAL,
+  WalRelationAndTags,
   WeaveClient,
-  weaveUrlToLocation,
 } from '@theweave/api';
-import { EntryRecord } from '@holochain-open-dev/utils';
 import { mdiTrashCan } from '@mdi/js';
 
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { Attachment, weaveClientContext } from './types';
+import { weaveClientContext } from './types';
 
 @localized()
 @customElement('attachment-element')
@@ -28,7 +26,7 @@ export class AttachmentElement extends LitElement {
   _weaveClient!: WeaveClient;
 
   @property()
-  entryRecord!: EntryRecord<Attachment>;
+  walRelationAndTags!: WalRelationAndTags;
 
   @state()
   _error: string | undefined;
@@ -39,20 +37,8 @@ export class AttachmentElement extends LitElement {
   @state()
   _assetAppletInfo: AppletInfo | undefined;
 
-  @state()
-  _wal: WAL | undefined;
-
   async updateAssetInfo() {
-    const weaveLocation = weaveUrlToLocation(this.entryRecord.entry.wal);
-    if (weaveLocation.type !== 'asset') {
-      this._error = 'Invalid URL';
-      return;
-    }
-    this._assetInfo = await this._weaveClient.assets.assetInfo(weaveLocation.wal);
-    this._wal = weaveLocation.wal;
-    this._assetAppletInfo = this._assetInfo
-      ? await this._weaveClient.appletInfo(this._assetInfo.appletHash)
-      : undefined;
+    this._assetInfo = await this._weaveClient.assets.assetInfo(this.walRelationAndTags.wal);
   }
 
   async firstUpdated() {
@@ -62,23 +48,17 @@ export class AttachmentElement extends LitElement {
   protected async willUpdate(
     changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
   ) {
-    if (changedProperties.has('entryRecord')) {
+    if (changedProperties.has('wal')) {
       await this.updateAssetInfo();
     }
   }
 
   async openAsset() {
-    if (this._wal) {
-      await this._weaveClient.openAsset(this._wal);
-    }
+    await this._weaveClient.openAsset(this.walRelationAndTags.wal);
   }
 
-  removeAttachment() {
-    this.dispatchEvent(
-      new CustomEvent('remove-attachment', {
-        detail: this.entryRecord,
-      })
-    );
+  async removeAttachment() {
+    await this._weaveClient.assets.removeAssetRelation(this.walRelationAndTags.relationHash);
   }
 
   render() {
@@ -128,13 +108,13 @@ export class AttachmentElement extends LitElement {
             <div
               tabindex="0"
               class="column center-content delete-btn tertiary-font"
-              @click=${(e: any) => {
-                this.removeAttachment();
+              @click=${async (e: any) => {
                 e.stopPropagation();
+                await this.removeAttachment();
               }}
-              @keypress=${(e: KeyboardEvent) => {
+              @keypress=${async (e: KeyboardEvent) => {
                 if (e.key === 'Enter' || e.key === ' ') {
-                  this.removeAttachment();
+                  await this.removeAttachment();
                 }
               }}
             >

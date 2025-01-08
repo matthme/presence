@@ -36,6 +36,10 @@ export const sharedStyles = css`
     align-items: center;
   }
 
+  .items-center {
+    align-items: center;
+  }
+
   .flex-scrollable-parent {
     position: relative;
     display: flex;

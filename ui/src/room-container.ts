@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { AppClient, RoleName } from '@holochain/client';
 import { localized } from '@lit/localize';
 import { consume, provide } from '@lit/context';
-import { WeaveClient } from '@theweave/api';
+import { WAL, WeaveClient } from '@theweave/api';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -44,6 +44,9 @@ export class RoomContainer extends LitElement {
   @property()
   roleName!: RoleName;
 
+  @property()
+  wal!: WAL;
+
   @state()
   _private = false;
 
@@ -77,7 +80,7 @@ export class RoomContainer extends LitElement {
 
   render() {
     if (this.loading) return html``;
-    return html` <room-view ?private=${this._private}></room-view> `;
+    return html` <room-view ?private=${this._private} .wal=${this.wal}></room-view> `;
   }
 
   static styles = [sharedStyles, css``];

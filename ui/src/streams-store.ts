@@ -280,6 +280,8 @@ export class StreamsStore {
 
   blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
 
+  trickleICE = true;
+
   constructor(
     roomStore: RoomStore,
     screenSourceSelection: () => Promise<string>
@@ -298,6 +300,10 @@ export class StreamsStore {
     this.blockedAgents.set(
       blockedAgentsJson ? JSON.parse(blockedAgentsJson) : []
     );
+    const trickleICE = window.localStorage.getItem("trickleICE");
+    if (trickleICE) {
+      this.trickleICE = JSON.parse(trickleICE);
+    }
   }
 
   static async connect(
@@ -339,6 +345,16 @@ export class StreamsStore {
     this._screenShareConnectionsIncoming.set({});
     this._pendingAccepts = {};
     this._pendingInits = {};
+  }
+
+  enableTrickleICE() {
+    window.localStorage.setItem('trickleICE', 'true');
+    this.trickleICE = true;
+  }
+
+  disableTrickleICE() {
+    window.localStorage.setItem('trickleICE', 'false');
+    this.trickleICE = false;
   }
 
   onEvent(cb: (ev: StoreEventPayload) => any) {
@@ -857,7 +873,7 @@ export class StreamsStore {
         iceServers: ICE_CONFIG,
       },
       objectMode: true,
-      trickle: true,
+      trickle: this.trickleICE,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {
@@ -1036,7 +1052,7 @@ export class StreamsStore {
       initiator,
       config: { iceServers: ICE_CONFIG },
       objectMode: true,
-      trickle: true,
+      trickle: this.trickleICE,
     };
     const peer = new SimplePeer(options);
     peer.on('signal', async data => {

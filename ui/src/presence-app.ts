@@ -31,6 +31,7 @@ import {
   GroupPermissionType,
   GroupProfile,
   NULL_HASH,
+  WAL,
   WeaveClient,
   initializeHotReload,
   isWeaveContext,
@@ -105,6 +106,9 @@ export class PresenceApp extends LitElement {
 
   @state()
   _selectedRoleName: RoleName | undefined;
+
+  @state()
+  _selectedWal: WAL | undefined;
 
   @state()
   _displayError: string | undefined;
@@ -244,6 +248,8 @@ export class PresenceApp extends LitElement {
       const wal = this._weaveClient.renderInfo.view.wal;
       const dnaHash = wal.hrl[0];
       const dnaHashB64 = encodeHashToBase64(dnaHash);
+
+      this._selectedWal = wal;
 
       if (encodeHashToBase64(cellTypes.provisioned.cell_id[0]) === dnaHashB64) {
         this._selectedRoleName = 'presence';
@@ -804,6 +810,7 @@ export class PresenceApp extends LitElement {
           <room-container
             class="room-container"
             .roleName=${this._selectedRoleName}
+            .wal=${this._selectedWal}
             @quit-room=${async () => {
               if (this.externalWindow) {
                 console.log('Closing window.');

@@ -5,12 +5,13 @@ import {
   encodeHashToBase64,
   AgentPubKeyB64,
   decodeHashFromBase64,
+  EntryHash,
 } from '@holochain/client';
 
-import { StoreSubscriber, lazyLoadAndPoll } from '@holochain-open-dev/stores';
-import SimplePeer from 'simple-peer';
+import { AsyncStatus, StoreSubscriber } from '@holochain-open-dev/stores';
 import {
   mdiAccount,
+  mdiCog,
   mdiFullscreen,
   mdiFullscreenExit,
   mdiLock,
@@ -30,13 +31,12 @@ import { repeat } from 'lit/directives/repeat.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
-import { WeaveClient, weaveUrlFromWal } from '@theweave/api';
-import { EntryRecord } from '@holochain-open-dev/utils';
+import { AssetStoreContent, WAL, WeaveClient } from '@theweave/api';
 
 import { roomStoreContext, streamsStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { Attachment, RoomInfo, weaveClientContext } from './types';
+import { RoomInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
 import './agent-connection-status';
@@ -65,37 +65,23 @@ export class RoomView extends LitElement {
   @state()
   _weaveClient!: WeaveClient;
 
+  @property()
+  wal!: WAL;
+
   @property({ type: Boolean })
   private = false;
 
   @state()
   pingInterval: number | undefined;
 
+  @state()
+  assetStoreContent: AsyncStatus<AssetStoreContent> | undefined;
+
   _allAgentsFromAnchor = new StoreSubscriber(
     this,
     () => this.roomStore.allAgents,
     () => [this.roomStore]
   );
-
-  _allAttachments = new StoreSubscriber(
-    this,
-    () =>
-      lazyLoadAndPoll(async () => {
-        const allAttachments = this.roomStore.client.getAllAttachments();
-        const recentlyChangedAttachments = this._recentAttachmentChanges;
-        recentlyChangedAttachments.added = [];
-        recentlyChangedAttachments.deleted = [];
-        this._recentAttachmentChanges = recentlyChangedAttachments;
-        return allAttachments;
-      }, 5000),
-    () => [this.roomStore]
-  );
-
-  @state()
-  _recentAttachmentChanges: Record<string, EntryRecord<Attachment>[]> = {
-    added: [],
-    deleted: [],
-  };
 
   @state()
   _roomInfo: RoomInfo | undefined;
@@ -176,7 +162,7 @@ export class RoomView extends LitElement {
   _showAttachmentsPanel = false;
 
   @state()
-  _panelMode: 'attachments' | 'people' = 'attachments';
+  _panelMode: 'assets' | 'people' | 'settings' = 'assets';
 
   @state()
   _showConnectionDetails = false;
@@ -304,36 +290,24 @@ export class RoomView extends LitElement {
     this._joinAudio.volume = 0.07;
     this._reconnectAudio.volume = 0.1;
     this._roomInfo = await this.roomStore.client.getRoomInfo();
+
+    this._weaveClient.assets.assetStore(this.wal).subscribe(status => {
+      console.log('Got asset store update: ', status);
+      this.assetStoreContent = status;
+      this.requestUpdate();
+    });
   }
 
   async addAttachment() {
-    const wal = await this._weaveClient.assets.userSelectAsset();
-    console.log('Got WAL: ', wal);
-    if (wal) {
-      const newAttachment = await this.roomStore.client.createAttachment({
-        wal: weaveUrlFromWal(wal, false),
-      });
-      const recentlyChanged = this._recentAttachmentChanges;
-      const recentlyAddedAttachments = [
-        ...recentlyChanged.added,
-        newAttachment,
-      ];
-      recentlyChanged.added = recentlyAddedAttachments;
-      this._recentAttachmentChanges = recentlyChanged;
-      this.requestUpdate();
+    const dstWal = await this._weaveClient.assets.userSelectAsset();
+    console.log('Got WAL: ', dstWal);
+    if (dstWal) {
+      this._weaveClient.assets.addAssetRelation(this.wal, dstWal);
     }
   }
 
-  async removeAttachment(entryRecord: EntryRecord<Attachment>) {
-    await this.roomStore.client.deleteAttachment(entryRecord.actionHash);
-    const recentlyChanged = this._recentAttachmentChanges;
-    const recentlyDeletedAttachments = [
-      ...recentlyChanged.deleted,
-      entryRecord,
-    ];
-    recentlyChanged.deleted = recentlyDeletedAttachments;
-    this._recentAttachmentChanges = recentlyChanged;
-    this.requestUpdate();
+  async removeAttachment(relationHash: EntryHash) {
+    await this._weaveClient.assets.removeAssetRelation(relationHash);
   }
 
   toggleMaximized(id: string) {
@@ -420,8 +394,8 @@ export class RoomView extends LitElement {
 
   renderAttachmentButton() {
     const numAttachments =
-      this._allAttachments.value.status === 'complete'
-        ? this._allAttachments.value.value.length
+      this.assetStoreContent && this.assetStoreContent.status === 'complete'
+        ? this.assetStoreContent.value.linkedFrom.length
         : undefined;
     const numPeople = Object.values(this._connectionStatuses.value).filter(
       status => !!status && status.type !== 'Disconnected'
@@ -457,55 +431,31 @@ export class RoomView extends LitElement {
   }
 
   renderAttachments() {
-    switch (this._allAttachments.value.status) {
+    if (!this.assetStoreContent) return html`loading...`;
+    switch (this.assetStoreContent.status) {
       case 'pending':
         return html`loading...`;
       case 'error':
         console.error(
           'Failed to load attachments: ',
-          this._allAttachments.value.error
+          this.assetStoreContent.error
         );
-        return html`Failed to load attachments:
-        ${this._allAttachments.value.error}`;
+        return html`Failed to load attachments: ${this.assetStoreContent.error}`;
       case 'complete': {
-        const allAttachments = [
-          ...this._recentAttachmentChanges.added,
-          ...this._allAttachments.value.value,
-        ];
-        const recentlyDeletedAttachmentHashes =
-          this._recentAttachmentChanges.deleted.map(entryRecord =>
-            entryRecord.actionHash.toString()
-          );
-        const allDeduplicatedAttachments = allAttachments
-          .filter(
-            (value, index, self) =>
-              index ===
-              self.findIndex(
-                t => t.actionHash.toString() === value.actionHash.toString()
-              )
-          )
-          .filter(
-            entryRecord =>
-              !recentlyDeletedAttachmentHashes.includes(
-                entryRecord.actionHash.toString()
-              )
-          );
-
         return html`
           <div class="column attachments-list">
             ${repeat(
-              allDeduplicatedAttachments.sort(
-                (entryRecord_a, entryRecord_b) =>
-                  entryRecord_b.action.timestamp -
-                  entryRecord_a.action.timestamp
+              this.assetStoreContent.value.linkedFrom.sort(
+                (walRelationAndTags_a, walRelationAndTags_b) =>
+                  walRelationAndTags_a.createdAt -
+                  walRelationAndTags_b.createdAt
               ),
-              entryRecord => encodeHashToBase64(entryRecord.actionHash),
-              entryRecord => html`
+              walRelationAndTags =>
+                encodeHashToBase64(walRelationAndTags.relationHash),
+              walRelationAndTags => html`
                 <attachment-element
                   style="margin-bottom: 8px;"
-                  .entryRecord=${entryRecord}
-                  @remove-attachment=${(e: CustomEvent) =>
-                    this.removeAttachment(e.detail)}
+                  .walRelationAndTags=${walRelationAndTags}
                 ></attachment-element>
               `
             )}
@@ -533,7 +483,9 @@ export class RoomView extends LitElement {
     const absentAgents = knownAgentsKeysB64
       .filter(pubkeyB64 => {
         const status = this._connectionStatuses.value[pubkeyB64];
-        return !status || status.type === 'Disconnected' || status.type === "Blocked";
+        return (
+          !status || status.type === 'Disconnected' || status.type === 'Blocked'
+        );
       })
       .sort((key_a, key_b) => key_a.localeCompare(key_b));
     return html`
@@ -612,16 +564,16 @@ export class RoomView extends LitElement {
         </div>
         <div class="row sidepanel-tabs">
           <div
-            class="sidepanel-tab ${this._panelMode === 'attachments'
+            class="sidepanel-tab ${this._panelMode === 'assets'
               ? 'tab-selected'
               : ''}"
             tabindex="0"
             @click=${() => {
-              this._panelMode = 'attachments';
+              this._panelMode = 'assets';
             }}
             @keypress=${(e: KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ')
-                this._panelMode = 'attachments';
+                this._panelMode = 'assets';
             }}
           >
             <div class="row center-content">
@@ -629,7 +581,7 @@ export class RoomView extends LitElement {
                 .src=${wrapPathInSvg(mdiPaperclip)}
                 style="transform: rotate(5deg); margin-right: 2px;"
               ></sl-icon>
-              attachments
+              assets
             </div>
           </div>
           <div
@@ -653,31 +605,82 @@ export class RoomView extends LitElement {
               people
             </div>
           </div>
+          <div
+            class="sidepanel-tab ${this._panelMode === 'settings'
+              ? 'tab-selected'
+              : ''}"
+            tabindex="0"
+            @click=${() => {
+              this._panelMode = 'settings';
+            }}
+            @keypress=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ')
+                this._panelMode = 'settings';
+            }}
+          >
+            <div class="row center-content">
+              <sl-icon
+                .src=${wrapPathInSvg(mdiCog)}
+                style="transform: rotate(2deg); margin-right: 2px;"
+              ></sl-icon>
+              settings
+            </div>
+          </div>
         </div>
-        ${this._panelMode === 'people'
-          ? this.renderConnectionStatuses()
-          : html`
-              <div
-                class="column"
-                style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative; height: 100%;"
-              >
-                <div
-                  tabindex="0"
-                  class="add-attachment-btn"
-                  @click=${() => this.addAttachment()}
-                  @keypress=${async (e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      await this.addAttachment();
-                    }
-                  }}
-                >
-                  + Add Attachment
-                </div>
-                ${this.renderAttachments()}
-              </div>
-            `}
+        ${this.renderAttachmentPanelContent()}
       </div>
     `;
+  }
+
+  renderAttachmentPanelContent() {
+    switch (this._panelMode) {
+      case 'assets':
+        return html`
+          <div
+            class="column"
+            style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative; height: 100%;"
+          >
+            <div
+              tabindex="0"
+              class="add-attachment-btn"
+              @click=${() => this.addAttachment()}
+              @keypress=${async (e: KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  await this.addAttachment();
+                }
+              }}
+            >
+              + attach asset
+            </div>
+            ${this.renderAttachments()}
+          </div>
+        `;
+      case 'people':
+        return this.renderConnectionStatuses();
+      case 'settings':
+        return html`  <div
+        class="column"
+        style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative;"
+      >
+        <div class="row items-center">
+          <toggle-switch
+            class="toggle-switch ${this.streamsStore.trickleICE
+              ? 'active'
+              : ''}"
+            .toggleState=${this.streamsStore.trickleICE}
+            @toggle-on=${() => {
+              this.streamsStore.enableTrickleICE();
+            }}
+            @toggle-off=${() => {
+              this.streamsStore.disableTrickleICE();
+            }}
+          ></toggle-switch>
+          <span class="secondary-font" style="color: #c3c9eb; margin-left: 10px; font-size: 23px;">trickle ICE</span>
+        </div>
+      </div> `;
+      default:
+        return html`unknown tab`;
+    }
   }
 
   renderToggles() {

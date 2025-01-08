@@ -55,12 +55,12 @@ export default defineConfig({
         //   registeringAgent: 1,
         //   joiningAgents: [2],
         // },
-        // {
-        //   name: 'KanDo',
-        //   instanceName: 'KanDo',
-        //   registeringAgent: 1,
-        //   joiningAgents: [2],
-        // },
+        {
+          name: 'KanDo',
+          instanceName: 'KanDo',
+          registeringAgent: 1,
+          joiningAgents: [2],
+        },
       ],
     },
   ],
@@ -100,11 +100,11 @@ export default defineConfig({
       description: 'KanBan board',
       icon: {
         type: 'https',
-        url: 'https://lightningrodlabs.org/projects/notebooks.png',
+        url: 'https://theweave.social/images/kando_icon.png',
       },
       source: {
         type: 'https',
-        url: 'https://github.com/holochain-apps/kando/releases/download/v0.10.4/kando.webhapp',
+        url: 'https://github.com/holochain-apps/kando/releases/download/v0.12.0-rc.1/kando.webhapp',
       },
     },
     {
