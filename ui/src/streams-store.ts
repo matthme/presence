@@ -924,7 +924,7 @@ export class StreamsStore {
       }
     });
     peer.on('stream', stream => {
-      console.log('#### GOT STREAM with tracks: ', stream.getTracks());
+      console.log('#### GOT STREAM with tracks from:', pubKeyB64, stream.getTracks());
       const withAudio = stream.getAudioTracks().length > 0;
       const withVideo = stream.getVideoTracks().length > 0;
       this._openConnections.update(currentValue => {
@@ -949,7 +949,7 @@ export class StreamsStore {
       });
     });
     peer.on('track', track => {
-      console.log('#### GOT TRACK: ', track);
+      console.log('#### GOT TRACK from:', pubKeyB64, track);
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
         const relevantConnection = openConnections[pubKeyB64];
@@ -978,7 +978,7 @@ export class StreamsStore {
       }
     });
     peer.on('connect', async () => {
-      console.log('#### CONNECTED');
+      console.log('#### CONNECTED with', pubKeyB64);
       delete this._pendingInits[pubKeyB64];
 
       const openConnections = get(this._openConnections);
@@ -1350,7 +1350,7 @@ export class StreamsStore {
   async handlePingUi(signal: Extract<RoomSignal, { type: 'PingUi' }>) {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     if (get(this.blockedAgents).includes(pubkeyB64)) return;
-    console.log(`Got PingUi from ${pubkeyB64}: `, signal);
+    // console.log(`Got PingUi from ${pubkeyB64}: `, signal);
     if (pubkeyB64 !== this.myPubKeyB64) {
       const metaData: PongMetaData<PongMetaDataV1> = {
         formatVersion: 1,
@@ -1382,7 +1382,7 @@ export class StreamsStore {
   async handlePongUi(signal: Extract<RoomSignal, { type: 'PongUi' }>) {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     const now = Date.now();
-    console.log(`Got PongUI from ${pubkeyB64}: `, signal);
+    // console.log(`Got PongUI from ${pubkeyB64}: `, signal);
     // Update their connection statuses and the list of known agents
     try {
       const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(

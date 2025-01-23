@@ -19,6 +19,7 @@ import {
   mdiMicrophoneOff,
   mdiMonitorScreenshot,
   mdiPaperclip,
+  mdiPencilCircleOutline,
   mdiPhoneRefresh,
   mdiVideo,
   mdiVideoOff,
@@ -256,6 +257,7 @@ export class RoomView extends LitElement {
             if (videoEl) {
               videoEl.autoplay = true;
               videoEl.srcObject = event.stream;
+              console.log('@peer-stream: Tracks: ', event.stream.getTracks());
             }
           }, 200);
           break;
@@ -658,26 +660,32 @@ export class RoomView extends LitElement {
       case 'people':
         return this.renderConnectionStatuses();
       case 'settings':
-        return html`  <div
-        class="column"
-        style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative;"
-      >
-        <div class="row items-center">
-          <toggle-switch
-            class="toggle-switch ${this.streamsStore.trickleICE
-              ? 'active'
-              : ''}"
-            .toggleState=${this.streamsStore.trickleICE}
-            @toggle-on=${() => {
-              this.streamsStore.enableTrickleICE();
-            }}
-            @toggle-off=${() => {
-              this.streamsStore.disableTrickleICE();
-            }}
-          ></toggle-switch>
-          <span class="secondary-font" style="color: #c3c9eb; margin-left: 10px; font-size: 23px;">trickle ICE</span>
-        </div>
-      </div> `;
+        return html`
+          <div
+            class="column"
+            style="margin-top: 18px; padding: 0 20px; align-items: flex-start; position: relative;"
+          >
+            <div class="row items-center">
+              <toggle-switch
+                class="toggle-switch ${this.streamsStore.trickleICE
+                  ? 'active'
+                  : ''}"
+                .toggleState=${this.streamsStore.trickleICE}
+                @toggle-on=${() => {
+                  this.streamsStore.enableTrickleICE();
+                }}
+                @toggle-off=${() => {
+                  this.streamsStore.disableTrickleICE();
+                }}
+              ></toggle-switch>
+              <span
+                class="secondary-font"
+                style="color: #c3c9eb; margin-left: 10px; font-size: 23px;"
+                >trickle ICE</span
+              >
+            </div>
+          </div>
+        `;
       default:
         return html`unknown tab`;
     }
@@ -1192,6 +1200,58 @@ export class RoomView extends LitElement {
                     }}
                   ></sl-icon-button>
                 </sl-tooltip>
+                ${this._showConnectionDetails
+                  ? html`
+                      <sl-tooltip
+                        content="log stream info"
+                        class="tooltip-filled"
+                      >
+                        <sl-icon-button
+                          src=${wrapPathInSvg(mdiPencilCircleOutline)}
+                          style="margin-bottom: -5px;"
+                          @click=${() => {
+                            const videoEl = this.shadowRoot?.getElementById(
+                              conn.connectionId
+                            ) as HTMLVideoElement;
+                            if (videoEl) {
+                              const stream = videoEl.srcObject;
+                              const tracks = stream
+                                ? (stream as MediaStream).getTracks()
+                                : null;
+                              console.log(
+                                '\nSTREAMINFO:',
+                                stream,
+                                '\nTRACKS: ',
+                                tracks
+                              );
+                              const tracksInfo: any[] = [];
+                              tracks?.forEach(track => {
+                                tracksInfo.push({
+                                  kind: track.kind,
+                                  enabled: track.enabled,
+                                  muted: track.muted,
+                                  readyState: track.readyState,
+                                });
+                              });
+                              const streamInfo = stream
+                                ? {
+                                    active: (stream as MediaStream).active,
+                                  }
+                                : null;
+
+                              navigator.clipboard.writeText(
+                                JSON.stringify({
+                                  stream: streamInfo,
+                                  tracks: tracksInfo,
+                                }, undefined, 2)
+                              );
+                            }
+                          }}
+                        ></sl-icon-button>
+                        <sl-tooltip></sl-tooltip>
+                      </sl-tooltip>
+                    `
+                  : html``}
               </div>
               <sl-icon
                 style="position: absolute; bottom: 10px; left: 10px; color: red; height: 30px; width: 30px; ${conn.audio
