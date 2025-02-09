@@ -935,7 +935,7 @@ export class RoomView extends LitElement {
             );
 
             const lastSeen = knownAgents
-              ? knownAgents[pubkeyb64].lastSeen
+              ? knownAgents[pubkeyb64]?.lastSeen
               : undefined;
 
             return html`<agent-connection-status-icon
