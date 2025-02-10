@@ -1,4 +1,5 @@
-import SimplePeer from 'simple-peer';
+import SimplePeer from 'simple-peer'; // Note that we're using an alias in vite.config.ts that points to a fork
+                                      // but allows us to still use the original @types/simple-peer types
 import {
   AgentPubKey,
   AgentPubKeyB64,
@@ -1402,16 +1403,19 @@ export class StreamsStore {
         );
         if (!audioTrackPerceived || audioTrackPerceived.muted) {
           console.warn(
-            'Peer does not seem to see our audio stream or it is muted. Re-adding it to their peer object...'
+            'Peer does not seem to see our audio track or it is muted:',
+            audioTrackPerceived,
+            '\nRe-adding it to their peer object...'
           );
           try {
             peer.peer.removeTrack(myAudioTrack, this.mainStream);
           } catch (e) {
-            console.warn(
-              '@reconcileVideoStreamState: Failed to remove audio track before re-adding.'
-            );
+            console.warn("Failed to remove audio track before re-adding.");
           }
+          // This requires a fork of simple-peer to work (https://github.com/feross/simple-peer/issues/606#issuecomment-801858973)
+          // fork is here: https://github.com/matthme/simple-peer
           peer.peer.addTrack(myAudioTrack, this.mainStream);
+          // peer.peer.replaceTrack(myAudioTrack, myAudioTrack, this.mainStream);
         }
       }
 
@@ -1425,7 +1429,9 @@ export class StreamsStore {
         );
         if (!videoTrackPerceived || videoTrackPerceived.muted) {
           console.warn(
-            'Peer does not seem to see our video stream or it is muted. Re-adding it to their peer object...'
+            'Peer does not seem to see our video track or it is muted:',
+            videoTrackPerceived,
+            '\nRe-adding it to their peer object...'
           );
           try {
             peer.peer.removeTrack(myVideoTrack, this.mainStream);
@@ -1434,6 +1440,8 @@ export class StreamsStore {
               '@reconcileVideoStreamState: Failed to remove video track before re-adding.'
             );
           }
+          // This requires a fork of simple-peer to work (https://github.com/feross/simple-peer/issues/606#issuecomment-801858973)
+          // fork is here: https://github.com/matthme/simple-peer
           peer.peer.addTrack(myVideoTrack, this.mainStream);
         }
       }
