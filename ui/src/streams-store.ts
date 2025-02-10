@@ -179,6 +179,22 @@ type PendingAccept = {
   peer: SimplePeer.Instance;
 };
 
+type StreamInfo = {
+  active: boolean;
+};
+
+type TrackInfo = {
+  kind: 'audio' | 'video';
+  enabled: boolean;
+  muted: boolean;
+  readyState: 'live' | 'ended';
+};
+
+type StreamAndTrackInfo = {
+  stream: StreamInfo | null;
+  tracks: TrackInfo[];
+};
+
 type PongMetaData<T> = {
   formatVersion: number;
   data: T;
@@ -189,6 +205,21 @@ type PongMetaDataV1 = {
   screenShareConnectionStatuses?: ConnectionStatuses;
   knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
   appVersion?: string;
+  /**
+   * Info about how we see the stream of the peer to
+   * which we're sending this PongMetaData
+   */
+  streamInfo?: StreamAndTrackInfo;
+  /**
+   * Info of whether we consider the audio of the peer
+   * to be on or off
+   */
+  audio?: boolean;
+  /**
+   * Info of whether we consider the video of the peer
+   * to be on or off
+   */
+  video?: boolean;
 };
 
 export type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
@@ -300,7 +331,7 @@ export class StreamsStore {
     this.blockedAgents.set(
       blockedAgentsJson ? JSON.parse(blockedAgentsJson) : []
     );
-    const trickleICE = window.localStorage.getItem("trickleICE");
+    const trickleICE = window.localStorage.getItem('trickleICE');
     if (trickleICE) {
       this.trickleICE = JSON.parse(trickleICE);
     }
@@ -447,16 +478,23 @@ export class StreamsStore {
           });
           return;
         }
-        this.mainStream.addTrack(videoStream.getVideoTracks()[0]);
+        const videoTrack = videoStream.getVideoTracks()[0];
+        if (!videoTrack) {
+          const error = 'No video track found on video stream.';
+          console.error(error);
+          this.eventCallback({
+            type: 'error',
+            error,
+          });
+          return;
+        }
+        this.mainStream.addTrack(videoTrack);
         this.eventCallback({
           type: 'my-video-on',
         });
         try {
           Object.values(get(this._openConnections)).forEach(conn => {
-            conn.peer.addTrack(
-              videoStream!.getVideoTracks()[0],
-              this.mainStream!
-            );
+            conn.peer.addTrack(videoTrack, this.mainStream!);
           });
         } catch (e: any) {
           console.error(`Failed to add video track: ${e.toString()}`);
@@ -525,6 +563,8 @@ export class StreamsStore {
   async audioOn() {
     if (this.mainStream) {
       if (this.mainStream.getAudioTracks()[0]) {
+        // Apparently, it is not necessary to enable the tracks of the
+        // cloned streams explicitly as well here.
         this.mainStream.getAudioTracks()[0].enabled = true;
       } else {
         let audioStream: MediaStream | undefined;
@@ -608,6 +648,14 @@ export class StreamsStore {
         // eslint-disable-next-line no-param-reassign
         track.enabled = false;
         console.log('### DISABLED AUDIO TRACK: ', track);
+      });
+      // Disable the audio tracks of all cloned streams as well
+      this.mainStreamClones.forEach(clonedStream => {
+        clonedStream.getAudioTracks().forEach(track => {
+          // eslint-disable-next-line no-param-reassign
+          track.enabled = false;
+          console.log('### DISABLED AUDIO TRACK: ', track);
+        });
       });
       Object.values(get(this._openConnections)).forEach(conn => {
         const msg: RTCMessage = {
@@ -755,9 +803,26 @@ export class StreamsStore {
   mainStream: MediaStream | undefined | null;
 
   /**
+   * Clones of the main stream. These are required in case a reconnection needs to be made for
+   * an individual peer because our audio and/or video track is non-functional from their
+   * perspective
+   */
+  mainStreamClones: MediaStream[] = [];
+
+  /**
    * Our own screen share stream
    */
   screenShareStream: MediaStream | undefined | null;
+
+  /**
+   * Streams of others
+   */
+  _videoStreams: Record<AgentPubKeyB64, MediaStream> = {};
+
+  /**
+   * Screen share streams of others
+   */
+  _screenShareStreams: Record<AgentPubKeyB64, MediaStream> = {};
 
   // ===========================================================================================
   // CONNECTION ESTABLISHMENT
@@ -924,7 +989,16 @@ export class StreamsStore {
       }
     });
     peer.on('stream', stream => {
-      console.log('#### GOT STREAM with tracks from:', pubKeyB64, stream.getTracks());
+      console.log(
+        '#### GOT STREAM with tracks from:',
+        pubKeyB64,
+        stream.getTracks()
+      );
+      // Store to existing streams
+      const existingPeerStreams = this._videoStreams;
+      existingPeerStreams[pubKeyB64] = stream;
+      this._videoStreams = existingPeerStreams;
+
       const withAudio = stream.getAudioTracks().length > 0;
       const withVideo = stream.getVideoTracks().length > 0;
       this._openConnections.update(currentValue => {
@@ -1006,6 +1080,11 @@ export class StreamsStore {
     peer.on('close', async () => {
       console.log('#### GOT CLOSE EVENT ####');
 
+      // Remove from existing streams
+      const existingPeerStreams = this._videoStreams;
+      delete existingPeerStreams[pubKeyB64];
+      this._videoStreams = existingPeerStreams;
+
       peer.destroy();
 
       this._openConnections.update(currentValue => {
@@ -1024,6 +1103,11 @@ export class StreamsStore {
     peer.on('error', e => {
       console.log('#### GOT ERROR EVENT ####: ', e);
       peer.destroy();
+
+      // Remove from existing streams
+      const existingPeerStreams = this._videoStreams;
+      delete existingPeerStreams[pubKeyB64];
+      this._videoStreams = existingPeerStreams;
 
       this._openConnections.update(currentValue => {
         const openConnections = currentValue;
@@ -1094,10 +1178,10 @@ export class StreamsStore {
       this._screenShareConnectionsIncoming.update(currentValue => {
         const screenShareConnections = currentValue;
         const relevantConnection = screenShareConnections[pubKeyB64];
-        if (track.kind === 'audio') {
+        if (track.kind === 'audio' && track.enabled) {
           relevantConnection.audio = true;
         }
-        if (track.kind === 'video') {
+        if (track.kind === 'video' && track.enabled) {
           relevantConnection.video = true;
         }
         screenShareConnections[pubKeyB64] = relevantConnection;
@@ -1309,6 +1393,106 @@ export class StreamsStore {
     });
   }
 
+  /**
+   * Compares how the other peer sees our stream and if this mismatches our expectations,
+   * reset streams accordingly
+   *
+   * @param pubkey
+   * @param streamAndTrackInfo
+   */
+  reconcileVideoStreamState(
+    pubkey: AgentPubKeyB64,
+    streamAndTrackInfo: StreamAndTrackInfo
+  ) {
+    if (this.mainStream) {
+      // If we have an active video stream but the other peer doesn't see it,
+      // re-add it to their peer and return
+      if (!streamAndTrackInfo.stream) {
+        console.warn(
+          'Peer does not seem to see our own stream. Re-adding it to their peer object...'
+        );
+        const peer = get(this._openConnections)[pubkey];
+        if (peer) {
+          peer.peer.addStream(this.mainStream);
+        }
+        return;
+      }
+      const peer = get(this._openConnections)[pubkey];
+
+      const myAudioTracks = this.mainStream?.getAudioTracks();
+      const myAudioTrack = myAudioTracks ? myAudioTracks[0] : undefined;
+
+      const myVideoTracks = this.mainStream?.getVideoTracks();
+      const myVideoTrack = myVideoTracks ? myVideoTracks[0] : undefined;
+
+      // If we have an audio track but the other peer doesn't see it or sees it non-functional,
+      // re-add it to their peer
+      if (myAudioTrack) {
+        const audioTrackPerceived = streamAndTrackInfo.tracks.find(
+          track => track.kind === 'audio'
+        );
+        if (
+          !audioTrackPerceived ||
+          audioTrackPerceived.muted) {
+          console.warn(
+            'Peer does not seem to see our audio track or it is muted:',
+            audioTrackPerceived,
+            '\nRe-adding it to their peer object...'
+          );
+          peer.peer.removeStream(this.mainStream);
+
+          // It is not really clear why but things only work properly if done exactly in this way
+          // where a cloned stream is created and the original tracks are being added back
+          // to the cloned stream. It is also important (!) that this cloned stream is stored
+          // and in audioOff() the audio tracks of this cloned stream are being disabled explicitly.
+          // Otherwise, audio *will* keep running on the remote peer's side!
+          //
+          // If not the full stream is removed and re-added but only tracks, the stream on the
+          // remote peer's side will be set to "active: false" and re-added tracks will never
+          // show up on their side.
+          // This may be the reason why removing and re-adding tracks throws a hard error
+          // in simple-peer: https://github.com/feross/simple-peer/issues/606
+          //
+          // If re-adding tracks should ever be required anyway, there's the
+          // @matthme/simple-peer@9.11.2 packaged based off
+          // https://github.com/matthme/simple-peer/commit/8076d57b21a405992750fe4546fa242da5d9ed96
+          //
+          const clonedStream = this.mainStream.clone();
+          this.mainStreamClones = [...this.mainStreamClones, clonedStream];
+          peer.peer.addStream(clonedStream);
+          peer.peer.addTrack(myAudioTrack, clonedStream);
+          if (myVideoTrack) {
+            peer.peer.addTrack(myVideoTrack, clonedStream);
+          }
+        }
+      }
+
+      // If we have a video track but the other peer doesn't see it or sees it non-functional,
+      // re-add it to their peer
+      if (myVideoTrack) {
+        const videoTrackPerceived = streamAndTrackInfo.tracks.find(
+          track => track.kind === 'video'
+        );
+        if (!videoTrackPerceived || videoTrackPerceived.muted) {
+          console.warn(
+            'Peer does not seem to see our video track or it is muted:',
+            videoTrackPerceived,
+            '\nRe-adding it to their peer object...'
+          );
+          peer.peer.removeStream(this.mainStream);
+          // Same logic as above with the audio tracks
+          const clonedStream = this.mainStream.clone();
+          this.mainStreamClones = [...this.mainStreamClones, clonedStream];
+          peer.peer.addStream(clonedStream);
+          peer.peer.addTrack(myVideoTrack, clonedStream);
+          if (myAudioTrack) {
+            peer.peer.addTrack(myAudioTrack, clonedStream);
+          }
+        }
+      }
+    }
+  }
+
   // ********************************************************************************************
   //
   //   S I G N A L   H A N D L E R S
@@ -1351,6 +1535,33 @@ export class StreamsStore {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     if (get(this.blockedAgents).includes(pubkeyB64)) return;
     // console.log(`Got PingUi from ${pubkeyB64}: `, signal);
+
+    let streamInfo: StreamAndTrackInfo = {
+      stream: null,
+      tracks: [],
+    };
+
+    const stream = this._videoStreams[pubkeyB64];
+
+    if (stream) {
+      const tracks = stream.getTracks();
+      const tracksInfo: TrackInfo[] = [];
+      tracks.forEach(track => {
+        tracksInfo.push({
+          kind: track.kind as 'audio' | 'video',
+          enabled: track.enabled,
+          muted: track.muted,
+          readyState: track.readyState,
+        });
+      });
+      streamInfo = {
+        stream: {
+          active: stream.active,
+        },
+        tracks: tracksInfo,
+      };
+    }
+
     if (pubkeyB64 !== this.myPubKeyB64) {
       const metaData: PongMetaData<PongMetaDataV1> = {
         formatVersion: 1,
@@ -1361,6 +1572,8 @@ export class StreamsStore {
             : undefined,
           knownAgents: get(this._knownAgents),
           appVersion: __APP_VERSION__,
+          streamInfo,
+          audio: get(this._openConnections)[pubkeyB64]?.audio,
         },
       };
       await this.roomClient.pongFrontend({
@@ -1376,6 +1589,8 @@ export class StreamsStore {
    * - Update our stored metadata for this agent
    * - Send a video InitRequest if necessary
    * - Send a screen share InitRequest if necessary
+   * - Check whether the stream that they see of us matches what we
+   *   expect and if not, try to reconcile
    *
    * @param signal
    */
@@ -1384,10 +1599,12 @@ export class StreamsStore {
     const now = Date.now();
     // console.log(`Got PongUI from ${pubkeyB64}: `, signal);
     // Update their connection statuses and the list of known agents
+    let metaDataExt: PongMetaData<PongMetaDataV1> | undefined;
     try {
       const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(
         signal.meta_data
       );
+      metaDataExt = metaData;
       this._othersConnectionStatuses.update(statuses => {
         const newStatuses = statuses;
         newStatuses[pubkeyB64] = {
@@ -1444,9 +1661,7 @@ export class StreamsStore {
      */
     // alreadyOpen here does not include the case where SDP exchange is already ongoing
     // but no actual connection has happened yet
-    const alreadyOpen = Object.keys(get(this._openConnections)).includes(
-      pubkeyB64
-    );
+    const alreadyOpen = get(this._openConnections)[pubkeyB64];
     const pendingInits = this._pendingInits[pubkeyB64];
     if (!alreadyOpen && pubkeyB64 < this.myPubKeyB64) {
       if (!pendingInits) {
@@ -1482,6 +1697,28 @@ export class StreamsStore {
       }
     } else if (!alreadyOpen && !pendingInits) {
       this.updateConnectionStatus(pubkeyB64, { type: 'AwaitingInit' });
+    } else if (alreadyOpen && metaDataExt?.data.streamInfo) {
+      // If the connection is already open, reconciliate with our expected stream state
+      this.reconcileVideoStreamState(pubkeyB64, metaDataExt.data.streamInfo);
+    }
+
+    // Check whether they have the right expectation of our audio state and if not,
+    // send an audio-off signal
+    if (alreadyOpen && metaDataExt?.data.audio) {
+      if (!this.mainStream?.getAudioTracks()[0]?.enabled) {
+        const msg: RTCMessage = {
+          type: 'action',
+          message: 'audio-off',
+        };
+        try {
+          alreadyOpen.peer.send(JSON.stringify(msg));
+        } catch (e: any) {
+          console.error(
+            'Failed to send audio-off message to peer: ',
+            e.toString()
+          );
+        }
+      }
     }
 
     /**
