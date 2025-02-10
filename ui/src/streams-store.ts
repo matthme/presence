@@ -1,5 +1,4 @@
-import SimplePeer from 'simple-peer'; // Note that we're using an alias in vite.config.ts that points to a fork
-                                      // but allows us to still use the original @types/simple-peer types
+import SimplePeer from 'simple-peer';
 import {
   AgentPubKey,
   AgentPubKeyB64,
@@ -211,6 +210,16 @@ type PongMetaDataV1 = {
    * which we're sending this PongMetaData
    */
   streamInfo?: StreamAndTrackInfo;
+  /**
+   * Info of whether we consider the audio of the peer
+   * to be on or off
+   */
+  audio?: boolean;
+  /**
+   * Info of whether we consider the video of the peer
+   * to be on or off
+   */
+  video?: boolean;
 };
 
 export type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
@@ -554,6 +563,8 @@ export class StreamsStore {
   async audioOn() {
     if (this.mainStream) {
       if (this.mainStream.getAudioTracks()[0]) {
+        // Apparently, it is not necessary to enable the tracks of the
+        // cloned streams explicitly as well here.
         this.mainStream.getAudioTracks()[0].enabled = true;
       } else {
         let audioStream: MediaStream | undefined;
@@ -637,6 +648,14 @@ export class StreamsStore {
         // eslint-disable-next-line no-param-reassign
         track.enabled = false;
         console.log('### DISABLED AUDIO TRACK: ', track);
+      });
+      // Disable the audio tracks of all cloned streams as well
+      this.mainStreamClones.forEach(clonedStream => {
+        clonedStream.getAudioTracks().forEach(track => {
+          // eslint-disable-next-line no-param-reassign
+          track.enabled = false;
+          console.log('### DISABLED AUDIO TRACK: ', track);
+        });
       });
       Object.values(get(this._openConnections)).forEach(conn => {
         const msg: RTCMessage = {
@@ -782,6 +801,13 @@ export class StreamsStore {
    * Our own video/audio stream
    */
   mainStream: MediaStream | undefined | null;
+
+  /**
+   * Clones of the main stream. These are required in case a reconnection needs to be made for
+   * an individual peer because our audio and/or video track is non-functional from their
+   * perspective
+   */
+  mainStreamClones: MediaStream[] = [];
 
   /**
    * Our own screen share stream
@@ -1152,10 +1178,10 @@ export class StreamsStore {
       this._screenShareConnectionsIncoming.update(currentValue => {
         const screenShareConnections = currentValue;
         const relevantConnection = screenShareConnections[pubKeyB64];
-        if (track.kind === 'audio') {
+        if (track.kind === 'audio' && track.enabled) {
           relevantConnection.audio = true;
         }
-        if (track.kind === 'video') {
+        if (track.kind === 'video' && track.enabled) {
           relevantConnection.video = true;
         }
         screenShareConnections[pubKeyB64] = relevantConnection;
@@ -1394,36 +1420,56 @@ export class StreamsStore {
       const peer = get(this._openConnections)[pubkey];
 
       const myAudioTracks = this.mainStream?.getAudioTracks();
+      const myAudioTrack = myAudioTracks ? myAudioTracks[0] : undefined;
+
+      const myVideoTracks = this.mainStream?.getVideoTracks();
+      const myVideoTrack = myVideoTracks ? myVideoTracks[0] : undefined;
+
       // If we have an audio track but the other peer doesn't see it or sees it non-functional,
       // re-add it to their peer
-      if (myAudioTracks && myAudioTracks?.length > 0) {
-        const myAudioTrack = myAudioTracks[0];
+      if (myAudioTrack) {
         const audioTrackPerceived = streamAndTrackInfo.tracks.find(
           track => track.kind === 'audio'
         );
-        if (!audioTrackPerceived || audioTrackPerceived.muted) {
+        if (
+          !audioTrackPerceived ||
+          audioTrackPerceived.muted) {
           console.warn(
             'Peer does not seem to see our audio track or it is muted:',
             audioTrackPerceived,
             '\nRe-adding it to their peer object...'
           );
-          try {
-            peer.peer.removeTrack(myAudioTrack, this.mainStream);
-          } catch (e) {
-            console.warn("Failed to remove audio track before re-adding.");
+          peer.peer.removeStream(this.mainStream);
+
+          // It is not really clear why but things only work properly if done exactly in this way
+          // where a cloned stream is created and the original tracks are being added back
+          // to the cloned stream. It is also important (!) that this cloned stream is stored
+          // and in audioOff() the audio tracks of this cloned stream are being disabled explicitly.
+          // Otherwise, audio *will* keep running on the remote peer's side!
+          //
+          // If not the full stream is removed and re-added but only tracks, the stream on the
+          // remote peer's side will be set to "active: false" and re-added tracks will never
+          // show up on their side.
+          // This may be the reason why removing and re-adding tracks throws a hard error
+          // in simple-peer: https://github.com/feross/simple-peer/issues/606
+          //
+          // If re-adding tracks should ever be required anyway, there's the
+          // @matthme/simple-peer@9.11.2 packaged based off
+          // https://github.com/matthme/simple-peer/commit/8076d57b21a405992750fe4546fa242da5d9ed96
+          //
+          const clonedStream = this.mainStream.clone();
+          this.mainStreamClones = [...this.mainStreamClones, clonedStream];
+          peer.peer.addStream(clonedStream);
+          peer.peer.addTrack(myAudioTrack, clonedStream);
+          if (myVideoTrack) {
+            peer.peer.addTrack(myVideoTrack, clonedStream);
           }
-          // This requires a fork of simple-peer to work (https://github.com/feross/simple-peer/issues/606#issuecomment-801858973)
-          // fork is here: https://github.com/matthme/simple-peer
-          peer.peer.addTrack(myAudioTrack, this.mainStream);
-          // peer.peer.replaceTrack(myAudioTrack, myAudioTrack, this.mainStream);
         }
       }
 
-      const myVideoTracks = this.mainStream?.getVideoTracks();
       // If we have a video track but the other peer doesn't see it or sees it non-functional,
       // re-add it to their peer
-      if (myVideoTracks && myVideoTracks?.length > 0) {
-        const myVideoTrack = myVideoTracks[0];
+      if (myVideoTrack) {
         const videoTrackPerceived = streamAndTrackInfo.tracks.find(
           track => track.kind === 'video'
         );
@@ -1433,16 +1479,15 @@ export class StreamsStore {
             videoTrackPerceived,
             '\nRe-adding it to their peer object...'
           );
-          try {
-            peer.peer.removeTrack(myVideoTrack, this.mainStream);
-          } catch (e) {
-            console.warn(
-              '@reconcileVideoStreamState: Failed to remove video track before re-adding.'
-            );
+          peer.peer.removeStream(this.mainStream);
+          // Same logic as above with the audio tracks
+          const clonedStream = this.mainStream.clone();
+          this.mainStreamClones = [...this.mainStreamClones, clonedStream];
+          peer.peer.addStream(clonedStream);
+          peer.peer.addTrack(myVideoTrack, clonedStream);
+          if (myAudioTrack) {
+            peer.peer.addTrack(myAudioTrack, clonedStream);
           }
-          // This requires a fork of simple-peer to work (https://github.com/feross/simple-peer/issues/606#issuecomment-801858973)
-          // fork is here: https://github.com/matthme/simple-peer
-          peer.peer.addTrack(myVideoTrack, this.mainStream);
         }
       }
     }
@@ -1528,6 +1573,7 @@ export class StreamsStore {
           knownAgents: get(this._knownAgents),
           appVersion: __APP_VERSION__,
           streamInfo,
+          audio: get(this._openConnections)[pubkeyB64]?.audio,
         },
       };
       await this.roomClient.pongFrontend({
@@ -1615,9 +1661,7 @@ export class StreamsStore {
      */
     // alreadyOpen here does not include the case where SDP exchange is already ongoing
     // but no actual connection has happened yet
-    const alreadyOpen = Object.keys(get(this._openConnections)).includes(
-      pubkeyB64
-    );
+    const alreadyOpen = get(this._openConnections)[pubkeyB64];
     const pendingInits = this._pendingInits[pubkeyB64];
     if (!alreadyOpen && pubkeyB64 < this.myPubKeyB64) {
       if (!pendingInits) {
@@ -1656,6 +1700,25 @@ export class StreamsStore {
     } else if (alreadyOpen && metaDataExt?.data.streamInfo) {
       // If the connection is already open, reconciliate with our expected stream state
       this.reconcileVideoStreamState(pubkeyB64, metaDataExt.data.streamInfo);
+    }
+
+    // Check whether they have the right expectation of our audio state and if not,
+    // send an audio-off signal
+    if (alreadyOpen && metaDataExt?.data.audio) {
+      if (!this.mainStream?.getAudioTracks()[0]?.enabled) {
+        const msg: RTCMessage = {
+          type: 'action',
+          message: 'audio-off',
+        };
+        try {
+          alreadyOpen.peer.send(JSON.stringify(msg));
+        } catch (e: any) {
+          console.error(
+            'Failed to send audio-off message to peer: ',
+            e.toString()
+          );
+        }
+      }
     }
 
     /**

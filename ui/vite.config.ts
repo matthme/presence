@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // ...
-      'simple-peer': '@matthme/simple-peer/simplepeer.min.js',
+      'simple-peer': 'simple-peer/simplepeer.min.js',
     },
   },
   plugins: [
