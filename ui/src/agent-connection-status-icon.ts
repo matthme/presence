@@ -17,7 +17,7 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { ConnectionStatus } from './streams-store';
+import { ConnectionStatus } from './types';
 import { connectionStatusToColor } from './utils';
 import { sharedStyles } from './sharedStyles';
 import './holo-identicon';
