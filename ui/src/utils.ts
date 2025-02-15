@@ -7,12 +7,12 @@ import {
   ProvisionedCell,
   RoleName,
 } from '@holochain/client';
-import { ConnectionStatus } from './streams-store';
+import { ConnectionStatus } from './types';
 
 export type CellTypes = {
   provisioned: ProvisionedCell;
   cloned: ClonedCell[];
-}
+};
 
 export function groupRoomNetworkSeed(appletNetworkSeed: string, uuid: string) {
   return `groupRoom#${appletNetworkSeed}#${uuid}`;
@@ -48,12 +48,14 @@ export function getCellTypes(appInfo: AppInfo): CellTypes {
 
 export function roleNameForNetworkSeed(
   appInfo: AppInfo,
-  networkSeed: string,
+  networkSeed: string
 ): RoleName | undefined {
   for (const [role, cells] of Object.entries(appInfo.cell_info)) {
     for (const c of cells) {
       if (CellType.Provisioned in c) {
-        if (c[CellType.Provisioned].dna_modifiers.network_seed === networkSeed) {
+        if (
+          c[CellType.Provisioned].dna_modifiers.network_seed === networkSeed
+        ) {
           return role;
         }
       } else if (CellType.Cloned in c) {
@@ -68,12 +70,14 @@ export function roleNameForNetworkSeed(
 
 export function roleNameForDnaHash(
   appInfo: AppInfo,
-  dnaHash: DnaHash,
+  dnaHash: DnaHash
 ): RoleName | undefined {
   for (const [role, cells] of Object.entries(appInfo.cell_info)) {
     for (const c of cells) {
       if (CellType.Provisioned in c) {
-        if (c[CellType.Provisioned].cell_id[0].toString() === dnaHash.toString()) {
+        if (
+          c[CellType.Provisioned].cell_id[0].toString() === dnaHash.toString()
+        ) {
           return role;
         }
       } else if (CellType.Cloned in c) {
@@ -86,7 +90,10 @@ export function roleNameForDnaHash(
   return undefined;
 }
 
-export function connectionStatusToColor(status?: ConnectionStatus, offlineColor = 'transparent'): string {
+export function connectionStatusToColor(
+  status?: ConnectionStatus,
+  offlineColor = 'transparent'
+): string {
   if (!status) return offlineColor;
   switch (status.type) {
     case 'Disconnected':
@@ -101,14 +108,17 @@ export function connectionStatusToColor(status?: ConnectionStatus, offlineColor 
       return 'yellow';
     case 'Connected':
       return '#48e708';
-    case "Blocked":
+    case 'Blocked':
       return '#c72100';
     default:
       return offlineColor;
   }
 }
 
-export const sortConnectionStatuses = (a: [AgentPubKeyB64, ConnectionStatus], b: [AgentPubKeyB64, ConnectionStatus]) => {
+export const sortConnectionStatuses = (
+  a: [AgentPubKeyB64, ConnectionStatus],
+  b: [AgentPubKeyB64, ConnectionStatus]
+) => {
   const [pubkey_a, status_a] = a;
   const [pubkey_b, status_b] = b;
   // If both have equal connection status, sort by pubkey
@@ -116,8 +126,8 @@ export const sortConnectionStatuses = (a: [AgentPubKeyB64, ConnectionStatus], b:
     return pubkey_a.localeCompare(pubkey_b);
   }
   // Disconnected is last
-  if (status_a.type === "Disconnected") return 1;
-  if (status_b.type === "Disconnected") return -1;
+  if (status_a.type === 'Disconnected') return 1;
+  if (status_b.type === 'Disconnected') return -1;
   // Everything else gets sorted by pubkey
   return pubkey_a.localeCompare(pubkey_b);
 
@@ -125,6 +135,32 @@ export const sortConnectionStatuses = (a: [AgentPubKeyB64, ConnectionStatus], b:
   // state changes visually if the icons move around
   // if (status_a.type === "Connected") return 1;
   // if (status_b.type === "Connected") return -1;
+};
 
+export function readLocalStorage<T>(key: string): T | null;
+// eslint-disable-next-line no-redeclare
+export function readLocalStorage<T>(key: string, defaultValue?: T): T;
+// eslint-disable-next-line no-redeclare
+export function readLocalStorage<T>(key: string, defaultValue?: T): T | null {
+  const val = window.localStorage.getItem(key);
+  if (val) return JSON.parse(val);
+  return defaultValue || null;
+}
 
+export function writeLocalStorage<T>(key: string, value: T): void {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+export function readSessionStorage<T>(key: string): T | null;
+// eslint-disable-next-line no-redeclare
+export function readSessionStorage<T>(key: string, defaultValue?: T): T;
+// eslint-disable-next-line no-redeclare
+export function readSessionStorage<T>(key: string, defaultValue?: T): T | null {
+  const val = window.sessionStorage.getItem(key);
+  if (val) return JSON.parse(val);
+  return defaultValue || null;
+}
+
+export function writeSessionStorage<T>(key: string, value: T): void {
+  window.sessionStorage.setItem(key, JSON.stringify(value));
 }

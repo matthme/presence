@@ -22,7 +22,8 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { ConnectionStatus, StreamsStore } from './streams-store';
+import { StreamsStore } from './streams-store';
+import { ConnectionStatus } from './types';
 import { connectionStatusToColor } from './utils';
 import './holo-identicon';
 import { streamsStoreContext } from './contexts';

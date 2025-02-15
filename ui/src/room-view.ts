@@ -44,12 +44,9 @@ import './agent-connection-status';
 import './agent-connection-status-icon';
 import './toggle-switch';
 import { sortConnectionStatuses } from './utils';
-import {
-  AgentInfo,
-  ConnectionStatuses,
-  PING_INTERVAL,
-  StreamsStore,
-} from './streams-store';
+import { PING_INTERVAL, StreamsStore } from './streams-store';
+import { AgentInfo, ConnectionStatuses } from './types';
+import { PresenceLogger } from './logging';
 
 @localized()
 @customElement('room-view')
@@ -129,6 +126,8 @@ export class RoomView extends LitElement {
     () => [this.streamsStore]
   );
 
+  _logger = new PresenceLogger();
+
   @state()
   _microphone = false;
 
@@ -186,6 +185,7 @@ export class RoomView extends LitElement {
 
   quitRoom() {
     this.streamsStore.disconnect();
+    this._logger.endSession();
     this.dispatchEvent(
       new CustomEvent('quit-room', { bubbles: true, composed: true })
     );
@@ -1240,10 +1240,14 @@ export class RoomView extends LitElement {
                                 : null;
 
                               navigator.clipboard.writeText(
-                                JSON.stringify({
-                                  stream: streamInfo,
-                                  tracks: tracksInfo,
-                                }, undefined, 2)
+                                JSON.stringify(
+                                  {
+                                    stream: streamInfo,
+                                    tracks: tracksInfo,
+                                  },
+                                  undefined,
+                                  2
+                                )
                               );
                             }
                           }}

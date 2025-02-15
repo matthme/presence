@@ -13,9 +13,24 @@ import {
   Writable,
 } from '@holochain-open-dev/stores';
 import { v4 as uuidv4 } from 'uuid';
-import { RoomSignal } from './types';
+import {
+  AgentInfo,
+  ConnectionStatus,
+  ConnectionStatuses,
+  OpenConnectionInfo,
+  PendingAccept,
+  PendingInit,
+  PongMetaData,
+  PongMetaDataV1,
+  RoomSignal,
+  RTCMessage,
+  StoreEventPayload,
+  StreamAndTrackInfo,
+  TrackInfo,
+} from './types';
 import { RoomClient } from './room-client';
 import { RoomStore } from './room-store';
+import { PresenceLogger } from './logging';
 
 declare const __APP_VERSION__: string;
 
@@ -25,268 +40,11 @@ const ICE_CONFIG = [
 ];
 
 /**
- * EVENTS:
- *
- * my-video-on
- * my-video-off
- * my-audio-on
- * my-audio-off
- * my-screen-share-on
- * my-screen-share-off
- *
- * peer-connected
- * peer-disconnected
- * peer-audio-on
- * peer-audio-off
- * peer-video-on
- * peer-video-off
- *
- * error
- *
- */
-
-export type StoreEventPayload =
-  | {
-      type: 'my-video-on';
-    }
-  | {
-      type: 'my-video-off';
-    }
-  | {
-      type: 'my-audio-on';
-    }
-  | {
-      type: 'my-audio-off';
-    }
-  | {
-      type: 'my-screen-share-on';
-    }
-  | {
-      type: 'my-screen-share-off';
-    }
-  | {
-      type: 'peer-audio-on';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-stream';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-      stream: MediaStream;
-    }
-  | {
-      type: 'peer-audio-off';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-video-on';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-video-off';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-screen-share-stream';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-      stream: MediaStream;
-    }
-  | {
-      type: 'peer-screen-share-track';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-      track: MediaStreamTrack;
-    }
-  | {
-      type: 'peer-connected';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-disconnected';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-screen-share-connected';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'peer-screen-share-disconnected';
-      pubKeyB64: AgentPubKeyB64;
-      connectionId: ConnectionId;
-    }
-  | {
-      type: 'error';
-      error: string;
-    };
-
-/**
  * If an InitRequest does not succeed within this duration (ms) another InitRequest will be sent
  */
 const INIT_RETRY_THRESHOLD = 5000;
 
 export const PING_INTERVAL = 2000;
-
-type ConnectionId = string;
-
-type RTCMessage =
-  | {
-      type: 'action';
-      message: 'video-off' | 'audio-off' | 'audio-on';
-    }
-  | {
-      type: 'text';
-      message: string;
-    };
-
-type OpenConnectionInfo = {
-  connectionId: ConnectionId;
-  peer: SimplePeer.Instance;
-  video: boolean;
-  audio: boolean;
-  connected: boolean;
-  direction: 'outgoing' | 'incoming' | 'duplex'; // In which direction streams are expected
-};
-
-type PendingInit = {
-  /**
-   * UUID to identify the connection
-   */
-  connectionId: ConnectionId;
-  /**
-   * Timestamp when init was sent. If InitAccept is not received within a certain duration
-   * after t0, a next InitRequest is sent.
-   */
-  t0: number;
-};
-
-type PendingAccept = {
-  /**
-   * UUID to identify the connection
-   */
-  connectionId: ConnectionId;
-  /**
-   * Peer instance that was created with this accept. Gets destroyed if another Peer object makes it through
-   * to connected state instead for a connection with the same Agent.
-   */
-  peer: SimplePeer.Instance;
-};
-
-type StreamInfo = {
-  active: boolean;
-};
-
-type TrackInfo = {
-  kind: 'audio' | 'video';
-  enabled: boolean;
-  muted: boolean;
-  readyState: 'live' | 'ended';
-};
-
-type StreamAndTrackInfo = {
-  stream: StreamInfo | null;
-  tracks: TrackInfo[];
-};
-
-type PongMetaData<T> = {
-  formatVersion: number;
-  data: T;
-};
-
-type PongMetaDataV1 = {
-  connectionStatuses: ConnectionStatuses;
-  screenShareConnectionStatuses?: ConnectionStatuses;
-  knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
-  appVersion?: string;
-  /**
-   * Info about how we see the stream of the peer to
-   * which we're sending this PongMetaData
-   */
-  streamInfo?: StreamAndTrackInfo;
-  /**
-   * Info of whether we consider the audio of the peer
-   * to be on or off
-   */
-  audio?: boolean;
-  /**
-   * Info of whether we consider the video of the peer
-   * to be on or off
-   */
-  video?: boolean;
-};
-
-export type ConnectionStatuses = Record<AgentPubKeyB64, ConnectionStatus>;
-
-/**
- * Connection status with a peer
- */
-export type ConnectionStatus =
-  | {
-      /**
-       * No WebRTC connection or freshly disconnected
-       */
-      type: 'Disconnected';
-    }
-  | {
-      /**
-       * Agent has been blocked by us
-       */
-      type: 'Blocked';
-    }
-  | {
-      /**
-       * Waiting for an init of a peer whose pubkey is alphabetically higher than ours
-       */
-      type: 'AwaitingInit';
-    }
-  | {
-      /**
-       * Waiting for an Accept of a peer whose pubkey is alphabetically lower than ours
-       */
-      type: 'InitSent';
-      attemptCount?: number;
-    }
-  | {
-      /**
-       * Waiting for SDP exchange to start
-       */
-      type: 'AcceptSent';
-      attemptCount?: number;
-    }
-  | {
-      /**
-       * SDP exchange is ongoing
-       */
-      type: 'SdpExchange';
-    }
-  | {
-      /**
-       * WebRTC connection is established
-       */
-      type: 'Connected';
-    };
-
-export type AgentInfo = {
-  pubkey: AgentPubKeyB64;
-  /**
-   * If I know from the all_agents anchor that this agent exists in the Room, the
-   * type is "known". If I've learnt about this agent only from other's Pong meta data
-   * or from receiving a Pong from that agent themselves the type is "told".
-   */
-  type: 'known' | 'told';
-  /**
-   * last time when a PongUi from this agent was received
-   */
-  lastSeen?: number;
-  appVersion?: string;
-};
 
 /**
  * A store that handles the creation and management of WebRTC streams with
@@ -309,16 +67,20 @@ export class StreamsStore {
 
   private eventCallback: (ev: StoreEventPayload) => any = () => undefined;
 
+  private _logger: PresenceLogger;
+
   blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
 
   trickleICE = true;
 
   constructor(
     roomStore: RoomStore,
-    screenSourceSelection: () => Promise<string>
+    screenSourceSelection: () => Promise<string>,
+    logger: PresenceLogger
   ) {
     this.roomStore = roomStore;
     this.screenSourceSelection = screenSourceSelection;
+    this._logger = logger;
     const roomClient = roomStore.client;
     this.roomClient = roomClient;
     this.myPubKeyB64 = encodeHashToBase64(roomClient.client.myPubKey);
@@ -339,9 +101,14 @@ export class StreamsStore {
 
   static async connect(
     roomStore: RoomStore,
-    screenSourceSelection: () => Promise<string>
+    screenSourceSelection: () => Promise<string>,
+    logger: PresenceLogger
   ): Promise<StreamsStore> {
-    const streamsStore = new StreamsStore(roomStore, screenSourceSelection);
+    const streamsStore = new StreamsStore(
+      roomStore,
+      screenSourceSelection,
+      logger
+    );
 
     roomStore.allAgents.subscribe(val => {
       if (val.status === 'complete') {
@@ -1431,9 +1198,7 @@ export class StreamsStore {
         const audioTrackPerceived = streamAndTrackInfo.tracks.find(
           track => track.kind === 'audio'
         );
-        if (
-          !audioTrackPerceived ||
-          audioTrackPerceived.muted) {
+        if (!audioTrackPerceived || audioTrackPerceived.muted) {
           console.warn(
             'Peer does not seem to see our audio track or it is muted:',
             audioTrackPerceived,
@@ -1604,6 +1369,7 @@ export class StreamsStore {
       const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(
         signal.meta_data
       );
+      this._logger.logAgentPongMetaData(pubkeyB64, metaData);
       metaDataExt = metaData;
       this._othersConnectionStatuses.update(statuses => {
         const newStatuses = statuses;
@@ -1698,7 +1464,7 @@ export class StreamsStore {
     } else if (!alreadyOpen && !pendingInits) {
       this.updateConnectionStatus(pubkeyB64, { type: 'AwaitingInit' });
     } else if (alreadyOpen && metaDataExt?.data.streamInfo) {
-      // If the connection is already open, reconciliate with our expected stream state
+      // If the connection is already open, reconcile with our expected stream state
       this.reconcileVideoStreamState(pubkeyB64, metaDataExt.data.streamInfo);
     }
 
