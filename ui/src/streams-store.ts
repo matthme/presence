@@ -26,6 +26,7 @@ import {
   RTCMessage,
   StoreEventPayload,
   StreamAndTrackInfo,
+  StreamInfo,
   TrackInfo,
 } from './types';
 import { RoomClient } from './room-client';
@@ -685,6 +686,10 @@ export class StreamsStore {
          */
         screenShareStatuses?: ConnectionStatuses;
         knownAgents?: Record<AgentPubKeyB64, AgentInfo>;
+        /**
+         * How they perceive our stream
+         */
+        perceivedStreamInfo?: StreamAndTrackInfo;
       }
     >
   > = writable({});
@@ -1395,6 +1400,7 @@ export class StreamsStore {
           statuses: metaData.data.connectionStatuses,
           screenShareStatuses: metaData.data.screenShareConnectionStatuses,
           knownAgents: metaData.data.knownAgents,
+          perceivedStreamInfo: metaData.data.streamInfo,
         };
         return statuses;
       });

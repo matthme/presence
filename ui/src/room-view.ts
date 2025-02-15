@@ -37,7 +37,7 @@ import { AssetStoreContent, WAL, WeaveClient } from '@theweave/api';
 import { roomStoreContext, streamsStoreContext } from './contexts';
 import { sharedStyles } from './sharedStyles';
 import './avatar-with-nickname';
-import { RoomInfo, weaveClientContext } from './types';
+import { RoomInfo, StreamAndTrackInfo, weaveClientContext } from './types';
 import { RoomStore } from './room-store';
 import './attachment-element';
 import './agent-connection-status';
@@ -46,7 +46,6 @@ import './toggle-switch';
 import { sortConnectionStatuses } from './utils';
 import { PING_INTERVAL, StreamsStore } from './streams-store';
 import { AgentInfo, ConnectionStatuses } from './types';
-import { PresenceLogger } from './logging';
 
 @localized()
 @customElement('room-view')
@@ -525,6 +524,52 @@ export class RoomView extends LitElement {
             `
           : html``}
       </div>
+    `;
+  }
+
+  renderTrackStatuses(pubkeyB64: AgentPubKeyB64) {
+    const perceivedStreamInfo =
+      this._othersConnectionStatuses.value[pubkeyB64].perceivedStreamInfo;
+    return html`
+      <!-- Audio track icon -->
+      <sl-tooltip
+        hoist
+        class="tooltip-filled"
+        placement="top"
+        content="${streamAndTrackInfoToText(perceivedStreamInfo, 'audio')}"
+        style="--sl-tooltip-background-color: ${streamAndTrackInfoToColor(
+          perceivedStreamInfo,
+          'audio'
+        )};"
+      >
+        <sl-icon
+          style="font-size: 20px; color: ${streamAndTrackInfoToColor(
+            perceivedStreamInfo,
+            'audio'
+          )}"
+          .src=${wrapPathInSvg(mdiMicrophone)}
+        ></sl-icon>
+      </sl-tooltip>
+
+      <!-- Video track icon -->
+      <sl-tooltip
+        hoist
+        class="tooltip-filled"
+        placement="top"
+        content="${streamAndTrackInfoToText(perceivedStreamInfo, 'video')}"
+        style="--sl-tooltip-background-color: ${streamAndTrackInfoToColor(
+          perceivedStreamInfo,
+          'video'
+        )};"
+      >
+        <sl-icon
+          style="font-size: 20px; color: ${streamAndTrackInfoToColor(
+            perceivedStreamInfo,
+            'video'
+          )}"
+          .src=${wrapPathInSvg(mdiVideo)}
+        ></sl-icon>
+      </sl-tooltip>
     `;
   }
 
@@ -1136,6 +1181,14 @@ export class RoomView extends LitElement {
                     ${this.renderAgentConnectionStatuses('video', pubkeyB64)}
                   </div>`
                 : html``}
+              ${this._showConnectionDetails
+                ? html`<div
+                    class="row"
+                    style="position: absolute; top: 3px; right: 9px;"
+                  >
+                    ${this.renderTrackStatuses(pubkeyB64)}
+                  </div>`
+                : html``}
 
               <!-- Avatar and nickname -->
               <div
@@ -1673,4 +1726,28 @@ export class RoomView extends LitElement {
       }
     `,
   ];
+}
+
+function streamAndTrackInfoToColor(
+  info: StreamAndTrackInfo | undefined,
+  kind: 'audio' | 'video'
+): string {
+  if (!info || !info.stream) return 'gray';
+  const track = info.tracks.find(track => track.kind === kind);
+  if (!track) return 'gray';
+  if (track && !track.muted) return '#0886e7';
+  if (track && track.muted) return '#e7bb08';
+  return 'white';
+}
+
+function streamAndTrackInfoToText(
+  info: StreamAndTrackInfo | undefined,
+  kind: 'audio' | 'video'
+): string | undefined {
+  if (!info || !info.stream) return `No ${kind} WebRTC track`;
+  const track = info.tracks.find(track => track.kind === kind);
+  if (!track) return `No ${kind} WebRTC track`;
+  if (track && !track.muted) return `${kind} WebRTC track in state 1`;
+  if (track && track.muted) return `${kind} WebRTC track in state 2`;
+  return `Unusual ${kind} WebRTC track state: ${track}`;
 }

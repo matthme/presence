@@ -3,7 +3,7 @@ import { hashProperty } from '@holochain-open-dev/elements';
 import { css, html, LitElement, PropertyValueMap } from 'lit';
 import { property, customElement } from 'lit/decorators.js';
 import { AgentPubKey, encodeHashToBase64 } from '@holochain/client';
-import { localized, msg } from '@lit/localize';
+import { localized } from '@lit/localize';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
 
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
@@ -102,8 +102,8 @@ export class AgentConnectionStatusIcon extends LitElement {
         }...`;
       case 'SdpExchange':
         return 'exchanging SDP data...';
-      case "Blocked":
-        return "Blocked";
+      case 'Blocked':
+        return 'Blocked';
       default:
         return 'unknown status type';
     }
@@ -143,7 +143,9 @@ export class AgentConnectionStatusIcon extends LitElement {
                   class="tooltip-filled"
                   placement="bottom"
                   content="${lastSeenToText(this.lastSeen)}"
-                  style="--sl-tooltip-background-color: ${lastSeenToColor(this.lastSeen)};"
+                  style="--sl-tooltip-background-color: ${lastSeenToColor(
+                    this.lastSeen
+                  )};"
                 >
                   <div
                     class="last-seen-indicator"
@@ -243,18 +245,21 @@ export class AgentConnectionStatusIcon extends LitElement {
   ];
 }
 
-function lastSeenToText(lastSeen: number | undefined) {
+function lastSeenToText(lastSeen: number | undefined): string {
   if (!lastSeen) return 'No remote signals received in the last 30 seconds.';
   const now = Date.now();
-  if (now - lastSeen < 15000) return 'Last remote signal received no longer than 15 seconds ago.';
-  if (now - lastSeen < 30000) return 'Last remote signal received no longer than 30 seconds ago.';
+  if (now - lastSeen < 15000)
+    return 'Last remote signal received no longer than 15 seconds ago.';
+  if (now - lastSeen < 30000)
+    return 'Last remote signal received no longer than 30 seconds ago.';
   return 'No remote signals received in the last 30 seconds.';
 }
 
-function lastSeenToColor(lastSeen: number | undefined) {
+function lastSeenToColor(lastSeen: number | undefined): string {
   if (!lastSeen) return 'gray';
   const now = Date.now();
   if (now - lastSeen < 15000) return '#48e708';
   if (now - lastSeen < 30000) return '#ffd900';
   return 'gray';
 }
+
