@@ -1242,6 +1242,10 @@ export class StreamsStore {
           if (myVideoTrack) {
             peer.peer.addTrack(myVideoTrack, clonedStream);
           }
+
+          // We add the video track too if it exists so we can skip the if condition below
+          // to not potentially re-add the stream yet again
+          return;
         }
       }
 
