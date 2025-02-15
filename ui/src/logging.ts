@@ -259,7 +259,7 @@ export class PresenceLogger {
     // We don't want to store the `knownAgents` field because it contains `lastSeen`
     // which changes too frequently and therefore the metadata would always change
     // and the timeseries gets cluttered too much
-    const cleanedData = data;
+    const cleanedData = structuredClone(data); // Make a clone to not delete the field on the original object
     delete cleanedData.knownAgents;
 
     // Compare current info with info of latest log and if its equal, update the
