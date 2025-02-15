@@ -133,15 +133,6 @@ export class RoomView extends LitElement {
   _camera = false;
 
   @state()
-  _hoverCamera = false;
-
-  @state()
-  _hoverMicrophone = false;
-
-  @state()
-  _hoverScreen = false;
-
-  @state()
   _maximizedVideo: string | undefined; // id of the maximized video if any
 
   @state()
@@ -679,7 +670,7 @@ export class RoomView extends LitElement {
               <span
                 class="secondary-font"
                 style="color: #c3c9eb; margin-left: 10px; font-size: 23px;"
-                >trickle ICE</span
+                >trickle ICE (ON by default)</span
               >
             </div>
           </div>
@@ -693,7 +684,9 @@ export class RoomView extends LitElement {
     return html`
       <div class="toggles-panel">
         <sl-tooltip
-          content="${this._microphone ? msg('Voice Off') : msg('Voice On')}"
+          content="${this._microphone
+            ? msg('Turn Audio Off')
+            : msg('Turn Audio On')}"
           hoist
         >
           <div
@@ -715,24 +708,10 @@ export class RoomView extends LitElement {
                 }
               }
             }}
-            @mouseenter=${() => {
-              this._hoverMicrophone = true;
-            }}
-            @mouseleave=${() => {
-              this._hoverMicrophone = false;
-            }}
-            @blur=${() => {
-              this._hoverMicrophone = false;
-            }}
           >
             <sl-icon
-              class="toggle-btn-icon ${(this._hoverMicrophone &&
-                !this._microphone) ||
-              this._microphone
-                ? ''
-                : 'btn-icon-off'}"
-              .src=${(this._hoverMicrophone && !this._microphone) ||
-              this._microphone
+              class="toggle-btn-icon ${this._microphone ? '' : 'btn-icon-off'}"
+              .src=${this._microphone
                 ? wrapPathInSvg(mdiMicrophone)
                 : wrapPathInSvg(mdiMicrophoneOff)}
             ></sl-icon>
@@ -740,7 +719,9 @@ export class RoomView extends LitElement {
         </sl-tooltip>
 
         <sl-tooltip
-          content="${this._camera ? msg('Camera Off') : msg('Camera On')}"
+          content="${this._camera
+            ? msg('Turn Camera Off')
+            : msg('Turn Camera On')}"
           hoist
         >
           <div
@@ -762,22 +743,10 @@ export class RoomView extends LitElement {
                 }
               }
             }}
-            @mouseenter=${() => {
-              this._hoverCamera = true;
-            }}
-            @mouseleave=${() => {
-              this._hoverCamera = false;
-            }}
-            @blur=${() => {
-              this._hoverCamera = false;
-            }}
           >
             <sl-icon
-              class="toggle-btn-icon ${(this._hoverCamera && !this._camera) ||
-              this._camera
-                ? ''
-                : 'btn-icon-off'}"
-              .src=${(this._hoverCamera && !this._camera) || this._camera
+              class="toggle-btn-icon ${this._camera ? '' : 'btn-icon-off'}"
+              .src=${this._camera
                 ? wrapPathInSvg(mdiVideo)
                 : wrapPathInSvg(mdiVideoOff)}
             ></sl-icon>
@@ -811,20 +780,9 @@ export class RoomView extends LitElement {
                 }
               }
             }}
-            @mouseenter=${() => {
-              this._hoverScreen = true;
-            }}
-            @mouseleave=${() => {
-              this._hoverScreen = false;
-            }}
-            @blur=${() => {
-              this._hoverScreen = false;
-            }}
           >
             <sl-icon
-              class="toggle-btn-icon ${(this._hoverScreen &&
-                !this.streamsStore.screenShareStream) ||
-              this.streamsStore.screenShareStream
+              class="toggle-btn-icon ${this.streamsStore.screenShareStream
                 ? ''
                 : 'btn-icon-off'}"
               .src=${wrapPathInSvg(mdiMonitorScreenshot)}
@@ -1665,6 +1623,7 @@ export class RoomView extends LitElement {
         background: #22365c;
       }
 
+      /*
       .toggle-btn:hover {
         background: #17529f;
       }
@@ -1672,6 +1631,7 @@ export class RoomView extends LitElement {
       .toggle-btn:hover:not(.btn-off) {
         background: #22365c;
       }
+      */
 
       .toggles-panel {
         display: flex;

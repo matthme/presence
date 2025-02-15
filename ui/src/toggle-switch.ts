@@ -18,8 +18,8 @@ export class ToggleSwitch extends LitElement {
     return this.toggleState
       ? html`
           <img
-            src="switch_off.svg"
-            alt="switch off button icon"
+            src="switch_on.svg"
+            alt="switch in on position button icon"
             style="height: ${this.height}px; cursor: pointer;"
             tabindex="0"
             @click=${() => {
@@ -42,8 +42,8 @@ export class ToggleSwitch extends LitElement {
         `
       : html`
           <img
-            src="switch_on.svg"
-            alt="switch on button icon"
+            src="switch_off.svg"
+            alt="switch in off position button icon"
             style="height: ${this.height}px; cursor: pointer;"
             tabindex="0"
             @click=${() => {

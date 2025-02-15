@@ -463,12 +463,14 @@ export class StreamsStore {
           } as any,
         });
       } catch (e: any) {
-        const error = `Failed to get media devices (screen share): ${e.toString()}`;
-        console.error(error);
-        this.eventCallback({
-          type: 'error',
-          error,
-        });
+        if (!e.toString().includes('Selection canceled by user')) {
+          const error = `Failed to get media devices (screen share): ${e.toString()}`;
+          console.error(error);
+          this.eventCallback({
+            type: 'error',
+            error,
+          });
+        }
       }
       // If there's an error here it's potentially possible that 'my-screen-share-on' further
       // down never gets emitted.
