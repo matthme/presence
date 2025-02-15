@@ -20,6 +20,7 @@ import { sharedStyles } from './sharedStyles';
 import { getCellTypes } from './utils';
 import { weaveClientContext } from './types';
 import { StreamsStore } from './streams-store';
+import { PresenceLogger } from './logging';
 
 @localized()
 @customElement('room-container')
@@ -71,8 +72,10 @@ export class RoomContainer extends LitElement {
       this._private = true;
     }
 
-    this.streamsStore = await StreamsStore.connect(this.roomStore, () =>
-      this.weaveClient.userSelectScreen()
+    this.streamsStore = await StreamsStore.connect(
+      this.roomStore,
+      () => this.weaveClient.userSelectScreen(),
+      new PresenceLogger()
     );
 
     this.loading = false;
@@ -80,7 +83,9 @@ export class RoomContainer extends LitElement {
 
   render() {
     if (this.loading) return html``;
-    return html` <room-view ?private=${this._private} .wal=${this.wal}></room-view> `;
+    return html`
+      <room-view ?private=${this._private} .wal=${this.wal}></room-view>
+    `;
   }
 
   static styles = [sharedStyles, css``];

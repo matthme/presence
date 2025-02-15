@@ -58,7 +58,7 @@ type PongMetadataInfo = {
   /**
    * The actual pong metadata
    */
-  metaData: PongMetaData<PongMetaDataV1>;
+  metaData: PongMetaDataV1;
 };
 
 type CustomLog = {
@@ -117,6 +117,7 @@ export class PresenceLogger {
 
     // Add an interval to write full state to localStorage every 15 seconds
     window.setInterval(() => {
+      console.log('writing log to localStorage.');
       this.write();
     }, 15_000);
 
@@ -249,17 +250,23 @@ export class PresenceLogger {
 
   logAgentPongMetaData(
     agent: AgentPubKeyB64,
-    data: PongMetaData<PongMetaDataV1>
+    data: PongMetaDataV1
   ) {
     const now = Date.now();
     const agentMetadataLogs = this.agentPongMetadataLogs[agent] || [];
     const latestMetadata = agentMetadataLogs[agentMetadataLogs.length - 1];
 
+    // We don't want to store the `knownAgents` field because it contains `lastSeen`
+    // which changes too frequently and therefore the metadata would always change
+    // and the timeseries gets cluttered too much
+    const cleanedData = data;
+    delete cleanedData.knownAgents;
+
     // Compare current info with info of latest log and if its equal, update the
     // `t_last` timestamp and `n_pongs` value only, otherwise push a new
     // `PongMetadataInfo` log
     const isSameMetadata = latestMetadata
-      ? isEqual(data, latestMetadata.metaData)
+      ? isEqual(cleanedData, latestMetadata.metaData)
       : false;
     if (isSameMetadata) {
       const newInfo: PongMetadataInfo = {
@@ -268,14 +275,14 @@ export class PresenceLogger {
         n_pongs: latestMetadata.n_pongs + 1,
         metaData: latestMetadata.metaData,
       };
-      agentMetadataLogs.push(newInfo);
+      agentMetadataLogs[agentMetadataLogs.length - 1] = newInfo;
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
     } else {
       agentMetadataLogs.push({
         t_first: Date.now(),
         t_last: Date.now(),
         n_pongs: 1,
-        metaData: data,
+        metaData: cleanedData,
       });
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
     }

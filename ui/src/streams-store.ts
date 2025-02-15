@@ -67,7 +67,7 @@ export class StreamsStore {
 
   private eventCallback: (ev: StoreEventPayload) => any = () => undefined;
 
-  private _logger: PresenceLogger;
+  logger: PresenceLogger;
 
   blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
 
@@ -80,7 +80,7 @@ export class StreamsStore {
   ) {
     this.roomStore = roomStore;
     this.screenSourceSelection = screenSourceSelection;
-    this._logger = logger;
+    this.logger = logger;
     const roomClient = roomStore.client;
     this.roomClient = roomClient;
     this.myPubKeyB64 = encodeHashToBase64(roomClient.client.myPubKey);
@@ -1369,7 +1369,7 @@ export class StreamsStore {
       const metaData: PongMetaData<PongMetaDataV1> = JSON.parse(
         signal.meta_data
       );
-      this._logger.logAgentPongMetaData(pubkeyB64, metaData);
+      this.logger.logAgentPongMetaData(pubkeyB64, metaData.data);
       metaDataExt = metaData;
       this._othersConnectionStatuses.update(statuses => {
         const newStatuses = statuses;

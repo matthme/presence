@@ -126,8 +126,6 @@ export class RoomView extends LitElement {
     () => [this.streamsStore]
   );
 
-  _logger = new PresenceLogger();
-
   @state()
   _microphone = false;
 
@@ -185,7 +183,7 @@ export class RoomView extends LitElement {
 
   quitRoom() {
     this.streamsStore.disconnect();
-    this._logger.endSession();
+    this.streamsStore.logger.endSession();
     this.dispatchEvent(
       new CustomEvent('quit-room', { bubbles: true, composed: true })
     );
