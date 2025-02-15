@@ -1110,6 +1110,17 @@ export class StreamsStore {
         }
         return connectionStatuses;
       }
+
+      if (status.type === "SdpExchange") {
+        const currentStatus = connectionStatuses[pubKey];
+        if (currentStatus.type === "Connected") {
+          // If already connected, don't change anything. SdpExchange
+          // is also expected to occur when turning on video when
+          // already connected.
+          return connectionStatuses;
+        }
+      }
+
       connectionStatuses[pubKey] = status;
       return connectionStatuses;
     });
@@ -1751,11 +1762,8 @@ export class StreamsStore {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     console.log(`## Got SDP Data from : ${pubkeyB64}:\n`, signal.data);
 
-    // If not connected already, update the status do SdpExchange (SDP Exchange also happens when already connected)
-    const agentConnectionStatus = get(this._connectionStatuses)[pubkeyB64];
-    if (!!agentConnectionStatus && agentConnectionStatus.type !== 'Connected') {
-      this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
-    }
+    // Update connection status
+    this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
 
     /**
      * Normal video/audio connections
