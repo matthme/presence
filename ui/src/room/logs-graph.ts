@@ -110,6 +110,10 @@ export class LogsGraph extends LitElement {
     const layout: Partial<Layout> = {
       title: { text: 'Logs' },
       showlegend: false,
+      hovermode: "closest",
+      hoverlabel: {
+        namelength: -1,
+      }
     };
 
     Plotly.newPlot(this.graph, data, layout);
