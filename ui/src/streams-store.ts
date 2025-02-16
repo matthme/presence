@@ -70,9 +70,9 @@ export class StreamsStore {
 
   logger: PresenceLogger;
 
-  blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
-
   trickleICE = true;
+
+  blockedAgents: Writable<AgentPubKeyB64[]> = writable([]);
 
   constructor(
     roomStore: RoomStore,
@@ -98,6 +98,9 @@ export class StreamsStore {
     if (trickleICE) {
       this.trickleICE = JSON.parse(trickleICE);
     }
+    navigator.mediaDevices.ondevicechange = e => {
+      console.log('Got devide change: ', e);
+    };
   }
 
   static async connect(
@@ -124,6 +127,12 @@ export class StreamsStore {
     streamsStore.pingInterval = window.setInterval(async () => {
       await streamsStore.pingAgents();
     }, PING_INTERVAL);
+
+    setTimeout(async () => {
+      const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+      streamsStore.mediaDevices.set(mediaDevices);
+    });
+
     return streamsStore;
   }
 
@@ -328,12 +337,49 @@ export class StreamsStore {
     }
   }
 
-  async audioOn() {
+  async changeAudioInput(deviceId: string) {
+    console.log('Changing audio input to: ', deviceId);
+    this._audioInputId.set(deviceId);
+    // If a stream is running with audio track, remove the existing track
+    // and turn audio back on
+    if (this.mainStream) {
+      const audioTrack = this.mainStream.getAudioTracks()[0];
+      if (audioTrack) {
+        const enabled = audioTrack.enabled;
+        audioTrack.stop();
+        this.mainStream!.removeTrack(audioTrack);
+        // Object.values(get(this._openConnections)).forEach(conn => {
+        //   conn.peer.removeTrack(audioTrack, this.mainStream!);
+        // });
+        const newAudioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: true,
+            echoCancellation: true,
+            deviceId,
+          },
+        });
+        const newAudioTrack = newAudioStream.getAudioTracks()[0];
+        if (!enabled) {
+          newAudioTrack.enabled = false;
+        }
+        this.mainStream.addTrack(newAudioTrack);
+        Object.values(get(this._openConnections)).forEach(conn => {
+          conn.peer.replaceTrack(audioTrack, newAudioTrack, this.mainStream!);
+        });
+      }
+    }
+  }
+
+  async audioOn(enabled: boolean) {
+    console.log('AUDIO ON!');
+    const deviceId = get(this._audioInputId);
     if (this.mainStream) {
       if (this.mainStream.getAudioTracks()[0]) {
         // Apparently, it is not necessary to enable the tracks of the
         // cloned streams explicitly as well here.
-        this.mainStream.getAudioTracks()[0].enabled = true;
+        if (enabled) {
+          this.mainStream.getAudioTracks()[0].enabled = true;
+        }
       } else {
         let audioStream: MediaStream | undefined;
         try {
@@ -341,6 +387,7 @@ export class StreamsStore {
             audio: {
               noiseSuppression: true,
               echoCancellation: true,
+              deviceId,
             },
           });
         } catch (e: any) {
@@ -353,12 +400,13 @@ export class StreamsStore {
           return;
         }
         try {
-          this.mainStream.addTrack(audioStream.getAudioTracks()[0]);
+          const audioTrack = audioStream.getAudioTracks()[0];
+          if (!enabled) {
+            audioTrack.enabled = false;
+          }
+          this.mainStream.addTrack(audioTrack);
           Object.values(get(this._openConnections)).forEach(conn => {
-            conn.peer.addTrack(
-              audioStream!.getAudioTracks()[0],
-              this.mainStream!
-            );
+            conn.peer.addTrack(audioTrack, this.mainStream!);
           });
         } catch (e: any) {
           console.error(`Failed to add video track: ${e.toString()}`);
@@ -370,8 +418,13 @@ export class StreamsStore {
           audio: {
             noiseSuppression: true,
             echoCancellation: true,
+            deviceId,
           },
         });
+        if (!enabled) {
+          const audioTrack = this.mainStream.getAudioTracks()[0];
+          audioTrack.enabled = false;
+        }
         this.eventCallback({
           type: 'my-audio-on',
         });
@@ -561,6 +614,49 @@ export class StreamsStore {
 
   isAgentBlocked(pubKey64: AgentPubKeyB64): Readable<boolean> {
     return derived(this.blockedAgents, val => val.includes(pubKey64));
+  }
+
+  // ===========================================================================================
+  // MEDIA DEVICES
+  // ===========================================================================================
+
+  mediaDevices: Writable<MediaDeviceInfo[]> = writable([]);
+
+  audioInputDevices(): Readable<MediaDeviceInfo[]> {
+    return derived(this.mediaDevices, devices =>
+      devices.filter(device => device.kind === 'audioinput')
+    );
+  }
+
+  videoInputDevices(): Readable<MediaDeviceInfo[]> {
+    return derived(this.mediaDevices, devices =>
+      devices.filter(device => device.kind === 'videoinput')
+    );
+  }
+
+  audioOutputDevices(): Readable<MediaDeviceInfo[]> {
+    return derived(this.mediaDevices, devices =>
+      devices.filter(device => device.kind === 'audiooutput')
+    );
+  }
+
+
+  _audioInputId: Writable<string | undefined> = writable(undefined); // if undefined, the default audio input source is used
+
+  audioInputId(): Readable<string | undefined> {
+    return derived(this._audioInputId, (id) => id);
+  }
+
+  _audioOutputId: Writable<string | undefined> = writable(undefined); // if undefined, the default audio output is used
+
+  audioOutputId(): Readable<string | undefined> {
+    return derived(this._audioOutputId, (id) => id);
+  }
+
+  _videoInputId: Writable<string | undefined> = writable(undefined); // if undefined, the default video input source is used
+
+  videoInputId(): Readable<string | undefined> {
+    return derived(this._videoInputId, (id) => id);
   }
 
   // ===========================================================================================
@@ -1116,9 +1212,9 @@ export class StreamsStore {
         return connectionStatuses;
       }
 
-      if (status.type === "SdpExchange") {
+      if (status.type === 'SdpExchange') {
         const currentStatus = connectionStatuses[pubKey];
-        if (currentStatus.type === "Connected") {
+        if (currentStatus.type === 'Connected') {
           // If already connected, don't change anything. SdpExchange
           // is also expected to occur when turning on video when
           // already connected.
