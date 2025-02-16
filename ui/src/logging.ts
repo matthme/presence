@@ -67,7 +67,33 @@ type CustomLog = {
   log: string;
 };
 
-export type PresenceLogEvent = 'my-stream-info' | 'agent-pong-metadata';
+export type SimpleEventType =
+  | 'Pong'
+  | 'SdpData'
+  | 'InitAccept'
+  | 'InitRequest'
+  | 'Connected'
+  | 'ReconcileStream'
+  | 'ReconcileAudio'
+  | 'ReconcileVideo'
+  | 'SimplePeerError'
+  | 'SimplePeerClose'
+  | 'SimplePeerStream'
+  | 'SimplePeerTrack'
+  | 'AudioOnSignal'
+  | 'AudioOffSignal'
+  | 'VideoOffSignal';
+
+export type SimpleEvent = {
+  agent: AgentPubKeyB64;
+  timestamp: number;
+  event: SimpleEventType;
+};
+
+export type PresenceLogEvent =
+  | 'my-stream-info'
+  | 'agent-pong-metadata'
+  | 'simple-event';
 
 export type PresenceLogEventMap = {
   'my-stream-info': StreamInfoLog;
@@ -75,14 +101,12 @@ export type PresenceLogEventMap = {
     agent: AgentPubKeyB64;
     info: PongMetadataInfo;
   };
+  'simple-event': SimpleEvent;
 };
 
 export type CallbackWithId = {
   id: number;
-  callback: (
-    e: PresenceLogEvent,
-    payload: PresenceLogEventMap[PresenceLogEvent]
-  ) => any;
+  callback: (payload: PresenceLogEventMap[PresenceLogEvent]) => any;
 };
 
 export class PresenceLogger {
@@ -100,6 +124,8 @@ export class PresenceLogger {
   agentPongMetadataLogs: Record<AgentPubKeyB64, PongMetadataInfo[]> = {};
 
   customLogs: CustomLog[] = [];
+
+  agentEvents: Record<AgentPubKeyB64, SimpleEvent[]> = {};
 
   _eventCallbacks: Partial<Record<PresenceLogEvent, CallbackWithId[]>> = {};
 
@@ -156,16 +182,13 @@ export class PresenceLogger {
   ): void {
     const callbacksWithId = this._eventCallbacks[event];
     if (callbacksWithId) {
-      callbacksWithId.forEach(cb => cb.callback(event, detail));
+      callbacksWithId.forEach(cb => cb.callback(detail));
     }
   }
 
   on<PresenceLogEvent extends keyof PresenceLogEventMap>(
     event: PresenceLogEvent,
-    callback: (
-      e: PresenceLogEvent,
-      payload: PresenceLogEventMap[PresenceLogEvent]
-    ) => any
+    callback: (payload: PresenceLogEventMap[PresenceLogEvent]) => any
   ): Unsubscriber {
     const existingCallbacks: CallbackWithId[] =
       this._eventCallbacks[event] || [];
@@ -233,7 +256,7 @@ export class PresenceLogger {
     // be sorted
     // .sort((info_a, info_b) => info_a.t_first - info_b.t_first);
 
-    console.log("READ STREAM STATUS LOG: ", this.myStreamStatusLog);
+    console.log('READ STREAM STATUS LOG: ', this.myStreamStatusLog);
 
     this.agentPongMetadataLogs = readLocalStorage<
       Record<AgentPubKeyB64, PongMetadataInfo[]>
@@ -357,6 +380,13 @@ export class PresenceLogger {
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
       this.emit('agent-pong-metadata', { agent, info: newInfo });
     }
+  }
+
+  logAgentEvent(event: SimpleEvent) {
+    const agentEvents = this.agentEvents[event.agent] || [];
+    agentEvents.push(event);
+    this.agentEvents[event.agent] = agentEvents;
+    this.emit('simple-event', event);
   }
 
   /**

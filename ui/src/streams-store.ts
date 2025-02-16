@@ -26,8 +26,6 @@ import {
   RTCMessage,
   StoreEventPayload,
   StreamAndTrackInfo,
-  StreamInfo,
-  TrackInfo,
 } from './types';
 import { RoomClient } from './room/room-client';
 import { RoomStore } from './room/room-store';
@@ -844,6 +842,11 @@ export class StreamsStore {
               openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
             });
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'VideoOffSignal',
+            });
           }
           if (msg.message === 'audio-off') {
             this._openConnections.update(currentValue => {
@@ -853,6 +856,11 @@ export class StreamsStore {
               openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
             });
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'AudioOffSignal',
+            });
           }
           if (msg.message === 'audio-on') {
             this._openConnections.update(currentValue => {
@@ -861,6 +869,11 @@ export class StreamsStore {
               relevantConnection.audio = true;
               openConnections[pubKeyB64] = relevantConnection;
               return openConnections;
+            });
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'AudioOnSignal',
             });
           }
         }
@@ -937,6 +950,12 @@ export class StreamsStore {
     });
     peer.on('connect', async () => {
       console.log('#### CONNECTED with', pubKeyB64);
+      this.logger.logAgentEvent({
+        agent: pubKeyB64,
+        timestamp: Date.now(),
+        event: 'Connected',
+      });
+
       delete this._pendingInits[pubKeyB64];
 
       const openConnections = get(this._openConnections);
@@ -964,6 +983,12 @@ export class StreamsStore {
     peer.on('close', async () => {
       console.log('#### GOT CLOSE EVENT ####');
 
+      this.logger.logAgentEvent({
+        agent: pubKeyB64,
+        timestamp: Date.now(),
+        event: 'SimplePeerClose',
+      });
+
       // Remove from existing streams
       const existingPeerStreams = this._videoStreams;
       delete existingPeerStreams[pubKeyB64];
@@ -987,6 +1012,12 @@ export class StreamsStore {
     peer.on('error', e => {
       console.log('#### GOT ERROR EVENT ####: ', e);
       peer.destroy();
+
+      this.logger.logAgentEvent({
+        agent: pubKeyB64,
+        timestamp: Date.now(),
+        event: 'SimplePeerError',
+      });
 
       // Remove from existing streams
       const existingPeerStreams = this._videoStreams;
@@ -1306,6 +1337,11 @@ export class StreamsStore {
         console.warn(
           'Peer does not seem to see our own stream. Re-adding it to their peer object...'
         );
+        this.logger.logAgentEvent({
+          agent: pubkey,
+          timestamp: Date.now(),
+          event: 'ReconcileStream',
+        });
         const peer = get(this._openConnections)[pubkey];
         if (peer) {
           peer.peer.addStream(this.mainStream);
@@ -1332,6 +1368,12 @@ export class StreamsStore {
             audioTrackPerceived,
             '\nRe-adding it to their peer object...'
           );
+          this.logger.logAgentEvent({
+            agent: pubkey,
+            timestamp: Date.now(),
+            event: 'ReconcileAudio',
+          });
+
           peer.peer.removeStream(this.mainStream);
 
           // It is not really clear why but things only work properly if done exactly in this way
@@ -1376,6 +1418,12 @@ export class StreamsStore {
             videoTrackPerceived,
             '\nRe-adding it to their peer object...'
           );
+          this.logger.logAgentEvent({
+            agent: pubkey,
+            timestamp: Date.now(),
+            event: 'ReconcileVideo',
+          });
+
           peer.peer.removeStream(this.mainStream);
           // Same logic as above with the audio tracks
           const clonedStream = this.mainStream.clone();
@@ -1470,6 +1518,11 @@ export class StreamsStore {
   async handlePongUi(signal: Extract<RoomSignal, { type: 'PongUi' }>) {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     const now = Date.now();
+    this.logger.logAgentEvent({
+      agent: pubkeyB64,
+      timestamp: now,
+      event: 'Pong',
+    });
     // console.log(`Got PongUI from ${pubkeyB64}: `, signal);
     // Update their connection statuses and the list of known agents
     let metaDataExt: PongMetaData<PongMetaDataV1> | undefined;
@@ -1661,7 +1714,11 @@ export class StreamsStore {
     signal: Extract<RoomSignal, { type: 'InitRequest' }>
   ) {
     const pubKey64 = encodeHashToBase64(signal.from_agent);
-
+    this.logger.logAgentEvent({
+      agent: pubKey64,
+      timestamp: Date.now(),
+      event: 'InitRequest',
+    });
     console.log(
       `#### GOT ${
         signal.connection_type === 'screen' ? 'SCREEN SHARE ' : ''
@@ -1740,7 +1797,11 @@ export class StreamsStore {
    */
   async handleInitAccept(signal: Extract<RoomSignal, { type: 'InitAccept' }>) {
     const pubKey64 = encodeHashToBase64(signal.from_agent);
-
+    this.logger.logAgentEvent({
+      agent: pubKey64,
+      timestamp: Date.now(),
+      event: 'InitAccept',
+    });
     /**
      * For normal video/audio connections
      *
@@ -1857,6 +1918,11 @@ export class StreamsStore {
   async handleSdpData(signal: Extract<RoomSignal, { type: 'SdpData' }>) {
     const pubkeyB64 = encodeHashToBase64(signal.from_agent);
     console.log(`## Got SDP Data from : ${pubkeyB64}:\n`, signal.data);
+    this.logger.logAgentEvent({
+      agent: pubkeyB64,
+      timestamp: Date.now(),
+      event: 'SdpData',
+    });
 
     // Update connection status
     this.updateConnectionStatus(pubkeyB64, { type: 'SdpExchange' });
