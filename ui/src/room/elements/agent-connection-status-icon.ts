@@ -17,10 +17,10 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { ConnectionStatus } from './types';
-import { connectionStatusToColor } from './utils';
-import { sharedStyles } from './sharedStyles';
-import './holo-identicon';
+import { ConnectionStatus } from '../../types';
+import { connectionStatusToColor } from '../../utils';
+import { sharedStyles } from '../../sharedStyles';
+import '../../shared/holo-identicon';
 
 @localized()
 @customElement('agent-connection-status-icon')

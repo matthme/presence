@@ -14,13 +14,13 @@ import {
   clientContext,
   roomStoreContext,
   streamsStoreContext,
-} from './contexts';
+} from '../contexts';
 import { RoomClient } from './room-client';
-import { sharedStyles } from './sharedStyles';
-import { getCellTypes } from './utils';
-import { weaveClientContext } from './types';
-import { StreamsStore } from './streams-store';
-import { PresenceLogger } from './logging';
+import { sharedStyles } from '../sharedStyles';
+import { getCellTypes } from '../utils';
+import { weaveClientContext } from '../types';
+import { StreamsStore } from '../streams-store';
+import { PresenceLogger } from '../logging';
 
 @localized()
 @customElement('room-container')

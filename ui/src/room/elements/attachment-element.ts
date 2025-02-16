@@ -14,9 +14,9 @@ import {
 import { mdiTrashCan } from '@mdi/js';
 
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
-import { sharedStyles } from './sharedStyles';
+import { sharedStyles } from '../../sharedStyles';
 import './avatar-with-nickname';
-import { weaveClientContext } from './types';
+import { weaveClientContext } from '../../types';
 
 @localized()
 @customElement('attachment-element')

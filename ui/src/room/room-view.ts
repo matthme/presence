@@ -35,18 +35,18 @@ import '@shoelace-style/shoelace/dist/components/icon-button/icon-button.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import { AssetStoreContent, WAL, WeaveClient } from '@theweave/api';
 
-import { roomStoreContext, streamsStoreContext } from './contexts';
-import { sharedStyles } from './sharedStyles';
-import './avatar-with-nickname';
-import { RoomInfo, StreamAndTrackInfo, weaveClientContext } from './types';
+import { roomStoreContext, streamsStoreContext } from '../contexts';
+import { sharedStyles } from '../sharedStyles';
+import './elements/avatar-with-nickname';
+import { RoomInfo, StreamAndTrackInfo, weaveClientContext } from '../types';
 import { RoomStore } from './room-store';
-import './attachment-element';
-import './agent-connection-status';
-import './agent-connection-status-icon';
-import './toggle-switch';
-import { sortConnectionStatuses } from './utils';
-import { PING_INTERVAL, StreamsStore } from './streams-store';
-import { AgentInfo, ConnectionStatuses } from './types';
+import './elements/attachment-element';
+import './elements/agent-connection-status';
+import './elements/agent-connection-status-icon';
+import './elements/toggle-switch';
+import { sortConnectionStatuses } from '../utils';
+import { PING_INTERVAL, StreamsStore } from '../streams-store';
+import { AgentInfo, ConnectionStatuses } from '../types';
 
 @localized()
 @customElement('room-view')

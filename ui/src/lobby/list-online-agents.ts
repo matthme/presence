@@ -13,7 +13,7 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { sharedStyles } from './sharedStyles.js';
+import { sharedStyles } from '../sharedStyles.js';
 
 import './agent-avatar.js';
 

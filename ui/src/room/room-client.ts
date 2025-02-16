@@ -9,7 +9,7 @@ import {
   RoomInfo,
   RoomSignal,
   SdpDataInput,
-} from './types';
+} from '../types';
 
 export class RoomClient extends ZomeClient<RoomSignal> {
   constructor(

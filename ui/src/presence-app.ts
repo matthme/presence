@@ -57,14 +57,14 @@ import '@shoelace-style/shoelace/dist/components/icon/icon';
 
 import { clientContext } from './contexts';
 
-import './room-container';
-import './private-room-card';
-import './shared-room-card';
-import './list-online-agents';
+import './room/room-container';
+import './lobby/private-room-card';
+import './lobby/shared-room-card';
+import './lobby/list-online-agents';
 import { sharedStyles } from './sharedStyles';
-import { RoomClient } from './room-client';
+import { RoomClient } from './room/room-client';
 import { DescendentRoom, weaveClientContext } from './types';
-import { RoomStore } from './room-store';
+import { RoomStore } from './room/room-store';
 import { CellTypes, getCellTypes, groupRoomNetworkSeed } from './utils';
 
 declare const __APP_VERSION__: string;

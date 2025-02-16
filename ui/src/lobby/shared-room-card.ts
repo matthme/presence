@@ -8,14 +8,14 @@ import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
 
 import { consume } from '@lit/context';
-import { sharedStyles } from './sharedStyles';
-import { clientContext } from './contexts';
-import { RoomClient } from './room-client';
-import { RoomInfo, weaveClientContext } from './types';
-import { getCellTypes, groupRoomNetworkSeed } from './utils';
-import { GroupRoomInfo } from './presence-app';
+import { sharedStyles } from '../sharedStyles';
+import { clientContext } from '../contexts';
+import { RoomClient } from '../room/room-client';
+import { RoomInfo, weaveClientContext } from '../types';
+import { getCellTypes, groupRoomNetworkSeed } from '../utils';
+import { GroupRoomInfo } from '../presence-app';
 
-import './room-container';
+import '../room/room-container';
 import './list-online-agents';
 
 @localized()

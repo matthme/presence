@@ -18,12 +18,12 @@ import '@shoelace-style/shoelace/dist/components/input/input';
 import '@shoelace-style/shoelace/dist/components/icon/icon';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip';
 
-import './room-container';
+import '../room/room-container';
 import { consume } from '@lit/context';
-import { sharedStyles } from './sharedStyles';
-import { clientContext } from './contexts';
-import { RoomClient } from './room-client';
-import { RoomInfo } from './types';
+import { sharedStyles } from '../sharedStyles';
+import { clientContext } from '../contexts';
+import { RoomClient } from '../room/room-client';
+import { RoomInfo } from '../types';
 
 @localized()
 @customElement('private-room-card')

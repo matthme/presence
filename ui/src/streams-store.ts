@@ -29,8 +29,8 @@ import {
   StreamInfo,
   TrackInfo,
 } from './types';
-import { RoomClient } from './room-client';
-import { RoomStore } from './room-store';
+import { RoomClient } from './room/room-client';
+import { RoomStore } from './room/room-store';
 import { PresenceLogger } from './logging';
 
 declare const __APP_VERSION__: string;

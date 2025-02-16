@@ -22,11 +22,11 @@ import {
   Profile,
 } from '@holochain-open-dev/profiles';
 import { EntryRecord } from '@holochain-open-dev/utils';
-import { StreamsStore } from './streams-store';
-import { ConnectionStatus } from './types';
-import { connectionStatusToColor } from './utils';
-import './holo-identicon';
-import { streamsStoreContext } from './contexts';
+import { StreamsStore } from '../../streams-store';
+import { ConnectionStatus } from '../../types';
+import { connectionStatusToColor } from '../../utils';
+import '../../shared/holo-identicon';
+import { streamsStoreContext } from '../../contexts';
 
 @localized()
 @customElement('agent-connection-status')

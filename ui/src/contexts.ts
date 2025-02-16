@@ -1,6 +1,6 @@
 import { createContext } from '@lit/context';
 import { AppClient } from '@holochain/client';
-import { RoomStore } from './room-store';
+import { RoomStore } from './room/room-store';
 import { StreamsStore } from './streams-store';
 
 export const clientContext = createContext<AppClient>('appAgentClient');

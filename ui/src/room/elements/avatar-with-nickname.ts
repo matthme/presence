@@ -3,9 +3,9 @@ import {
   hashProperty,
   sharedStyles,
 } from "@holochain-open-dev/elements";
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, PropertyValueMap } from "lit";
 import { property, customElement } from "lit/decorators.js";
-import { AgentPubKey } from "@holochain/client";
+import { AgentPubKey, encodeHashToBase64 } from "@holochain/client";
 import { localized, msg } from "@lit/localize";
 import { StoreSubscriber } from "@holochain-open-dev/stores";
 
@@ -16,11 +16,11 @@ import "@shoelace-style/shoelace/dist/components/tooltip/tooltip.js";
 
 import { profilesStoreContext, ProfilesStore, Profile } from "@holochain-open-dev/profiles";
 import { EntryRecord } from "@holochain-open-dev/utils";
-import './holo-identicon';
+import '../../shared/holo-identicon';
 
 @localized()
-@customElement("agent-avatar")
-export class AgentAvatar extends LitElement {
+@customElement("avatar-with-nickname")
+export class AvatarWithNickname extends LitElement {
   /** Public properties */
 
   /**
@@ -53,6 +53,14 @@ export class AgentAvatar extends LitElement {
     () => [this.agentPubKey, this.store]
   );
 
+  async willUpdate(
+    changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ) {
+    if (changedProperties.has('agentPubKey')) {
+      this.requestUpdate();
+    }
+  }
+
   renderIdenticon() {
     return html`
       <holo-identicon
@@ -60,6 +68,7 @@ export class AgentAvatar extends LitElement {
         .disableTooltip=${true}
         .hash=${this.agentPubKey}
         .size=${this.size}
+        title="${encodeHashToBase64(this.agentPubKey)}"
       >
       </holo-identicon>`;
   }
@@ -71,13 +80,15 @@ export class AgentAvatar extends LitElement {
 
   renderProfile(profile: EntryRecord<Profile> | undefined) {
     if (!profile || !profile.entry.fields.avatar) return this.renderIdenticon();
-
     return html`
+      <div class="row" style="align-items: center; margin: 0; padding: 0;">
         <img
           style="height: ${this.size}px; width: ${this.size}px; border-radius: 50%;"
           src=${profile.entry.fields.avatar}
-          alt="${profile.entry.fields.nickname}'s avatar"
+          alt="${profile.entry.nickname}'s avatar"
         />
+        <span style="margin-left: 10px; font-size: 23px; color: #cd9f9f;">${profile.entry.nickname}</span>
+      </div>
     `;
   }
 
