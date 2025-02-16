@@ -11,19 +11,23 @@ import {
 import { AsyncStatus, StoreSubscriber } from '@holochain-open-dev/stores';
 import {
   mdiAccount,
+  mdiChartLine,
   mdiChevronUp,
+  mdiClose,
   mdiCog,
   mdiFullscreen,
   mdiFullscreenExit,
   mdiLock,
   mdiMicrophone,
   mdiMicrophoneOff,
+  mdiMinus,
   mdiMonitorScreenshot,
   mdiPaperclip,
   mdiPencilCircleOutline,
   mdiPhoneRefresh,
   mdiVideo,
   mdiVideoOff,
+  mdiWindowMinimize,
 } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { localized, msg } from '@lit/localize';
@@ -44,6 +48,7 @@ import './elements/attachment-element';
 import './elements/agent-connection-status';
 import './elements/agent-connection-status-icon';
 import './elements/toggle-switch';
+import './logs-graph';
 import { sortConnectionStatuses } from '../utils';
 import { PING_INTERVAL, StreamsStore } from '../streams-store';
 import { AgentInfo, ConnectionStatuses } from '../types';
@@ -197,6 +202,12 @@ export class RoomView extends LitElement {
 
   @state()
   _showConnectionDetails = false;
+
+  @state()
+  _logsGraphEnabled = true;
+
+  @state()
+  _logsGraphMinimized = false;
 
   @state()
   _unsubscribe: (() => void) | undefined;
@@ -779,6 +790,23 @@ export class RoomView extends LitElement {
                 >trickle ICE (ON by default)</span
               >
             </div>
+            <div class="row items-center">
+              <toggle-switch
+                class="toggle-switch ${this._logsGraphEnabled ? 'active' : ''}"
+                .toggleState=${this._logsGraphEnabled}
+                @toggle-on=${() => {
+                  this._logsGraphEnabled = true;
+                }}
+                @toggle-off=${() => {
+                  this._logsGraphEnabled = false;
+                }}
+              ></toggle-switch>
+              <span
+                class="secondary-font"
+                style="color: #c3c9eb; margin-left: 10px; font-size: 23px;"
+                >Enable logs graph</span
+              >
+            </div>
           </div>
         `;
       default:
@@ -995,10 +1023,7 @@ export class RoomView extends LitElement {
                     </div>
                     ${this._videoInputDevices.value.map((device, idx) => {
                       let isSelected = false;
-                      if (
-                        !this._videoInputId.value &&
-                        idx === 0
-                      ) {
+                      if (!this._videoInputId.value && idx === 0) {
                         isSelected = true;
                       }
                       if (
@@ -1206,6 +1231,38 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
+      ${this._logsGraphEnabled
+        ? html`
+            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9;">
+              <div style="position: relative;">
+                <button
+                  class="close-graph-btn"
+                  style="${this._logsGraphMinimized ? 'display: none;' : ''}"
+                  @click=${() => {
+                    this._logsGraphMinimized = true;
+                  }}
+                >
+                  <sl-icon .src=${wrapPathInSvg(mdiMinus)}></sl-icon>
+                </button>
+                <logs-graph
+                  style="${this._logsGraphMinimized ? 'display: none;' : ''}"
+                ></logs-graph>
+              </div>
+              <button
+                class="logs-graph-btn"
+                @click=${() => {
+                  this._logsGraphMinimized = false;
+                }}
+                style="${this._logsGraphMinimized ? '' : 'display: none;'}"
+              >
+                <div class="row items-center secondary-font">
+                  <sl-icon .src=${wrapPathInSvg(mdiChartLine)}></sl-icon>
+                  <span style="margin-left: 5px;"> ${msg('Logs Graph')} </span>
+                </div>
+              </button>
+            </div>
+          `
+        : html``}
       <div class="row center-content room-name">
         ${this.private
           ? html`<sl-icon
@@ -2001,6 +2058,35 @@ export class RoomView extends LitElement {
         color: #facece;
         box-shadow: 0 0 3px 2px #050b21;
         /* left: calc(50% - 150px); */
+      }
+
+      .close-graph-btn {
+        all: unset;
+        position: absolute;
+        top: -25px;
+        right: -25px;
+        border-radius: 50%;
+        height: 60px;
+        width: 60px;
+        background: #d8d7f3;
+        z-index: 10;
+        cursor: pointer;
+      }
+
+      .close-graph-btn:hover {
+        background: #bdbbf2;
+      }
+
+      .logs-graph-btn {
+        all: unset;
+        padding: 5px 10px;
+        background: #d8d7f3;
+        cursor: pointer;
+        border-radius: 8px;
+      }
+
+      .logs-graph-btn:hover {
+        background: #bdbbf2;
       }
 
       sl-icon-button::part(base) {
