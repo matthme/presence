@@ -829,13 +829,13 @@ export class RoomView extends LitElement {
               @click=${async (e: any) => {
                 e.stopPropagation();
                 this._showAudioSources = !this._showAudioSources;
-                await  this.streamsStore.updateMediaDevices();
+                await this.streamsStore.updateMediaDevices();
               }}
               @keypress=${async (e: KeyboardEvent) => {
                 if (e.key === 'Enter') {
                   e.stopPropagation();
                   this._showAudioSources = !this._showAudioSources;
-                 await  this.streamsStore.updateMediaDevices();
+                  await this.streamsStore.updateMediaDevices();
                 }
               }}
               @mouseover=${(e: any) => e.stopPropagation()}
@@ -948,6 +948,98 @@ export class RoomView extends LitElement {
                 ? wrapPathInSvg(mdiVideo)
                 : wrapPathInSvg(mdiVideoOff)}
             ></sl-icon>
+
+            <!-- Video input toggle -->
+            <div
+              class="toggle-sub-btn column center-content"
+              tabindex="0"
+              @click=${async (e: any) => {
+                e.stopPropagation();
+                this._showVideoSources = !this._showVideoSources;
+                await this.streamsStore.updateMediaDevices();
+              }}
+              @keypress=${async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.stopPropagation();
+                  this._showVideoSources = !this._showVideoSources;
+                  await this.streamsStore.updateMediaDevices();
+                }
+              }}
+              @mouseover=${(e: any) => e.stopPropagation()}
+              @focus=${() => {}}
+            >
+              <sl-icon
+                class="sub-btn-icon"
+                .src=${wrapPathInSvg(mdiChevronUp)}
+              ></sl-icon>
+            </div>
+
+            <!-- Video Input Sources -->
+            ${this._showVideoSources
+              ? html`
+                  <div
+                    class="column audio-input-sources secondary-font"
+                    @click=${(e: any) => {
+                      e.stopPropagation();
+                    }}
+                    @keypress=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                      }
+                    }}
+                    @mouseover=${(e: any) => e.stopPropagation()}
+                    @focus=${() => {}}
+                  >
+                    <div class="input-source-title">
+                      ${msg('Video Input Source')}
+                    </div>
+                    ${this._videoInputDevices.value.map((device, idx) => {
+                      let isSelected = false;
+                      if (
+                        !this._videoInputId.value &&
+                        idx === 0
+                      ) {
+                        isSelected = true;
+                      }
+                      if (
+                        this._videoInputId.value &&
+                        device.deviceId === this._videoInputId.value
+                      ) {
+                        isSelected = true;
+                      }
+                      return html`
+                        <div
+                          class="audio-source column"
+                          tabindex="0"
+                          @click=${async (e: any) => {
+                            this.closeClosables();
+                            await this.streamsStore.changeVideoInput(
+                              device.deviceId
+                            );
+                          }}
+                          @keypress=${async (e: KeyboardEvent) => {
+                            if (e.key === 'Enter') {
+                              this.closeClosables();
+                              await this.streamsStore.changeVideoInput(
+                                device.deviceId
+                              );
+                            }
+                          }}
+                        >
+                          <div class="row">
+                            <div
+                              style="${isSelected ? '' : 'color: transparent'}"
+                            >
+                              &#10003;&nbsp;
+                            </div>
+                            <div>${deviceLabel(device.label)}</div>
+                          </div>
+                        </div>
+                      `;
+                    })}
+                  </div>
+                `
+              : html``}
           </div>
         </sl-tooltip>
 
@@ -1855,7 +1947,7 @@ export class RoomView extends LitElement {
         background: #0e142c;
         border-radius: 8px;
         font-size: 15px;
-        width: 180px;
+        width: 170px;
         padding: 6px;
         cursor: default;
       }

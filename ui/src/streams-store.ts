@@ -224,7 +224,14 @@ export class StreamsStore {
     await this.roomStore.client.pingFrontend(agentsToPing);
   }
 
+  async changeVideoInput(deviceId: string) {
+    this._videoInputId.set(deviceId);
+    await this.videoOff();
+    await this.videoOn();
+  }
+
   async videoOn() {
+    const deviceId = get(this._videoInputId);
     if (this.mainStream) {
       if (this.mainStream.getVideoTracks()[0]) {
         console.log('### CASE A');
@@ -234,7 +241,7 @@ export class StreamsStore {
         let videoStream: MediaStream | undefined;
         try {
           videoStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
+            video: deviceId ? { deviceId } : true,
           });
         } catch (e: any) {
           const error = `Failed to get media devices (video): ${e.toString()}`;
@@ -279,7 +286,7 @@ export class StreamsStore {
     } else {
       try {
         this.mainStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: deviceId ? { deviceId } : true,
         });
       } catch (e: any) {
         const error = `Failed to get media devices (video): ${e.toString()}`;
