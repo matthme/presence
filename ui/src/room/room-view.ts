@@ -1245,7 +1245,7 @@ export class RoomView extends LitElement {
                   <sl-icon .src=${wrapPathInSvg(mdiMinus)}></sl-icon>
                 </button>
                 <logs-graph
-                  style="${this._logsGraphMinimized ? 'display: none;' : ''}"
+                  style="border-radius: 5px; ${this._logsGraphMinimized ? 'display: none;' : ''}"
                 ></logs-graph>
               </div>
               <button

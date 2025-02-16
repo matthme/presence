@@ -7,7 +7,12 @@ import {
   ProvisionedCell,
   RoleName,
 } from '@holochain/client';
-import { ConnectionStatus } from './types';
+import {
+  ConnectionStatus,
+  StreamAndTrackInfo,
+  StreamInfo,
+  TrackInfo,
+} from './types';
 
 export type CellTypes = {
   provisioned: ProvisionedCell;
@@ -136,6 +141,35 @@ export const sortConnectionStatuses = (
   // if (status_a.type === "Connected") return 1;
   // if (status_b.type === "Connected") return -1;
 };
+
+export function getStreamInfo(
+  stream: MediaStream | undefined | null
+): StreamAndTrackInfo {
+  let streamInfo: StreamAndTrackInfo = {
+    stream: null,
+    tracks: [],
+  };
+
+  if (stream) {
+    const tracks = stream.getTracks();
+    const tracksInfo: TrackInfo[] = [];
+    tracks.forEach(track => {
+      tracksInfo.push({
+        kind: track.kind as 'audio' | 'video',
+        enabled: track.enabled,
+        muted: track.muted,
+        readyState: track.readyState,
+      });
+    });
+    streamInfo = {
+      stream: {
+        active: stream.active,
+      },
+      tracks: tracksInfo,
+    };
+  }
+  return streamInfo;
+}
 
 export function readLocalStorage<T>(key: string): T | null;
 // eslint-disable-next-line no-redeclare

@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash-es';
 import { AgentPubKeyB64 } from '@holochain/client';
 import { nanoid } from 'nanoid';
+import { Unsubscriber } from '@holochain-open-dev/stores';
 import {
   readLocalStorage,
   readSessionStorage,
@@ -19,7 +20,7 @@ declare global {
  * A time block during which the stream state was the same
  * as specified in the info field.
  */
-type StreamInfoLog = {
+export type StreamInfoLog = {
   /**
    * The time in unix epoch when this stream info was logged first
    */
@@ -66,6 +67,24 @@ type CustomLog = {
   log: string;
 };
 
+export type PresenceLogEvent = 'my-stream-info' | 'agent-pong-metadata';
+
+export type PresenceLogEventMap = {
+  'my-stream-info': StreamInfoLog;
+  'agent-pong-metadata': {
+    agent: AgentPubKeyB64;
+    info: PongMetadataInfo;
+  };
+};
+
+export type CallbackWithId = {
+  id: number;
+  callback: (
+    e: PresenceLogEvent,
+    payload: PresenceLogEventMap[PresenceLogEvent]
+  ) => any;
+};
+
 export class PresenceLogger {
   /**
    * The id of the current call session.
@@ -81,6 +100,8 @@ export class PresenceLogger {
   agentPongMetadataLogs: Record<AgentPubKeyB64, PongMetadataInfo[]> = {};
 
   customLogs: CustomLog[] = [];
+
+  _eventCallbacks: Partial<Record<PresenceLogEvent, CallbackWithId[]>> = {};
 
   constructor() {
     if (window.__PRESENCE_LOGGER_ACTIVE__)
@@ -129,6 +150,51 @@ export class PresenceLogger {
     this._garbageCollect();
   }
 
+  emit(
+    event: PresenceLogEvent,
+    detail: PresenceLogEventMap[PresenceLogEvent]
+  ): void {
+    const callbacksWithId = this._eventCallbacks[event];
+    if (callbacksWithId) {
+      callbacksWithId.forEach(cb => cb.callback(event, detail));
+    }
+  }
+
+  on<PresenceLogEvent extends keyof PresenceLogEventMap>(
+    event: PresenceLogEvent,
+    callback: (
+      e: PresenceLogEvent,
+      payload: PresenceLogEventMap[PresenceLogEvent]
+    ) => any
+  ): Unsubscriber {
+    const existingCallbacks: CallbackWithId[] =
+      this._eventCallbacks[event] || [];
+    let newCallbackId = 0;
+    const existingCallbackIds = existingCallbacks.map(
+      callbackWithId => callbackWithId.id
+    );
+    if (existingCallbackIds && existingCallbackIds.length > 0) {
+      // every new callback gets a new id in increasing manner
+      const highestId = existingCallbackIds.sort((a, b) => b - a)[0];
+      newCallbackId = highestId + 1;
+    }
+
+    // @ts-ignore
+    existingCallbacks.push({ id: newCallbackId, callback });
+
+    this._eventCallbacks[event] = existingCallbacks;
+
+    const unlisten = () => {
+      const allCallbacks = this._eventCallbacks[event] || [];
+      this._eventCallbacks[event] = allCallbacks.filter(
+        callbackWithId => callbackWithId.id !== newCallbackId
+      );
+    };
+
+    // We return an unlistener function which removes the callback from the list of callbacks
+    return unlisten;
+  }
+
   /**
    * Deletes any logs older than 1 week
    */
@@ -166,6 +232,8 @@ export class PresenceLogger {
     // Potentially needs to be sorted but in principle should already
     // be sorted
     // .sort((info_a, info_b) => info_a.t_first - info_b.t_first);
+
+    console.log("READ STREAM STATUS LOG: ", this.myStreamStatusLog);
 
     this.agentPongMetadataLogs = readLocalStorage<
       Record<AgentPubKeyB64, PongMetadataInfo[]>
@@ -239,19 +307,19 @@ export class PresenceLogger {
         info,
       };
       this.myStreamStatusLog[this.myStreamStatusLog.length - 1] = newInfo;
+      this.emit('my-stream-info', newInfo);
     } else {
-      this.myStreamStatusLog.push({
+      const newInfo = {
         t_first: now,
         t_last: now,
         info,
-      });
+      };
+      this.myStreamStatusLog.push(newInfo);
+      this.emit('my-stream-info', newInfo);
     }
   }
 
-  logAgentPongMetaData(
-    agent: AgentPubKeyB64,
-    data: PongMetaDataV1
-  ) {
+  logAgentPongMetaData(agent: AgentPubKeyB64, data: PongMetaDataV1) {
     const now = Date.now();
     const agentMetadataLogs = this.agentPongMetadataLogs[agent] || [];
     const latestMetadata = agentMetadataLogs[agentMetadataLogs.length - 1];
@@ -277,14 +345,17 @@ export class PresenceLogger {
       };
       agentMetadataLogs[agentMetadataLogs.length - 1] = newInfo;
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
+      this.emit('agent-pong-metadata', { agent, info: newInfo });
     } else {
-      agentMetadataLogs.push({
+      const newInfo = {
         t_first: Date.now(),
         t_last: Date.now(),
         n_pongs: 1,
         metaData: cleanedData,
-      });
+      };
+      agentMetadataLogs.push(newInfo);
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
+      this.emit('agent-pong-metadata', { agent, info: newInfo });
     }
   }
 

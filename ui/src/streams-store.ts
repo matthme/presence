@@ -32,6 +32,7 @@ import {
 import { RoomClient } from './room/room-client';
 import { RoomStore } from './room/room-store';
 import { PresenceLogger } from './logging';
+import { getStreamInfo } from './utils';
 
 declare const __APP_VERSION__: string;
 
@@ -222,6 +223,9 @@ export class StreamsStore {
       .filter(agent => !get(this.blockedAgents).includes(agent))
       .map(pubkeyB64 => decodeHashFromBase64(pubkeyB64));
     await this.roomStore.client.pingFrontend(agentsToPing);
+
+    // Log our stream state
+    this.logger.logMyStreamInfo(getStreamInfo(this.mainStream));
   }
 
   async changeVideoInput(deviceId: string) {
@@ -1429,31 +1433,7 @@ export class StreamsStore {
     if (get(this.blockedAgents).includes(pubkeyB64)) return;
     // console.log(`Got PingUi from ${pubkeyB64}: `, signal);
 
-    let streamInfo: StreamAndTrackInfo = {
-      stream: null,
-      tracks: [],
-    };
-
-    const stream = this._videoStreams[pubkeyB64];
-
-    if (stream) {
-      const tracks = stream.getTracks();
-      const tracksInfo: TrackInfo[] = [];
-      tracks.forEach(track => {
-        tracksInfo.push({
-          kind: track.kind as 'audio' | 'video',
-          enabled: track.enabled,
-          muted: track.muted,
-          readyState: track.readyState,
-        });
-      });
-      streamInfo = {
-        stream: {
-          active: stream.active,
-        },
-        tracks: tracksInfo,
-      };
-    }
+    const streamInfo = getStreamInfo(this._videoStreams[pubkeyB64]);
 
     if (pubkeyB64 !== this.myPubKeyB64) {
       const metaData: PongMetaData<PongMetaDataV1> = {
