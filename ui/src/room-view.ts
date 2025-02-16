@@ -11,6 +11,7 @@ import {
 import { AsyncStatus, StoreSubscriber } from '@holochain-open-dev/stores';
 import {
   mdiAccount,
+  mdiChevronUp,
   mdiCog,
   mdiFullscreen,
   mdiFullscreenExit,
@@ -125,6 +126,42 @@ export class RoomView extends LitElement {
     () => [this.streamsStore]
   );
 
+  _audioInputDevices = new StoreSubscriber(
+    this,
+    () => this.streamsStore.audioInputDevices(),
+    () => [this.streamsStore]
+  );
+
+  _videoInputDevices = new StoreSubscriber(
+    this,
+    () => this.streamsStore.videoInputDevices(),
+    () => [this.streamsStore]
+  );
+
+  _audioOutputDevices = new StoreSubscriber(
+    this,
+    () => this.streamsStore.audioOutputDevices(),
+    () => [this.streamsStore]
+  );
+
+  _audioInputId = new StoreSubscriber(
+    this,
+    () => this.streamsStore.audioInputId(),
+    () => [this.streamsStore]
+  );
+
+  _audioOutputId = new StoreSubscriber(
+    this,
+    () => this.streamsStore.audioOutputId(),
+    () => [this.streamsStore]
+  );
+
+  _videoInputId = new StoreSubscriber(
+    this,
+    () => this.streamsStore.videoInputId(),
+    () => [this.streamsStore]
+  );
+
   @state()
   _microphone = false;
 
@@ -150,6 +187,12 @@ export class RoomView extends LitElement {
   _showAttachmentsPanel = false;
 
   @state()
+  _showAudioSources = false;
+
+  @state()
+  _showVideoSources = false;
+
+  @state()
   _panelMode: 'assets' | 'people' | 'settings' = 'assets';
 
   @state()
@@ -158,9 +201,26 @@ export class RoomView extends LitElement {
   @state()
   _unsubscribe: (() => void) | undefined;
 
-  sideClickListener = (e: MouseEvent) => {
+  closeClosables = () => {
     if (this._showAttachmentsPanel) {
       this._showAttachmentsPanel = false;
+    }
+    if (this._showAudioSources) {
+      this._showAudioSources = false;
+    }
+    if (this._showVideoSources) {
+      this._showVideoSources = false;
+    }
+  };
+
+  sideClickListener = (e: MouseEvent) => {
+    this.closeClosables();
+  };
+
+  keyDownListener = (e: KeyboardEvent) => {
+    console.log('GOT KEYPRESS EVENT: ', e.key);
+    if (e.key === 'Escape') {
+      this.closeClosables();
     }
   };
 
@@ -181,6 +241,7 @@ export class RoomView extends LitElement {
 
   async firstUpdated() {
     this.addEventListener('click', this.sideClickListener);
+    document.addEventListener('keydown', this.keyDownListener);
     this.streamsStore.onEvent(async event => {
       switch (event.type) {
         case 'error': {
@@ -741,7 +802,7 @@ export class RoomView extends LitElement {
               if (this._microphone) {
                 await this.streamsStore.audioOff();
               } else {
-                await this.streamsStore.audioOn();
+                await this.streamsStore.audioOn(true);
               }
             }}
             @keypress=${async (e: KeyboardEvent) => {
@@ -749,7 +810,7 @@ export class RoomView extends LitElement {
                 if (this._microphone) {
                   await this.streamsStore.audioOff();
                 } else {
-                  await this.streamsStore.audioOn();
+                  await this.streamsStore.audioOn(true);
                 }
               }
             }}
@@ -760,6 +821,98 @@ export class RoomView extends LitElement {
                 ? wrapPathInSvg(mdiMicrophone)
                 : wrapPathInSvg(mdiMicrophoneOff)}
             ></sl-icon>
+
+            <!-- Audio input toggle -->
+            <div
+              class="toggle-sub-btn column center-content"
+              tabindex="0"
+              @click=${async (e: any) => {
+                e.stopPropagation();
+                this._showAudioSources = !this._showAudioSources;
+                await this.streamsStore.updateMediaDevices();
+              }}
+              @keypress=${async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.stopPropagation();
+                  this._showAudioSources = !this._showAudioSources;
+                  await this.streamsStore.updateMediaDevices();
+                }
+              }}
+              @mouseover=${(e: any) => e.stopPropagation()}
+              @focus=${() => {}}
+            >
+              <sl-icon
+                class="sub-btn-icon"
+                .src=${wrapPathInSvg(mdiChevronUp)}
+              ></sl-icon>
+            </div>
+
+            <!-- Audio input sources -->
+            ${this._showAudioSources
+              ? html`
+                  <div
+                    class="column audio-input-sources secondary-font"
+                    @click=${(e: any) => {
+                      e.stopPropagation();
+                    }}
+                    @keypress=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                      }
+                    }}
+                    @mouseover=${(e: any) => e.stopPropagation()}
+                    @focus=${() => {}}
+                  >
+                    <div class="input-source-title">
+                      ${msg('Audio Input Source')}
+                    </div>
+                    ${this._audioInputDevices.value.map(device => {
+                      let isSelected = false;
+                      if (
+                        !this._audioInputId.value &&
+                        device.deviceId === 'default'
+                      ) {
+                        isSelected = true;
+                      }
+                      if (
+                        this._audioInputId.value &&
+                        device.deviceId === this._audioInputId.value
+                      ) {
+                        isSelected = true;
+                      }
+                      return html`
+                        <div
+                          class="audio-source column"
+                          tabindex="0"
+                          @click=${async (e: any) => {
+                            this.closeClosables();
+                            await this.streamsStore.changeAudioInput(
+                              device.deviceId
+                            );
+                          }}
+                          @keypress=${async (e: KeyboardEvent) => {
+                            if (e.key === 'Enter') {
+                              this.closeClosables();
+                              await this.streamsStore.changeAudioInput(
+                                device.deviceId
+                              );
+                            }
+                          }}
+                        >
+                          <div class="row">
+                            <div
+                              style="${isSelected ? '' : 'color: transparent'}"
+                            >
+                              &#10003;&nbsp;
+                            </div>
+                            <div>${deviceLabel(device.label)}</div>
+                          </div>
+                        </div>
+                      `;
+                    })}
+                  </div>
+                `
+              : html``}
           </div>
         </sl-tooltip>
 
@@ -795,6 +948,98 @@ export class RoomView extends LitElement {
                 ? wrapPathInSvg(mdiVideo)
                 : wrapPathInSvg(mdiVideoOff)}
             ></sl-icon>
+
+            <!-- Video input toggle -->
+            <div
+              class="toggle-sub-btn column center-content"
+              tabindex="0"
+              @click=${async (e: any) => {
+                e.stopPropagation();
+                this._showVideoSources = !this._showVideoSources;
+                await this.streamsStore.updateMediaDevices();
+              }}
+              @keypress=${async (e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.stopPropagation();
+                  this._showVideoSources = !this._showVideoSources;
+                  await this.streamsStore.updateMediaDevices();
+                }
+              }}
+              @mouseover=${(e: any) => e.stopPropagation()}
+              @focus=${() => {}}
+            >
+              <sl-icon
+                class="sub-btn-icon"
+                .src=${wrapPathInSvg(mdiChevronUp)}
+              ></sl-icon>
+            </div>
+
+            <!-- Video Input Sources -->
+            ${this._showVideoSources
+              ? html`
+                  <div
+                    class="column audio-input-sources secondary-font"
+                    @click=${(e: any) => {
+                      e.stopPropagation();
+                    }}
+                    @keypress=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                      }
+                    }}
+                    @mouseover=${(e: any) => e.stopPropagation()}
+                    @focus=${() => {}}
+                  >
+                    <div class="input-source-title">
+                      ${msg('Video Input Source')}
+                    </div>
+                    ${this._videoInputDevices.value.map((device, idx) => {
+                      let isSelected = false;
+                      if (
+                        !this._videoInputId.value &&
+                        idx === 0
+                      ) {
+                        isSelected = true;
+                      }
+                      if (
+                        this._videoInputId.value &&
+                        device.deviceId === this._videoInputId.value
+                      ) {
+                        isSelected = true;
+                      }
+                      return html`
+                        <div
+                          class="audio-source column"
+                          tabindex="0"
+                          @click=${async (e: any) => {
+                            this.closeClosables();
+                            await this.streamsStore.changeVideoInput(
+                              device.deviceId
+                            );
+                          }}
+                          @keypress=${async (e: KeyboardEvent) => {
+                            if (e.key === 'Enter') {
+                              this.closeClosables();
+                              await this.streamsStore.changeVideoInput(
+                                device.deviceId
+                              );
+                            }
+                          }}
+                        >
+                          <div class="row">
+                            <div
+                              style="${isSelected ? '' : 'color: transparent'}"
+                            >
+                              &#10003;&nbsp;
+                            </div>
+                            <div>${deviceLabel(device.label)}</div>
+                          </div>
+                        </div>
+                      `;
+                    })}
+                  </div>
+                `
+              : html``}
           </div>
         </sl-tooltip>
 
@@ -1660,6 +1905,7 @@ export class RoomView extends LitElement {
       }
 
       .toggle-btn {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1672,8 +1918,61 @@ export class RoomView extends LitElement {
         cursor: pointer;
       }
 
+      .toggle-sub-btn {
+        background: #22365c;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        position: absolute;
+        bottom: 0px;
+        right: 0px;
+        border: 3px solid #0e142c;
+        color: #6482c9;
+      }
+
+      .toggle-sub-btn:hover {
+        background: #17529f;
+      }
+
       .btn-off {
         background: #22365c;
+      }
+
+      .audio-input-sources {
+        position: absolute;
+        align-items: flex-start;
+        bottom: 20px;
+        left: calc(100% - 20px);
+        z-index: 1;
+        background: #0e142c;
+        border-radius: 8px;
+        font-size: 15px;
+        width: 170px;
+        padding: 6px;
+        cursor: default;
+      }
+
+      .input-source-title {
+        text-align: right;
+        width: 100%;
+        font-size: 12px;
+        color: white;
+        margin-top: -3px;
+        color: #a4c3ff;
+      }
+
+      .audio-source {
+        width: calc(100% - 6px);
+        flex: 1;
+        align-items: flex-start;
+        text-align: left;
+        padding: 3px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .audio-source:hover {
+        background: #263368;
       }
 
       /*
@@ -1750,4 +2049,9 @@ function streamAndTrackInfoToText(
   if (track && !track.muted) return `${kind} WebRTC track in state 1`;
   if (track && track.muted) return `${kind} WebRTC track in state 2`;
   return `Unusual ${kind} WebRTC track state: ${track}`;
+}
+
+function deviceLabel(label: string): string {
+  if (label === 'Default') return 'System Default';
+  return label;
 }
