@@ -132,7 +132,6 @@ export class StreamsStore {
       const mediaDevices = await navigator.mediaDevices.enumerateDevices();
       streamsStore.mediaDevices.set(mediaDevices);
     });
-
     return streamsStore;
   }
 
@@ -622,6 +621,11 @@ export class StreamsStore {
 
   mediaDevices: Writable<MediaDeviceInfo[]> = writable([]);
 
+  async updateMediaDevices() {
+    const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+    this.mediaDevices.set(mediaDevices);
+  }
+
   audioInputDevices(): Readable<MediaDeviceInfo[]> {
     return derived(this.mediaDevices, devices =>
       devices.filter(device => device.kind === 'audioinput')
@@ -640,23 +644,22 @@ export class StreamsStore {
     );
   }
 
-
   _audioInputId: Writable<string | undefined> = writable(undefined); // if undefined, the default audio input source is used
 
   audioInputId(): Readable<string | undefined> {
-    return derived(this._audioInputId, (id) => id);
+    return derived(this._audioInputId, id => id);
   }
 
   _audioOutputId: Writable<string | undefined> = writable(undefined); // if undefined, the default audio output is used
 
   audioOutputId(): Readable<string | undefined> {
-    return derived(this._audioOutputId, (id) => id);
+    return derived(this._audioOutputId, id => id);
   }
 
   _videoInputId: Writable<string | undefined> = writable(undefined); // if undefined, the default video input source is used
 
   videoInputId(): Readable<string | undefined> {
-    return derived(this._videoInputId, (id) => id);
+    return derived(this._videoInputId, id => id);
   }
 
   // ===========================================================================================

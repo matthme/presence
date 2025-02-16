@@ -826,14 +826,16 @@ export class RoomView extends LitElement {
             <div
               class="toggle-sub-btn column center-content"
               tabindex="0"
-              @click=${(e: any) => {
+              @click=${async (e: any) => {
                 e.stopPropagation();
                 this._showAudioSources = !this._showAudioSources;
+                await  this.streamsStore.updateMediaDevices();
               }}
               @keypress=${async (e: KeyboardEvent) => {
                 if (e.key === 'Enter') {
                   e.stopPropagation();
                   this._showAudioSources = !this._showAudioSources;
+                 await  this.streamsStore.updateMediaDevices();
                 }
               }}
               @mouseover=${(e: any) => e.stopPropagation()}
@@ -853,7 +855,7 @@ export class RoomView extends LitElement {
                     @click=${(e: any) => {
                       e.stopPropagation();
                     }}
-                    @keypress=${async (e: KeyboardEvent) => {
+                    @keypress=${(e: KeyboardEvent) => {
                       if (e.key === 'Enter') {
                         e.stopPropagation();
                       }
