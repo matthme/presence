@@ -102,7 +102,8 @@ export type SimpleEvent = {
 export type PresenceLogEvent =
   | 'my-stream-info'
   | 'agent-pong-metadata'
-  | 'simple-event';
+  | 'simple-event'
+  | 'custom-log';
 
 export type PresenceLogEventMap = {
   'my-stream-info': StreamInfoLog;
@@ -111,6 +112,7 @@ export type PresenceLogEventMap = {
     info: PongMetadataInfo;
   };
   'simple-event': SimpleEvent;
+  'custom-log': CustomLog;
 };
 
 export type CallbackWithId = {
@@ -415,9 +417,11 @@ export class PresenceLogger {
    * @param timestamp
    */
   logCustomMessage(msg: string, timestamp?: number) {
-    this.customLogs.push({
+    const event: CustomLog = {
       timestamp: timestamp || Date.now(),
       log: msg,
-    });
+    };
+    this.customLogs.push(event);
+    this.emit('custom-log', event);
   }
 }

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { LitElement, css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import {
   encodeHashToBase64,
   AgentPubKeyB64,
@@ -22,12 +22,12 @@ import {
   mdiMicrophoneOff,
   mdiMinus,
   mdiMonitorScreenshot,
+  mdiNoteEditOutline,
   mdiPaperclip,
   mdiPencilCircleOutline,
   mdiPhoneRefresh,
   mdiVideo,
   mdiVideoOff,
-  mdiWindowMinimize,
 } from '@mdi/js';
 import { wrapPathInSvg } from '@holochain-open-dev/elements';
 import { localized, msg } from '@lit/localize';
@@ -74,11 +74,16 @@ export class RoomView extends LitElement {
   @property({ type: Boolean })
   private = false;
 
+  @query('#custom-log-textarea')
+  _customLogTextarea!: HTMLInputElement;
+
   @state()
   pingInterval: number | undefined;
 
   @state()
   assetStoreContent: AsyncStatus<AssetStoreContent> | undefined;
+
+  _customLogTimestamp: number | undefined;
 
   _allAgentsFromAnchor = new StoreSubscriber(
     this,
@@ -213,6 +218,9 @@ export class RoomView extends LitElement {
   _logsGraphAgent: AgentPubKeyB64 | undefined;
 
   @state()
+  _showCustomLogDialog = false;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   closeClosables = () => {
@@ -225,7 +233,16 @@ export class RoomView extends LitElement {
     if (this._showVideoSources) {
       this._showVideoSources = false;
     }
+    if (this._showCustomLogDialog) {
+      this.closeCustomLogDialog();
+    }
   };
+
+  closeCustomLogDialog() {
+    this._showCustomLogDialog = false;
+    this._customLogTimestamp = undefined;
+    this._customLogTextarea.value = '';
+  }
 
   sideClickListener = (e: MouseEvent) => {
     this.closeClosables();
@@ -373,6 +390,15 @@ export class RoomView extends LitElement {
 
   async removeAttachment(relationHash: EntryHash) {
     await this._weaveClient.assets.removeAssetRelation(relationHash);
+  }
+
+  openCustomEventLogDialog() {
+    this._customLogTimestamp = Date.now();
+    this._showCustomLogDialog = true;
+  }
+
+  logCustomEvent(log: string, timestamp?: number) {
+    this.streamsStore.logger.logCustomMessage(log, timestamp);
   }
 
   toggleMaximized(id: string) {
@@ -817,6 +843,29 @@ export class RoomView extends LitElement {
   renderToggles() {
     return html`
       <div class="toggles-panel">
+        ${this._showConnectionDetails
+          ? html`
+              <sl-tooltip content="${msg('Log Custom Event')}" hoist>
+                <div
+                  class="toggle-btn"
+                  style="position: absolute; left: -80px;"
+                  tabindex="0"
+                  @click=${(e: any) => {
+                    this.openCustomEventLogDialog();
+                    e.stopPropagation();
+                  }}
+                  @keypress=${(e: KeyboardEvent) => {
+                    this.openCustomEventLogDialog();
+                  }}
+                >
+                  <sl-icon
+                    class="toggle-btn-icon"
+                    .src=${wrapPathInSvg(mdiNoteEditOutline)}
+                  ></sl-icon>
+                </div>
+              </sl-tooltip>
+            `
+          : html``}
         <sl-tooltip
           content="${this._microphone
             ? msg('Turn Audio Off')
@@ -1231,6 +1280,53 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
+      <div
+        class="custom-log-dialog"
+        style="${this._showCustomLogDialog ? '' : 'display: none;'}"
+      >
+        <div
+          class="panel"
+          @click=${(e: any) => e.stopPropagation()}
+          @keypress=${() => undefined}
+        >
+          <div class="column secondary-font">
+            <div style="font-size: 23px; margin-bottom: 10px;">
+              ${msg('Log a custom event:')}
+            </div>
+            <textarea id="custom-log-textarea"></textarea>
+            <div class="row items-center">
+              <input type="checkbox" id="log-timestamp-checkbox" />
+              <div
+                style="margin-left: 5px; font-size: 14px; max-width: 220px; line-height: 16px; margin: 5px; text-align: left;"
+              >
+                ${msg(
+                  'take timestamp at the time of logging (default is timestamp when dialog opened)'
+                )}
+              </div>
+            </div>
+            <button
+              @click=${() => {
+                const checkboxEl = this.shadowRoot?.getElementById(
+                  'log-timestamp-checkbox'
+                );
+                const whenLogging = checkboxEl
+                  ? (checkboxEl as HTMLInputElement).checked
+                  : false;
+                const value = this._customLogTextarea.value;
+                this.logCustomEvent(
+                  value,
+                  whenLogging ? undefined : this._customLogTimestamp
+                );
+                if (checkboxEl)
+                  (checkboxEl as HTMLInputElement).checked = false;
+                this.closeCustomLogDialog();
+              }}
+            >
+              Log!
+            </button>
+          </div>
+        </div>
+      </div>
       ${this._logsGraphEnabled && this._logsGraphAgent
         ? html`
             <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9;">
@@ -2110,6 +2206,25 @@ export class RoomView extends LitElement {
         background: #bdbbf2;
       }
 
+      .custom-log-dialog {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 20;
+      }
+
+      .custom-log-dialog .panel {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 2px 2px #c3c3c3;
+      }
+
       sl-icon-button::part(base) {
         color: #24d800;
       }
@@ -2129,6 +2244,12 @@ export class RoomView extends LitElement {
         --sl-tooltip-font-size: 14px;
         --sl-tooltip-color: #0d1543;
         --sl-tooltip-font-family: 'Ubuntu', sans-serif;
+      }
+
+      /* sl dialog styles below */
+      sl-dialog::part(panel) {
+        background: white;
+        min-width: 600px;
       }
     `,
   ];

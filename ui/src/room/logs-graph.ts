@@ -1,4 +1,4 @@
-import { LitElement, PropertyValues, css, html } from 'lit';
+import { LitElement, css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import {
   AgentPubKeyB64,
@@ -17,6 +17,7 @@ import Plotly, {
   PlotData,
   Shape,
 } from 'plotly.js-dist-min';
+import { Unsubscriber } from '@holochain-open-dev/stores';
 
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
@@ -66,6 +67,8 @@ export class LogsGraph extends LitElement {
 
   shapes: Partial<Shape>[] = [];
 
+  eventUnsubscribers: Unsubscriber[] = [];
+
   // updated(changedValues: PropertyValues) {
   //   super.updated(changedValues);
   //   if (changedValues.has('agent')) {
@@ -94,7 +97,7 @@ export class LogsGraph extends LitElement {
     const agentStreamData = this.agentStreamTraces();
     data.push(...agentStreamData);
 
-    const shapes = this.agentEvents();
+    const shapes = this.eventShapes();
     this.shapes = shapes;
 
     const layout: Partial<Layout> = {
@@ -110,6 +113,10 @@ export class LogsGraph extends LitElement {
 
     // Register a handler to extend the traces based on new events
     this.registerEventHandlers();
+  }
+
+  disconnectedCallback(): void {
+    this.eventUnsubscribers.forEach(unsubscribe => unsubscribe());
   }
 
   myStreamTraces(): Data[] {
@@ -135,9 +142,10 @@ export class LogsGraph extends LitElement {
     return loadStreamAndTrackInfo(streamLogs, `perceived`, true);
   }
 
-  agentEvents(): Partial<Shape>[] {
+  eventShapes(): Partial<Shape>[] {
     const shapes: Partial<Shape>[] = [];
 
+    const customEvents = this.streamsStore.logger.customLogs;
     const allAgentEvents = this.streamsStore.logger.agentEvents;
     const myEvents =
       allAgentEvents[encodeHashToBase64(this.client.myPubKey)] || [];
@@ -192,130 +200,193 @@ export class LogsGraph extends LitElement {
       });
     });
 
+    // Add custom events
+    customEvents.forEach(event => {
+      shapes.push({
+        type: 'line',
+        x0: event.timestamp,
+        y0: -2,
+        x1: event.timestamp,
+        y1: 2,
+        line: {
+          color: '#e07f00',
+          width: 2,
+        },
+        name: event.log,
+        label: {
+          text: event.log,
+          xanchor: 'left',
+          textangle: -45,
+          textposition: "top right",
+        },
+      });
+    });
+
     return shapes;
   }
 
   registerEventHandlers() {
-    this.streamsStore.logger.on('simple-event', payload => {
-      if (
-        payload.event in
-        [
-          'MyAudioOn',
-          'MyAudioOff',
-          'MyVideoOn',
-          'MyVideoOff',
-          'ChangeMyAudioInput',
-        ]
-      ) {
-        if (payload.agent !== encodeHashToBase64(this.client.myPubKey)) return;
-      } else if (payload.agent !== this.agent) return;
+    const unsubscriber1 = this.streamsStore.logger.on(
+      'simple-event',
+      payload => {
+        if (
+          payload.event in
+          [
+            'MyAudioOn',
+            'MyAudioOff',
+            'MyVideoOn',
+            'MyVideoOff',
+            'ChangeMyAudioInput',
+          ]
+        ) {
+          if (payload.agent !== encodeHashToBase64(this.client.myPubKey))
+            return;
+        } else if (payload.agent !== this.agent) return;
 
-      // If it's a Pong event, we want to use a rectanlge instead of lines in order
-      // not to overload the computational load of rendering as this otherwise
-      // freezes up Presence as a whole
-      if (payload.event === 'Pong') {
-        // Search all shapes for Pong rectangles with a timestamp less than 4.5 seconds ago
-        // which would correspond to < 2x ping frequency and indicate that no Pong had been
-        // lost. Otherwise we create a separate triangle to visualize gaps in Pongs.
-        const matchingRectIdx = this.shapes.findIndex(
-          shape =>
-            shape.type === 'rect' &&
-            shape.name === 'Pong' &&
-            typeof shape.x1 === 'number' &&
-            payload.timestamp - shape.x1 < 3_500
-        );
-        if (matchingRectIdx !== -1) {
-          const matchingRect = this.shapes[matchingRectIdx];
-          matchingRect.x1 = payload.timestamp;
-          this.shapes[matchingRectIdx] = matchingRect;
+        // If it's a Pong event, we want to use a rectanlge instead of lines in order
+        // not to overload the computational load of rendering as this otherwise
+        // freezes up Presence as a whole
+        if (payload.event === 'Pong') {
+          // Search all shapes for Pong rectangles with a timestamp less than 4.5 seconds ago
+          // which would correspond to < 2x ping frequency and indicate that no Pong had been
+          // lost. Otherwise we create a separate triangle to visualize gaps in Pongs.
+          const matchingRectIdx = this.shapes.findIndex(
+            shape =>
+              shape.type === 'rect' &&
+              shape.name === 'Pong' &&
+              typeof shape.x1 === 'number' &&
+              payload.timestamp - shape.x1 < 3_500
+          );
+          if (matchingRectIdx !== -1) {
+            const matchingRect = this.shapes[matchingRectIdx];
+            matchingRect.x1 = payload.timestamp;
+            this.shapes[matchingRectIdx] = matchingRect;
+          } else {
+            this.shapes.push({
+              type: 'rect',
+              name: 'Pong',
+              x0: payload.timestamp,
+              x1: payload.timestamp,
+              y0: -0.5,
+              y1: 0.5,
+              line: {
+                color: 'f2da0080',
+              },
+              fillcolor: 'f2da0080',
+            });
+          }
         } else {
-          this.shapes.push({
-            type: 'rect',
-            name: 'Pong',
-            x0: payload.timestamp,
-            x1: payload.timestamp,
-            y0: -0.5,
-            y1: 0.5,
-            line: {
-              color: 'f2da0080',
-            },
-            fillcolor: 'f2da0080',
-          });
+          const [color, dash] = simpleEventTypeToColor(payload.event);
+          const [y0, y1] = yEventType(payload.event);
+          this.addVerticalLine(
+            payload.timestamp,
+            payload.event,
+            color,
+            dash,
+            y0,
+            y1
+          );
         }
-      } else {
-        const [color, dash] = simpleEventTypeToColor(payload.event);
-        const [y0, y1] = yEventType(payload.event);
-        this.addVerticalLine(
-          payload.timestamp,
-          payload.event,
-          color,
-          dash,
-          y0,
-          y1
+
+        Plotly.relayout(this.graph, {
+          shapes: this.shapes,
+          xaxis: this.autoFollow
+            ? {
+                range: [
+                  payload.timestamp - 120_000,
+                  payload.timestamp + 120_000,
+                ],
+              }
+            : undefined,
+        });
+      }
+    );
+
+    const unsubscriber2 = this.streamsStore.logger.on(
+      'my-stream-info',
+      payload => {
+        // Load the new traces to the plot
+        const streamState = payload.info.stream ? 1 : 0;
+        const videoTrack = payload.info.tracks.find(
+          track => track.kind === 'video'
+        );
+        const videoTrackState = videoTrack ? (videoTrack.muted ? 2 : 1) : 0;
+        const audioTrack = payload.info.tracks.find(
+          track => track.kind === 'audio'
+        );
+        const audioTrackState = audioTrack ? (audioTrack.muted ? 2 : 1) : 0;
+
+        Plotly.extendTraces(
+          this.graph,
+          {
+            x: [[payload.t_last], [payload.t_last], [payload.t_last]],
+            y: [[streamState], [videoTrackState], [audioTrackState]],
+          },
+          [0, 1, 2]
         );
       }
+    );
 
-      Plotly.relayout(this.graph, {
-        shapes: this.shapes,
-        xaxis: this.autoFollow
-          ? {
-              range: [payload.timestamp - 120_000, payload.timestamp + 120_000],
-            }
-          : undefined,
+    const unsubscriber3 = this.streamsStore.logger.on(
+      'agent-pong-metadata',
+      payload => {
+        if (payload.agent !== this.agent) return;
+        const streamState = payload.info.metaData.streamInfo?.stream ? 1 : 0;
+        const videoTrack = payload.info.metaData.streamInfo?.tracks.find(
+          track => track.kind === 'video'
+        );
+        const videoTrackState = videoTrack ? (videoTrack.muted ? 2 : 1) : 0;
+        const audioTrack = payload.info.metaData.streamInfo?.tracks.find(
+          track => track.kind === 'audio'
+        );
+        const audioTrackState = audioTrack ? (audioTrack.muted ? 2 : 1) : 0;
+
+        Plotly.extendTraces(
+          this.graph,
+          {
+            x: [
+              [payload.info.t_last],
+              [payload.info.t_last],
+              [payload.info.t_last],
+            ],
+            y: [
+              [streamState * -1],
+              [videoTrackState * -1],
+              [audioTrackState * -1],
+            ],
+          },
+          [3, 4, 5]
+        );
+      }
+    );
+
+    const unsubscriber4 = this.streamsStore.logger.on('custom-log', event => {
+      this.shapes.push({
+        type: 'line',
+        x0: event.timestamp,
+        y0: -2,
+        x1: event.timestamp,
+        y1: 2,
+        line: {
+          color: '#e07f00',
+          width: 2,
+        },
+        name: event.log,
+        label: {
+          text: event.log,
+          xanchor: 'left',
+          textangle: -45,
+          textposition: "top right",
+        },
       });
     });
 
-    this.streamsStore.logger.on('my-stream-info', payload => {
-      // Load the new traces to the plot
-      const streamState = payload.info.stream ? 1 : 0;
-      const videoTrack = payload.info.tracks.find(
-        track => track.kind === 'video'
-      );
-      const videoTrackState = videoTrack ? (videoTrack.muted ? 2 : 1) : 0;
-      const audioTrack = payload.info.tracks.find(
-        track => track.kind === 'audio'
-      );
-      const audioTrackState = audioTrack ? (audioTrack.muted ? 2 : 1) : 0;
-
-      Plotly.extendTraces(
-        this.graph,
-        {
-          x: [[payload.t_last], [payload.t_last], [payload.t_last]],
-          y: [[streamState], [videoTrackState], [audioTrackState]],
-        },
-        [0, 1, 2]
-      );
-    });
-
-    this.streamsStore.logger.on('agent-pong-metadata', payload => {
-      if (payload.agent !== this.agent) return;
-      const streamState = payload.info.metaData.streamInfo?.stream ? 1 : 0;
-      const videoTrack = payload.info.metaData.streamInfo?.tracks.find(
-        track => track.kind === 'video'
-      );
-      const videoTrackState = videoTrack ? (videoTrack.muted ? 2 : 1) : 0;
-      const audioTrack = payload.info.metaData.streamInfo?.tracks.find(
-        track => track.kind === 'audio'
-      );
-      const audioTrackState = audioTrack ? (audioTrack.muted ? 2 : 1) : 0;
-
-      Plotly.extendTraces(
-        this.graph,
-        {
-          x: [
-            [payload.info.t_last],
-            [payload.info.t_last],
-            [payload.info.t_last],
-          ],
-          y: [
-            [streamState * -1],
-            [videoTrackState * -1],
-            [audioTrackState * -1],
-          ],
-        },
-        [3, 4, 5]
-      );
-    });
+    this.eventUnsubscribers.push(
+      unsubscriber1,
+      unsubscriber2,
+      unsubscriber3,
+      unsubscriber4
+    );
   }
 
   addVerticalLine(
