@@ -247,8 +247,11 @@ export class StreamsStore {
         );
       }
     });
-    await this.videoOff();
-    await this.videoOn();
+    const videoTrack = this.mainStream?.getVideoTracks()[0];
+    if (videoTrack && videoTrack.enabled) {
+      await this.videoOff();
+      await this.videoOn();
+    }
   }
 
   async videoOn() {
@@ -350,7 +353,6 @@ export class StreamsStore {
       }
     });
   }
-
 
   videoOff() {
     if (this.mainStream) {
