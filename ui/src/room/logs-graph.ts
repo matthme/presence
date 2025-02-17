@@ -142,8 +142,40 @@ export class LogsGraph extends LitElement {
     const myEvents =
       allAgentEvents[encodeHashToBase64(this.client.myPubKey)] || [];
     const agentEvents = allAgentEvents[this.agent] || [];
+    const pongEvents = agentEvents.filter(event => event.event === 'Pong');
 
-    [...myEvents, ...agentEvents].forEach(payload => {
+    // Create rectangles for Pongs
+    let tempRect: (Partial<Shape> & { x1: number }) | undefined;
+    pongEvents
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .forEach(event => {
+        if (tempRect && event.timestamp - tempRect.x1 < 4_500) {
+          tempRect.x1 = event.timestamp; // Update the right end of the rectangle
+        } else if (!tempRect) {
+          // start a new rectangle
+          tempRect = {
+            type: 'rect',
+            name: 'Pong',
+            x0: event.timestamp,
+            x1: event.timestamp,
+            y0: -0.5,
+            y1: 0.5,
+            line: {
+              color: 'f2da0080',
+            },
+            fillcolor: 'f2da0080',
+          };
+        } else {
+          // finish the rectangle and add it to the shapes array
+          shapes.push(tempRect);
+          tempRect = undefined;
+        }
+      });
+
+    [
+      ...myEvents,
+      ...agentEvents.filter(event => event.event !== 'Pong'), // Filter out Pong events
+    ].forEach(payload => {
       const [color, dash] = simpleEventTypeToColor(payload.event);
       const [y0, y1] = yEventType(payload.event);
       shapes.push({
@@ -178,16 +210,51 @@ export class LogsGraph extends LitElement {
         if (payload.agent !== encodeHashToBase64(this.client.myPubKey)) return;
       } else if (payload.agent !== this.agent) return;
 
-      const [color, dash] = simpleEventTypeToColor(payload.event);
-      const [y0, y1] = yEventType(payload.event);
-      this.addVerticalLine(
-        payload.timestamp,
-        payload.event,
-        color,
-        dash,
-        y0,
-        y1
-      );
+      // If it's a Pong event, we want to use a rectanlge instead of lines in order
+      // not to overload the computational load of rendering as this otherwise
+      // freezes up Presence as a whole
+      if (payload.event === 'Pong') {
+        // Search all shapes for Pong rectangles with a timestamp less than 4.5 seconds ago
+        // which would correspond to < 2x ping frequency and indicate that no Pong had been
+        // lost. Otherwise we create a separate triangle to visualize gaps in Pongs.
+        const matchingRectIdx = this.shapes.findIndex(
+          shape =>
+            shape.type === 'rect' &&
+            shape.name === 'Pong' &&
+            typeof shape.x1 === 'number' &&
+            payload.timestamp - shape.x1 < 4_500
+        );
+        if (matchingRectIdx !== -1) {
+          const matchingRect = this.shapes[matchingRectIdx];
+          matchingRect.x1 = payload.timestamp;
+          this.shapes[matchingRectIdx] = matchingRect;
+        } else {
+          this.shapes.push({
+            type: 'rect',
+            name: 'Pong',
+            x0: payload.timestamp,
+            x1: payload.timestamp,
+            y0: -0.5,
+            y1: 0.5,
+            line: {
+              color: 'f2da0080',
+            },
+            fillcolor: 'f2da0080',
+          });
+        }
+      } else {
+        const [color, dash] = simpleEventTypeToColor(payload.event);
+        const [y0, y1] = yEventType(payload.event);
+        this.addVerticalLine(
+          payload.timestamp,
+          payload.event,
+          color,
+          dash,
+          y0,
+          y1
+        );
+      }
+
       Plotly.relayout(this.graph, {
         shapes: this.shapes,
         xaxis: this.autoFollow
