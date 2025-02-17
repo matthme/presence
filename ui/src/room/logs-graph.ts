@@ -149,7 +149,7 @@ export class LogsGraph extends LitElement {
     pongEvents
       .sort((a, b) => a.timestamp - b.timestamp)
       .forEach(event => {
-        if (tempRect && event.timestamp - tempRect.x1 < 4_500) {
+        if (tempRect && event.timestamp - tempRect.x1 < 3_500) {
           tempRect.x1 = event.timestamp; // Update the right end of the rectangle
         } else if (!tempRect) {
           // start a new rectangle
@@ -222,7 +222,7 @@ export class LogsGraph extends LitElement {
             shape.type === 'rect' &&
             shape.name === 'Pong' &&
             typeof shape.x1 === 'number' &&
-            payload.timestamp - shape.x1 < 4_500
+            payload.timestamp - shape.x1 < 3_500
         );
         if (matchingRectIdx !== -1) {
           const matchingRect = this.shapes[matchingRectIdx];
