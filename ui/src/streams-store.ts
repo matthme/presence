@@ -228,6 +228,25 @@ export class StreamsStore {
 
   async changeVideoInput(deviceId: string) {
     this._videoInputId.set(deviceId);
+    this.logger.logAgentEvent({
+      agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+      timestamp: Date.now(),
+      event: 'ChangeMyVideoInput',
+    });
+    Object.values(get(this._openConnections)).forEach(conn => {
+      const msg: RTCMessage = {
+        type: 'action',
+        message: 'change-video-input',
+      };
+      try {
+        conn.peer.send(JSON.stringify(msg));
+      } catch (e: any) {
+        console.error(
+          "Failed to send 'change-video-input' message to peer: ",
+          e.toString()
+        );
+      }
+    });
     await this.videoOff();
     await this.videoOn();
   }
@@ -310,7 +329,28 @@ export class StreamsStore {
         console.error(`Failed to add video track: ${e.toString()}`);
       }
     }
+
+    // Log event
+    this.logger.logAgentEvent({
+      agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+      timestamp: Date.now(),
+      event: 'MyVideoOn',
+    });
+
+    // Send 'video-on' signal to peers
+    Object.values(get(this._openConnections)).forEach(conn => {
+      const msg: RTCMessage = {
+        type: 'action',
+        message: 'video-on',
+      };
+      try {
+        conn.peer.send(JSON.stringify(msg));
+      } catch (e) {
+        console.warn('Could not send video-on message to peer: ', e);
+      }
+    });
   }
+
 
   videoOff() {
     if (this.mainStream) {
@@ -339,6 +379,11 @@ export class StreamsStore {
       this.mainStream.getVideoTracks().forEach(track => {
         this.mainStream!.removeTrack(track);
       });
+      this.logger.logAgentEvent({
+        agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+        timestamp: Date.now(),
+        event: 'MyVideoOff',
+      });
       this.eventCallback({
         type: 'my-video-off',
       });
@@ -346,6 +391,11 @@ export class StreamsStore {
   }
 
   async changeAudioInput(deviceId: string) {
+    this.logger.logAgentEvent({
+      agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+      timestamp: Date.now(),
+      event: 'ChangeMyAudioInput',
+    });
     console.log('Changing audio input to: ', deviceId);
     this._audioInputId.set(deviceId);
     // If a stream is running with audio track, remove the existing track
@@ -376,10 +426,28 @@ export class StreamsStore {
         });
       }
     }
+    Object.values(get(this._openConnections)).forEach(conn => {
+      const msg: RTCMessage = {
+        type: 'action',
+        message: 'change-audio-input',
+      };
+      try {
+        conn.peer.send(JSON.stringify(msg));
+      } catch (e: any) {
+        console.error(
+          "Failed to send 'change-audio-input' message to peer: ",
+          e.toString()
+        );
+      }
+    });
   }
 
   async audioOn(enabled: boolean) {
-    console.log('AUDIO ON!');
+    this.logger.logAgentEvent({
+      agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+      timestamp: Date.now(),
+      event: 'MyAudioOn',
+    });
     const deviceId = get(this._audioInputId);
     if (this.mainStream) {
       if (this.mainStream.getAudioTracks()[0]) {
@@ -470,6 +538,11 @@ export class StreamsStore {
 
   audioOff() {
     console.log('### AUDIO OFF');
+    this.logger.logAgentEvent({
+      agent: encodeHashToBase64(this.roomClient.client.myPubKey),
+      timestamp: Date.now(),
+      event: 'MyAudioOff',
+    });
     console.log('this._mainStream.getTracks(): ', this.mainStream?.getTracks());
     if (this.mainStream) {
       console.log('### DISABLING ALL AUDIO TRACKS');
@@ -845,7 +918,15 @@ export class StreamsStore {
             this.logger.logAgentEvent({
               agent: pubKeyB64,
               timestamp: Date.now(),
-              event: 'VideoOffSignal',
+              event: 'PeerVideoOffSignal',
+            });
+          }
+          if (msg.message === 'video-on') {
+            // Only log, nothing else to do
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'PeerVideoOnSignal',
             });
           }
           if (msg.message === 'audio-off') {
@@ -859,7 +940,7 @@ export class StreamsStore {
             this.logger.logAgentEvent({
               agent: pubKeyB64,
               timestamp: Date.now(),
-              event: 'AudioOffSignal',
+              event: 'PeerAudioOffSignal',
             });
           }
           if (msg.message === 'audio-on') {
@@ -873,7 +954,21 @@ export class StreamsStore {
             this.logger.logAgentEvent({
               agent: pubKeyB64,
               timestamp: Date.now(),
-              event: 'AudioOnSignal',
+              event: 'PeerAudioOnSignal',
+            });
+          }
+          if (msg.message === 'change-audio-input') {
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'PeerChangeAudioInput',
+            });
+          }
+          if (msg.message === 'change-video-input') {
+            this.logger.logAgentEvent({
+              agent: pubKeyB64,
+              timestamp: Date.now(),
+              event: 'PeerChangeVideoInput',
             });
           }
         }

@@ -25,7 +25,7 @@ export type ConnectionId = string;
 export type RTCMessage =
   | {
       type: 'action';
-      message: 'video-off' | 'audio-off' | 'audio-on';
+      message: 'video-off' | 'video-on' | 'audio-off' | 'audio-on' | 'change-audio-input' | 'change-video-input';
     }
   | {
       type: 'text';

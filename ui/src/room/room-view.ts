@@ -210,6 +210,9 @@ export class RoomView extends LitElement {
   _logsGraphMinimized = false;
 
   @state()
+  _logsGraphAgent: AgentPubKeyB64 | undefined;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   closeClosables = () => {
@@ -424,6 +427,18 @@ export class RoomView extends LitElement {
     return '[unknown]';
   }
 
+  handleOpenChart(pubkey: AgentPubKeyB64) {
+    // Unset first to remove the existing chart from the DOM
+    this._logsGraphEnabled = false;
+    this._logsGraphAgent = undefined;
+    // Set again to add chart to DOM from scratch. Otherwise, chart may be
+    // a mix between content of old agent and new agent
+    setTimeout(() => {
+      this._logsGraphAgent = pubkey;
+      this._logsGraphEnabled = true;
+    }, 200);
+  }
+
   renderConnectionDetailsToggle() {
     return html`
       <div class="row toggle-switch-container" style="align-items: center;">
@@ -569,6 +584,7 @@ export class RoomView extends LitElement {
                   .agentPubKey=${decodeHashFromBase64(pubkey)}
                   .connectionStatus=${this._connectionStatuses.value[pubkey]}
                   .appVersion=${this._knownAgents.value[pubkey].appVersion}
+                  @open-chart=${() => this.handleOpenChart(pubkey)}
                 ></agent-connection-status>
               `
             )
@@ -590,6 +606,7 @@ export class RoomView extends LitElement {
                     style="width: 100%;"
                     .agentPubKey=${decodeHashFromBase64(pubkey)}
                     .connectionStatus=${this._connectionStatuses.value[pubkey]}
+                    @open-chart=${() => this.handleOpenChart(pubkey)}
                   ></agent-connection-status>
                 `
               )}
@@ -788,23 +805,6 @@ export class RoomView extends LitElement {
                 class="secondary-font"
                 style="color: #c3c9eb; margin-left: 10px; font-size: 23px;"
                 >trickle ICE (ON by default)</span
-              >
-            </div>
-            <div class="row items-center">
-              <toggle-switch
-                class="toggle-switch ${this._logsGraphEnabled ? 'active' : ''}"
-                .toggleState=${this._logsGraphEnabled}
-                @toggle-on=${() => {
-                  this._logsGraphEnabled = true;
-                }}
-                @toggle-off=${() => {
-                  this._logsGraphEnabled = false;
-                }}
-              ></toggle-switch>
-              <span
-                class="secondary-font"
-                style="color: #c3c9eb; margin-left: 10px; font-size: 23px;"
-                >Enable logs graph</span
               >
             </div>
           </div>
@@ -1231,21 +1231,41 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
-      ${this._logsGraphEnabled
+      ${this._logsGraphEnabled && this._logsGraphAgent
         ? html`
             <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9;">
               <div style="position: relative;">
-                <button
-                  class="close-graph-btn"
-                  style="${this._logsGraphMinimized ? 'display: none;' : ''}"
-                  @click=${() => {
-                    this._logsGraphMinimized = true;
-                  }}
+                <div
+                  class="row"
+                  style="position: absolute; top: -25px; right: -25px;"
                 >
-                  <sl-icon .src=${wrapPathInSvg(mdiMinus)}></sl-icon>
-                </button>
+                  <button
+                    class="close-graph-btn"
+                    style="margin-right: 3px;${this._logsGraphMinimized
+                      ? 'display: none;'
+                      : ''}"
+                    @click=${() => {
+                      this._logsGraphMinimized = true;
+                    }}
+                  >
+                    <sl-icon .src=${wrapPathInSvg(mdiMinus)}></sl-icon>
+                  </button>
+                  <button
+                    class="close-graph-btn"
+                    style="${this._logsGraphMinimized ? 'display: none;' : ''}"
+                    @click=${() => {
+                      this._logsGraphEnabled = false;
+                      this._logsGraphMinimized = false;
+                    }}
+                  >
+                    <sl-icon .src=${wrapPathInSvg(mdiClose)}></sl-icon>
+                  </button>
+                </div>
                 <logs-graph
-                  style="border-radius: 5px; ${this._logsGraphMinimized ? 'display: none;' : ''}"
+                  style="border-radius: 5px; ${this._logsGraphMinimized
+                    ? 'display: none;'
+                    : ''}"
+                  .agent=${this._logsGraphAgent}
                 ></logs-graph>
               </div>
               <button
@@ -1258,6 +1278,10 @@ export class RoomView extends LitElement {
                 <div class="row items-center secondary-font">
                   <sl-icon .src=${wrapPathInSvg(mdiChartLine)}></sl-icon>
                   <span style="margin-left: 5px;"> ${msg('Logs Graph')} </span>
+                  <agent-avatar
+                    style="margin-bottom: -12px; margin-left: 5px;"
+                    .agentPubKey=${decodeHashFromBase64(this._logsGraphAgent)}
+                  ></agent-avatar>
                 </div>
               </button>
             </div>
@@ -2062,9 +2086,6 @@ export class RoomView extends LitElement {
 
       .close-graph-btn {
         all: unset;
-        position: absolute;
-        top: -25px;
-        right: -25px;
         border-radius: 50%;
         height: 60px;
         width: 60px;

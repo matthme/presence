@@ -9,7 +9,7 @@ import { property, customElement, state } from 'lit/decorators.js';
 import { AgentPubKey, encodeHashToBase64 } from '@holochain/client';
 import { localized, msg } from '@lit/localize';
 import { StoreSubscriber } from '@holochain-open-dev/stores';
-import { mdiCancel } from '@mdi/js';
+import { mdiCancel, mdiChartLine } from '@mdi/js';
 
 import '@holochain-open-dev/elements/dist/elements/display-error.js';
 import '@shoelace-style/shoelace/dist/components/avatar/avatar.js';
@@ -52,6 +52,9 @@ export class AgentConnectionStatus extends LitElement {
 
   @property()
   appVersion: string | undefined;
+
+  @property()
+  showChartBtn = true;
 
   /** Dependencies */
 
@@ -182,25 +185,41 @@ export class AgentConnectionStatus extends LitElement {
         </div>
         <span style="display: flex; flex: 1;"></span>
         <sl-tooltip
-          class="tooltip-filled ${this._isAgentBlocked.value ? 'unblock' : ''}"
+          class="tooltip-filled"
+          content=${msg('Open connection log chart for this peer')}
+        >
+          <sl-icon-button
+            style="margin-right: 3px;"
+            src=${wrapPathInSvg(mdiChartLine)}
+            @click=${() => {
+              this.dispatchEvent(
+                new CustomEvent('open-chart', { composed: true, bubbles: true })
+              );
+            }}
+          ></sl-icon-button>
+        </sl-tooltip>
+        <sl-tooltip
+          class="tooltip-filled ${this._isAgentBlocked.value
+            ? 'unblock'
+            : 'block-btn'}"
           content=${this._isAgentBlocked.value
             ? msg('Unblock this person')
             : msg('Block this person for the duration of this call.')}
         >
-            <sl-icon-button
-              src=${wrapPathInSvg(mdiCancel)}
-              @click=${() => {
-                if (this._isAgentBlocked.value) {
-                  this.streamsStore.unblockAgent(
-                    encodeHashToBase64(this.agentPubKey)
-                  );
-                } else {
-                  this.streamsStore.blockAgent(
-                    encodeHashToBase64(this.agentPubKey)
-                  );
-                }
-              }}
-            ></sl-icon-button>
+          <sl-icon-button
+            src=${wrapPathInSvg(mdiCancel)}
+            @click=${() => {
+              if (this._isAgentBlocked.value) {
+                this.streamsStore.unblockAgent(
+                  encodeHashToBase64(this.agentPubKey)
+                );
+              } else {
+                this.streamsStore.blockAgent(
+                  encodeHashToBase64(this.agentPubKey)
+                );
+              }
+            }}
+          ></sl-icon-button>
         </sl-tooltip>
       </div>
     `;
@@ -231,14 +250,14 @@ export class AgentConnectionStatus extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      sl-icon-button::part(base) {
+      .block-btn sl-icon-button::part(base) {
         color: #c72100;
       }
-      sl-icon-button::part(base):hover,
-      sl-icon-button::part(base):focus {
+      .block-btn sl-icon-button::part(base):hover,
+      .block-btn sl-icon-button::part(base):focus {
         color: #e35d42;
       }
-      sl-icon-button::part(base):active {
+      .block-btn sl-icon-button::part(base):active {
         color: #e35d42;
       }
 

@@ -80,9 +80,18 @@ export type SimpleEventType =
   | 'SimplePeerClose'
   | 'SimplePeerStream'
   | 'SimplePeerTrack'
-  | 'AudioOnSignal'
-  | 'AudioOffSignal'
-  | 'VideoOffSignal';
+  | 'PeerAudioOnSignal'
+  | 'PeerAudioOffSignal'
+  | 'PeerVideoOnSignal'
+  | 'PeerVideoOffSignal'
+  | 'PeerChangeAudioInput'
+  | 'PeerChangeVideoInput'
+  | 'MyAudioOn'
+  | 'MyAudioOff'
+  | 'MyVideoOn'
+  | 'MyVideoOff'
+  | 'ChangeMyAudioInput'
+  | 'ChangeMyVideoInput';
 
 export type SimpleEvent = {
   agent: AgentPubKeyB64;
@@ -238,6 +247,7 @@ export class PresenceLogger {
         window.localStorage.removeItem(`log_my_stream_${id}`);
         window.localStorage.removeItem(`log_pong_metadata_${id}`);
         window.localStorage.removeItem(`custom_logs_${id}`);
+        window.localStorage.removeItem(`agent_events_${id}`);
       }
     });
   }
@@ -256,8 +266,6 @@ export class PresenceLogger {
     // be sorted
     // .sort((info_a, info_b) => info_a.t_first - info_b.t_first);
 
-    console.log('READ STREAM STATUS LOG: ', this.myStreamStatusLog);
-
     this.agentPongMetadataLogs = readLocalStorage<
       Record<AgentPubKeyB64, PongMetadataInfo[]>
     >(`log_pong_metadata_${this.sessionId}`, {});
@@ -265,6 +273,11 @@ export class PresenceLogger {
     this.customLogs = readLocalStorage<CustomLog[]>(
       `custom_logs_${this.sessionId}`,
       []
+    );
+
+    this.agentEvents = readLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${this.sessionId}`,
+      {}
     );
   }
 
@@ -313,6 +326,11 @@ export class PresenceLogger {
     writeLocalStorage<CustomLog[]>(
       `custom_logs_${this.sessionId}`,
       this.customLogs
+    );
+
+    writeLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${this.sessionId}`,
+      this.agentEvents
     );
   }
 

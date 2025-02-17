@@ -1,6 +1,11 @@
-import { LitElement, css, html } from 'lit';
+import { LitElement, PropertyValues, css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { AgentPubKeyB64, AppClient } from '@holochain/client';
+import {
+  AgentPubKeyB64,
+  AppClient,
+  decodeHashFromBase64,
+  encodeHashToBase64,
+} from '@holochain/client';
 import { localized, msg } from '@lit/localize';
 import { consume } from '@lit/context';
 import { WeaveClient } from '@theweave/api';
@@ -27,6 +32,7 @@ import { plotlyStyles, sharedStyles } from '../sharedStyles';
 import { weaveClientContext } from '../types';
 import { StreamsStore } from '../streams-store';
 import { SimpleEventType, StreamInfoLog } from '../logging';
+import './elements/avatar-with-nickname';
 
 @localized()
 @customElement('logs-graph')
@@ -60,28 +66,13 @@ export class LogsGraph extends LitElement {
 
   shapes: Partial<Shape>[] = [];
 
-  myStreamTraces(): Data[] {
-    const myLogInfos = this.streamsStore.logger.myStreamStatusLog;
-    return loadStreamAndTrackInfo(myLogInfos, 'actual', false);
-  }
-
-  agentStreamTraces(agent: AgentPubKeyB64): Data[] {
-    const agentPongMetadataLogs =
-      this.streamsStore.logger.agentPongMetadataLogs[agent] || [];
-
-    const streamLogs: StreamInfoLog[] = agentPongMetadataLogs.map(log => ({
-      t_first: log.t_first,
-      t_last: log.t_last,
-      info: log.metaData.streamInfo
-        ? log.metaData.streamInfo
-        : {
-            stream: null,
-            tracks: [],
-          },
-    }));
-
-    return loadStreamAndTrackInfo(streamLogs, `perceived by ${agent}`, true);
-  }
+  // updated(changedValues: PropertyValues) {
+  //   super.updated(changedValues);
+  //   if (changedValues.has('agent')) {
+  //     // this.firstUpdated();
+  //     // this.requestUpdate();
+  //   }
+  // }
 
   async firstUpdated() {
     const data: Data[] = [];
@@ -100,26 +91,93 @@ export class LogsGraph extends LitElement {
     const myStreamData = this.myStreamTraces();
     data.push(...myStreamData);
 
-    Object.keys(this.streamsStore.logger.agentPongMetadataLogs).forEach(
-      agent => {
-        const agentStreamData = this.agentStreamTraces(agent);
-        data.push(...agentStreamData);
-      }
-    );
+    const agentStreamData = this.agentStreamTraces();
+    data.push(...agentStreamData);
+
+    const shapes = this.agentEvents();
+    this.shapes = shapes;
 
     const layout: Partial<Layout> = {
-      title: { text: 'Logs' },
       showlegend: false,
-      hovermode: "closest",
+      shapes,
+      hovermode: 'closest',
       hoverlabel: {
         namelength: -1,
-      }
+      },
     };
 
     Plotly.newPlot(this.graph, data, layout);
 
     // Register a handler to extend the traces based on new events
+    this.registerEventHandlers();
+  }
+
+  myStreamTraces(): Data[] {
+    const myLogInfos = this.streamsStore.logger.myStreamStatusLog;
+    return loadStreamAndTrackInfo(myLogInfos, 'actual', false);
+  }
+
+  agentStreamTraces(): Data[] {
+    const agentPongMetadataLogs =
+      this.streamsStore.logger.agentPongMetadataLogs[this.agent] || [];
+
+    const streamLogs: StreamInfoLog[] = agentPongMetadataLogs.map(log => ({
+      t_first: log.t_first,
+      t_last: log.t_last,
+      info: log.metaData.streamInfo
+        ? log.metaData.streamInfo
+        : {
+            stream: null,
+            tracks: [],
+          },
+    }));
+
+    return loadStreamAndTrackInfo(streamLogs, `perceived`, true);
+  }
+
+  agentEvents(): Partial<Shape>[] {
+    const shapes: Partial<Shape>[] = [];
+
+    const allAgentEvents = this.streamsStore.logger.agentEvents;
+    const myEvents =
+      allAgentEvents[encodeHashToBase64(this.client.myPubKey)] || [];
+    const agentEvents = allAgentEvents[this.agent] || [];
+
+    [...myEvents, ...agentEvents].forEach(payload => {
+      const [color, dash] = simpleEventTypeToColor(payload.event);
+      const [y0, y1] = yEventType(payload.event);
+      shapes.push({
+        type: 'line',
+        x0: payload.timestamp,
+        y0,
+        x1: payload.timestamp,
+        y1,
+        line: {
+          color,
+          dash,
+        },
+        name: payload.event,
+      });
+    });
+
+    return shapes;
+  }
+
+  registerEventHandlers() {
     this.streamsStore.logger.on('simple-event', payload => {
+      if (
+        payload.event in
+        [
+          'MyAudioOn',
+          'MyAudioOff',
+          'MyVideoOn',
+          'MyVideoOff',
+          'ChangeMyAudioInput',
+        ]
+      ) {
+        if (payload.agent !== encodeHashToBase64(this.client.myPubKey)) return;
+      } else if (payload.agent !== this.agent) return;
+
       const [color, dash] = simpleEventTypeToColor(payload.event);
       const [y0, y1] = yEventType(payload.event);
       this.addVerticalLine(
@@ -143,12 +201,10 @@ export class LogsGraph extends LitElement {
     this.streamsStore.logger.on('my-stream-info', payload => {
       // Load the new traces to the plot
       const streamState = payload.info.stream ? 1 : 0;
-
       const videoTrack = payload.info.tracks.find(
         track => track.kind === 'video'
       );
       const videoTrackState = videoTrack ? (videoTrack.muted ? 2 : 1) : 0;
-
       const audioTrack = payload.info.tracks.find(
         track => track.kind === 'audio'
       );
@@ -165,6 +221,7 @@ export class LogsGraph extends LitElement {
     });
 
     this.streamsStore.logger.on('agent-pong-metadata', payload => {
+      if (payload.agent !== this.agent) return;
       const streamState = payload.info.metaData.streamInfo?.stream ? 1 : 0;
       const videoTrack = payload.info.metaData.streamInfo?.tracks.find(
         track => track.kind === 'video'
@@ -219,9 +276,22 @@ export class LogsGraph extends LitElement {
   render() {
     return html`
       <!-- NOTE: This requires plotly styles applied explicitly since this is shadow DOM -->
-      <div class="column">
-        <div class="tweaks secondary-font">
-          <div class="row">
+      <div class="column secondary-font">
+        <div
+          class="column items-center"
+          style="background: white; padding-top: 5px;"
+        >
+          <div class="row items-center">
+            <span style="margin-right: 10px; font-size: 18px;"
+              >${msg('Connection Logs with')}</span
+            >
+            <avatar-with-nickname
+              .agentPubKey=${decodeHashFromBase64(this.agent)}
+            ></avatar-with-nickname>
+          </div>
+        </div>
+        <div class="tweaks column items-center" style="padding-top: 5px;">
+          <div class="row" style="padding: 0 5px;">
             <input
               @change=${(e: Event) => {
                 const checkbox = e.target as HTMLInputElement;
@@ -263,7 +333,7 @@ function loadStreamAndTrackInfo(
     x: [],
     y: [],
     type: 'scatter',
-    name: `(Stream) ${name}`,
+    name: `[My Stream] ${name}`,
     line: {
       dash: 'dash',
       color: 'black',
@@ -283,7 +353,7 @@ function loadStreamAndTrackInfo(
     x: [],
     y: [],
     type: 'scatter',
-    name: `(Video Track State) ${name}`,
+    name: `[My Video Track State] ${name}`,
     line: {
       color: 'darkblue',
     },
@@ -302,7 +372,7 @@ function loadStreamAndTrackInfo(
     x: [],
     y: [],
     type: 'scatter',
-    name: `(Audio Track State) ${name}`,
+    name: `[My Audio Track State] ${name}`,
     line: {
       color: 'darkred',
     },
@@ -346,12 +416,32 @@ function simpleEventTypeToColor(
       return ['cyan', undefined];
 
     // WebRTC data signals
-    case 'AudioOffSignal':
-      return ['darkred', 'dash'];
-    case 'AudioOnSignal':
+    case 'PeerAudioOnSignal':
       return ['darkred', undefined];
-    case 'VideoOffSignal':
+    case 'PeerAudioOffSignal':
+      return ['darkred', 'dash'];
+    case 'PeerVideoOnSignal':
+      return ['darkblue', undefined];
+    case 'PeerVideoOffSignal':
       return ['darkblue', 'dash'];
+    case 'PeerChangeAudioInput':
+      return ['darkred', 'dot'];
+    case 'PeerChangeVideoInput':
+      return ['darkblue', 'dot'];
+
+    // My own events
+    case 'MyAudioOn':
+      return ['darkred', undefined];
+    case 'MyAudioOff':
+      return ['darkred', 'dash'];
+    case 'MyVideoOn':
+      return ['darkblue', undefined];
+    case 'MyVideoOff':
+      return ['darkblue', 'dash'];
+    case 'ChangeMyAudioInput':
+      return ['darkred', 'dot'];
+    case 'ChangeMyVideoInput':
+      return ['darkblue', 'dot'];
 
     // Reconcile attempts
     case 'ReconcileAudio':
@@ -390,11 +480,31 @@ function yEventType(event: SimpleEventType): [number, number] {
       return [0, 1.5];
 
     // WebRTC data signals
-    case 'AudioOffSignal':
+    case 'PeerAudioOnSignal':
+      return [0, -0.75];
+    case 'PeerAudioOffSignal':
+      return [0, -0.75];
+    case 'PeerVideoOnSignal':
+      return [0, -0.75];
+    case 'PeerVideoOffSignal':
+      return [0, -0.75];
+    case 'PeerChangeAudioInput':
+      return [0, -0.75];
+    case 'PeerChangeVideoInput':
+      return [0, -0.75];
+
+    // My own events
+    case 'MyAudioOn':
       return [0, 0.75];
-    case 'AudioOnSignal':
+    case 'MyAudioOff':
       return [0, 0.75];
-    case 'VideoOffSignal':
+    case 'MyVideoOn':
+      return [0, 0.75];
+    case 'MyVideoOff':
+      return [0, 0.75];
+    case 'ChangeMyAudioInput':
+      return [0, 0.75];
+    case 'ChangeMyVideoInput':
       return [0, 0.75];
 
     // Reconcile attempts
