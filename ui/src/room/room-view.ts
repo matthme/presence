@@ -77,6 +77,9 @@ export class RoomView extends LitElement {
   @query('#custom-log-textarea')
   _customLogTextarea!: HTMLInputElement;
 
+  @query('#log-timestamp-checkbox')
+  _logTimestampCheckbox!: HTMLInputElement;
+
   @state()
   pingInterval: number | undefined;
 
@@ -242,6 +245,7 @@ export class RoomView extends LitElement {
     this._showCustomLogDialog = false;
     this._customLogTimestamp = undefined;
     this._customLogTextarea.value = '';
+    this._logTimestampCheckbox.checked = false;
   }
 
   sideClickListener = (e: MouseEvent) => {
@@ -249,7 +253,6 @@ export class RoomView extends LitElement {
   };
 
   keyDownListener = (e: KeyboardEvent) => {
-    console.log('GOT KEYPRESS EVENT: ', e.key);
     if (e.key === 'Escape') {
       this.closeClosables();
     }
@@ -1306,19 +1309,11 @@ export class RoomView extends LitElement {
             </div>
             <button
               @click=${() => {
-                const checkboxEl = this.shadowRoot?.getElementById(
-                  'log-timestamp-checkbox'
-                );
-                const whenLogging = checkboxEl
-                  ? (checkboxEl as HTMLInputElement).checked
-                  : false;
                 const value = this._customLogTextarea.value;
                 this.logCustomEvent(
                   value,
-                  whenLogging ? undefined : this._customLogTimestamp
+                  this._logTimestampCheckbox.checked ? undefined : this._customLogTimestamp
                 );
-                if (checkboxEl)
-                  (checkboxEl as HTMLInputElement).checked = false;
                 this.closeCustomLogDialog();
               }}
             >
