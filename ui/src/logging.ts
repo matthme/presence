@@ -278,13 +278,30 @@ export class PresenceLogger {
     return unlisten;
   }
 
+  deleteAllLogs() {
+    const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
+      'session_infos',
+      {}
+    );
+
+    Object.entries(sessionInfos).forEach(([id, _info]) => {
+      console.log('Deleting old logs...');
+      // Delete all logs for this session
+      window.localStorage.removeItem(`log_my_stream_${id}`);
+      window.localStorage.removeItem(`log_pong_metadata_${id}`);
+      window.localStorage.removeItem(`agent_events_${id}`);
+      window.localStorage.removeItem(`custom_logs_${id}`);
+    });
+    this._read();
+  }
+
   /**
    * Deletes any logs older than 1 week
    */
   _garbageCollect() {
     const week_ms = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const olderThan = (timestamp: number) => now - timestamp > week_ms;
+    const olderThanOneWeek = (timestamp: number) => now - timestamp > week_ms;
 
     const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
       'session_infos',
@@ -292,7 +309,7 @@ export class PresenceLogger {
     );
 
     Object.entries(sessionInfos).forEach(([id, info]) => {
-      if (info.start && olderThan(info.start)) {
+      if (info.start && olderThanOneWeek(info.start)) {
         console.log('Deleting old logs...');
         // Delete all logs for this session
         window.localStorage.removeItem(`log_my_stream_${id}`);
@@ -412,7 +429,6 @@ export class PresenceLogger {
   }
 
   logAgentPongMetaData(agent: AgentPubKeyB64, data: PongMetaDataV1) {
-    const now = Date.now();
     const agentMetadataLogs = this.agentPongMetadataLogs[agent] || [];
     const latestMetadata = agentMetadataLogs[agentMetadataLogs.length - 1];
 

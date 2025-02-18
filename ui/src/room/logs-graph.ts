@@ -180,6 +180,9 @@ export class LogsGraph extends LitElement {
         }
       });
 
+    // And push the last one too
+    if (tempRect) shapes.push(tempRect);
+
     [
       ...myEvents,
       ...agentEvents.filter(event => event.event !== 'Pong'), // Filter out Pong events
@@ -217,7 +220,7 @@ export class LogsGraph extends LitElement {
           text: event.log,
           xanchor: 'left',
           textangle: -45,
-          textposition: "top right",
+          textposition: 'top right',
         },
       });
     });
@@ -376,7 +379,7 @@ export class LogsGraph extends LitElement {
           text: event.log,
           xanchor: 'left',
           textangle: -45,
-          textposition: "top right",
+          textposition: 'top right',
         },
       });
     });
