@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash-es';
 import { AgentPubKeyB64 } from '@holochain/client';
 import { nanoid } from 'nanoid';
+import { Unsubscriber } from '@holochain-open-dev/stores';
 import {
   readLocalStorage,
   readSessionStorage,
@@ -19,7 +20,7 @@ declare global {
  * A time block during which the stream state was the same
  * as specified in the info field.
  */
-type StreamInfoLog = {
+export type StreamInfoLog = {
   /**
    * The time in unix epoch when this stream info was logged first
    */
@@ -66,6 +67,108 @@ type CustomLog = {
   log: string;
 };
 
+export type SimpleEventType =
+  | 'Pong'
+  | 'SdpData'
+  | 'InitAccept'
+  | 'InitRequest'
+  | 'Connected'
+  | 'ReconcileStream'
+  | 'ReconcileAudio'
+  | 'ReconcileVideo'
+  | 'SimplePeerError'
+  | 'SimplePeerClose'
+  | 'SimplePeerStream'
+  | 'SimplePeerTrack'
+  | 'PeerAudioOnSignal'
+  | 'PeerAudioOffSignal'
+  | 'PeerVideoOnSignal'
+  | 'PeerVideoOffSignal'
+  | 'PeerChangeAudioInput'
+  | 'PeerChangeVideoInput'
+  | 'MyAudioOn'
+  | 'MyAudioOff'
+  | 'MyVideoOn'
+  | 'MyVideoOff'
+  | 'ChangeMyAudioInput'
+  | 'ChangeMyVideoInput';
+
+export type SimpleEvent = {
+  agent: AgentPubKeyB64;
+  timestamp: number;
+  event: SimpleEventType;
+};
+
+export type PresenceLogEvent =
+  | 'my-stream-info'
+  | 'agent-pong-metadata'
+  | 'simple-event'
+  | 'custom-log';
+
+export type PresenceLogEventMap = {
+  'my-stream-info': StreamInfoLog;
+  'agent-pong-metadata': {
+    agent: AgentPubKeyB64;
+    info: PongMetadataInfo;
+  };
+  'simple-event': SimpleEvent;
+  'custom-log': CustomLog;
+};
+
+export type CallbackWithId = {
+  id: number;
+  callback: (payload: PresenceLogEventMap[PresenceLogEvent]) => any;
+};
+
+export type FullLogExport = Array<{
+  sessionId: string;
+  start?: number;
+  end?: number;
+  logs: {
+    myStream: StreamInfoLog[];
+    agentPongMetadataLogs: Record<AgentPubKeyB64, PongMetadataInfo[]>;
+    agentEvents: Record<AgentPubKeyB64, SimpleEvent[]>;
+    customLogs: CustomLog[];
+  };
+}>;
+
+export function exportLogs(): FullLogExport | void {
+  const fullExport: FullLogExport = [];
+  const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
+    'session_infos',
+    {}
+  );
+  Object.entries(sessionInfos).forEach(([sessionId, info]) => {
+    const myStream = readLocalStorage<StreamInfoLog[]>(
+      `log_my_stream_${sessionId}`,
+      []
+    );
+    const agentPongMetadataLogs = readLocalStorage<
+      Record<AgentPubKeyB64, PongMetadataInfo[]>
+    >(`log_pong_metadata_${sessionId}`, {});
+    const agentEvents = readLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${sessionId}`,
+      {}
+    );
+    const customLogs = readLocalStorage<CustomLog[]>(
+      `custom_logs_${sessionId}`,
+      []
+    );
+    fullExport.push({
+      sessionId,
+      start: info.start,
+      end: info.end,
+      logs: {
+        myStream,
+        agentPongMetadataLogs,
+        agentEvents,
+        customLogs,
+      },
+    });
+  });
+  return fullExport;
+}
+
 export class PresenceLogger {
   /**
    * The id of the current call session.
@@ -81,6 +184,10 @@ export class PresenceLogger {
   agentPongMetadataLogs: Record<AgentPubKeyB64, PongMetadataInfo[]> = {};
 
   customLogs: CustomLog[] = [];
+
+  agentEvents: Record<AgentPubKeyB64, SimpleEvent[]> = {};
+
+  _eventCallbacks: Partial<Record<PresenceLogEvent, CallbackWithId[]>> = {};
 
   constructor() {
     if (window.__PRESENCE_LOGGER_ACTIVE__)
@@ -129,6 +236,65 @@ export class PresenceLogger {
     this._garbageCollect();
   }
 
+  emit(
+    event: PresenceLogEvent,
+    detail: PresenceLogEventMap[PresenceLogEvent]
+  ): void {
+    const callbacksWithId = this._eventCallbacks[event];
+    if (callbacksWithId) {
+      callbacksWithId.forEach(cb => cb.callback(detail));
+    }
+  }
+
+  on<PresenceLogEvent extends keyof PresenceLogEventMap>(
+    event: PresenceLogEvent,
+    callback: (payload: PresenceLogEventMap[PresenceLogEvent]) => any
+  ): Unsubscriber {
+    const existingCallbacks: CallbackWithId[] =
+      this._eventCallbacks[event] || [];
+    let newCallbackId = 0;
+    const existingCallbackIds = existingCallbacks.map(
+      callbackWithId => callbackWithId.id
+    );
+    if (existingCallbackIds && existingCallbackIds.length > 0) {
+      // every new callback gets a new id in increasing manner
+      const highestId = existingCallbackIds.sort((a, b) => b - a)[0];
+      newCallbackId = highestId + 1;
+    }
+
+    // @ts-ignore
+    existingCallbacks.push({ id: newCallbackId, callback });
+
+    this._eventCallbacks[event] = existingCallbacks;
+
+    const unlisten = () => {
+      const allCallbacks = this._eventCallbacks[event] || [];
+      this._eventCallbacks[event] = allCallbacks.filter(
+        callbackWithId => callbackWithId.id !== newCallbackId
+      );
+    };
+
+    // We return an unlistener function which removes the callback from the list of callbacks
+    return unlisten;
+  }
+
+  deleteAllLogs() {
+    const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
+      'session_infos',
+      {}
+    );
+
+    Object.entries(sessionInfos).forEach(([id, _info]) => {
+      console.log('Deleting old logs...');
+      // Delete all logs for this session
+      window.localStorage.removeItem(`log_my_stream_${id}`);
+      window.localStorage.removeItem(`log_pong_metadata_${id}`);
+      window.localStorage.removeItem(`agent_events_${id}`);
+      window.localStorage.removeItem(`custom_logs_${id}`);
+    });
+    this._read();
+  }
+
   /**
    * Deletes any logs older than 1 week
    */
@@ -148,6 +314,7 @@ export class PresenceLogger {
         // Delete all logs for this session
         window.localStorage.removeItem(`log_my_stream_${id}`);
         window.localStorage.removeItem(`log_pong_metadata_${id}`);
+        window.localStorage.removeItem(`agent_events_${id}`);
         window.localStorage.removeItem(`custom_logs_${id}`);
       }
     });
@@ -170,6 +337,11 @@ export class PresenceLogger {
     this.agentPongMetadataLogs = readLocalStorage<
       Record<AgentPubKeyB64, PongMetadataInfo[]>
     >(`log_pong_metadata_${this.sessionId}`, {});
+
+    this.agentEvents = readLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${this.sessionId}`,
+      {}
+    );
 
     this.customLogs = readLocalStorage<CustomLog[]>(
       `custom_logs_${this.sessionId}`,
@@ -219,6 +391,11 @@ export class PresenceLogger {
       this.agentPongMetadataLogs
     );
 
+    writeLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${this.sessionId}`,
+      this.agentEvents
+    );
+
     writeLocalStorage<CustomLog[]>(
       `custom_logs_${this.sessionId}`,
       this.customLogs
@@ -239,20 +416,19 @@ export class PresenceLogger {
         info,
       };
       this.myStreamStatusLog[this.myStreamStatusLog.length - 1] = newInfo;
+      this.emit('my-stream-info', newInfo);
     } else {
-      this.myStreamStatusLog.push({
+      const newInfo = {
         t_first: now,
         t_last: now,
         info,
-      });
+      };
+      this.myStreamStatusLog.push(newInfo);
+      this.emit('my-stream-info', newInfo);
     }
   }
 
-  logAgentPongMetaData(
-    agent: AgentPubKeyB64,
-    data: PongMetaDataV1
-  ) {
-    const now = Date.now();
+  logAgentPongMetaData(agent: AgentPubKeyB64, data: PongMetaDataV1) {
     const agentMetadataLogs = this.agentPongMetadataLogs[agent] || [];
     const latestMetadata = agentMetadataLogs[agentMetadataLogs.length - 1];
 
@@ -277,15 +453,25 @@ export class PresenceLogger {
       };
       agentMetadataLogs[agentMetadataLogs.length - 1] = newInfo;
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
+      this.emit('agent-pong-metadata', { agent, info: newInfo });
     } else {
-      agentMetadataLogs.push({
+      const newInfo = {
         t_first: Date.now(),
         t_last: Date.now(),
         n_pongs: 1,
         metaData: cleanedData,
-      });
+      };
+      agentMetadataLogs.push(newInfo);
       this.agentPongMetadataLogs[agent] = agentMetadataLogs;
+      this.emit('agent-pong-metadata', { agent, info: newInfo });
     }
+  }
+
+  logAgentEvent(event: SimpleEvent) {
+    const agentEvents = this.agentEvents[event.agent] || [];
+    agentEvents.push(event);
+    this.agentEvents[event.agent] = agentEvents;
+    this.emit('simple-event', event);
   }
 
   /**
@@ -296,9 +482,11 @@ export class PresenceLogger {
    * @param timestamp
    */
   logCustomMessage(msg: string, timestamp?: number) {
-    this.customLogs.push({
+    const event: CustomLog = {
       timestamp: timestamp || Date.now(),
       log: msg,
-    });
+    };
+    this.customLogs.push(event);
+    this.emit('custom-log', event);
   }
 }

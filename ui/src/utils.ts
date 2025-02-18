@@ -7,7 +7,12 @@ import {
   ProvisionedCell,
   RoleName,
 } from '@holochain/client';
-import { ConnectionStatus } from './types';
+import {
+  ConnectionStatus,
+  StreamAndTrackInfo,
+  StreamInfo,
+  TrackInfo,
+} from './types';
 
 export type CellTypes = {
   provisioned: ProvisionedCell;
@@ -137,6 +142,35 @@ export const sortConnectionStatuses = (
   // if (status_b.type === "Connected") return -1;
 };
 
+export function getStreamInfo(
+  stream: MediaStream | undefined | null
+): StreamAndTrackInfo {
+  let streamInfo: StreamAndTrackInfo = {
+    stream: null,
+    tracks: [],
+  };
+
+  if (stream) {
+    const tracks = stream.getTracks();
+    const tracksInfo: TrackInfo[] = [];
+    tracks.forEach(track => {
+      tracksInfo.push({
+        kind: track.kind as 'audio' | 'video',
+        enabled: track.enabled,
+        muted: track.muted,
+        readyState: track.readyState,
+      });
+    });
+    streamInfo = {
+      stream: {
+        active: stream.active,
+      },
+      tracks: tracksInfo,
+    };
+  }
+  return streamInfo;
+}
+
 export function readLocalStorage<T>(key: string): T | null;
 // eslint-disable-next-line no-redeclare
 export function readLocalStorage<T>(key: string, defaultValue?: T): T;
@@ -163,4 +197,29 @@ export function readSessionStorage<T>(key: string, defaultValue?: T): T | null {
 
 export function writeSessionStorage<T>(key: string, value: T): void {
   window.sessionStorage.setItem(key, JSON.stringify(value));
+}
+
+export const downloadJson = (filename: string, text: string) => {
+  const element = document.createElement('a');
+  element.setAttribute(
+    'href',
+    `data:text/json;charset=utf-8,${encodeURIComponent(text)}`
+  );
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+};
+
+export function formattedDate(): string {
+  const date = new Date();
+  return `${date.getFullYear()}-${
+    date.getMonth() + 1
+  }-${date.getDate()}-${date.getHours()}_${`00${date.getMinutes()}`.slice(
+    -2
+  )}_${`00${date.getSeconds()}`.slice(-2)}`;
 }

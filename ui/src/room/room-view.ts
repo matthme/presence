@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { LitElement, css, html } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import {
   encodeHashToBase64,
   AgentPubKeyB64,
@@ -11,14 +11,18 @@ import {
 import { AsyncStatus, StoreSubscriber } from '@holochain-open-dev/stores';
 import {
   mdiAccount,
+  mdiChartLine,
   mdiChevronUp,
+  mdiClose,
   mdiCog,
   mdiFullscreen,
   mdiFullscreenExit,
   mdiLock,
   mdiMicrophone,
   mdiMicrophoneOff,
+  mdiMinus,
   mdiMonitorScreenshot,
+  mdiNoteEditOutline,
   mdiPaperclip,
   mdiPencilCircleOutline,
   mdiPhoneRefresh,
@@ -44,9 +48,13 @@ import './elements/attachment-element';
 import './elements/agent-connection-status';
 import './elements/agent-connection-status-icon';
 import './elements/toggle-switch';
-import { sortConnectionStatuses } from '../utils';
+import './logs-graph';
+import { downloadJson, formattedDate, sortConnectionStatuses } from '../utils';
 import { PING_INTERVAL, StreamsStore } from '../streams-store';
 import { AgentInfo, ConnectionStatuses } from '../types';
+import { exportLogs } from '../logging';
+
+declare const __APP_VERSION__: string;
 
 @localized()
 @customElement('room-view')
@@ -69,11 +77,19 @@ export class RoomView extends LitElement {
   @property({ type: Boolean })
   private = false;
 
+  @query('#custom-log-textarea')
+  _customLogTextarea!: HTMLInputElement;
+
+  @query('#log-timestamp-checkbox')
+  _logTimestampCheckbox!: HTMLInputElement;
+
   @state()
   pingInterval: number | undefined;
 
   @state()
   assetStoreContent: AsyncStatus<AssetStoreContent> | undefined;
+
+  _customLogTimestamp: number | undefined;
 
   _allAgentsFromAnchor = new StoreSubscriber(
     this,
@@ -199,6 +215,18 @@ export class RoomView extends LitElement {
   _showConnectionDetails = false;
 
   @state()
+  _logsGraphEnabled = true;
+
+  @state()
+  _logsGraphMinimized = false;
+
+  @state()
+  _logsGraphAgent: AgentPubKeyB64 | undefined;
+
+  @state()
+  _showCustomLogDialog = false;
+
+  @state()
   _unsubscribe: (() => void) | undefined;
 
   closeClosables = () => {
@@ -211,14 +239,23 @@ export class RoomView extends LitElement {
     if (this._showVideoSources) {
       this._showVideoSources = false;
     }
+    if (this._showCustomLogDialog) {
+      this.closeCustomLogDialog();
+    }
   };
+
+  closeCustomLogDialog() {
+    this._showCustomLogDialog = false;
+    this._customLogTimestamp = undefined;
+    this._customLogTextarea.value = '';
+    this._logTimestampCheckbox.checked = false;
+  }
 
   sideClickListener = (e: MouseEvent) => {
     this.closeClosables();
   };
 
   keyDownListener = (e: KeyboardEvent) => {
-    console.log('GOT KEYPRESS EVENT: ', e.key);
     if (e.key === 'Escape') {
       this.closeClosables();
     }
@@ -361,6 +398,15 @@ export class RoomView extends LitElement {
     await this._weaveClient.assets.removeAssetRelation(relationHash);
   }
 
+  openCustomEventLogDialog() {
+    this._customLogTimestamp = Date.now();
+    this._showCustomLogDialog = true;
+  }
+
+  logCustomEvent(log: string, timestamp?: number) {
+    this.streamsStore.logger.logCustomMessage(log, timestamp);
+  }
+
   toggleMaximized(id: string) {
     if (this._maximizedVideo !== id) {
       this._maximizedVideo = id;
@@ -411,6 +457,18 @@ export class RoomView extends LitElement {
     if (this.roomStore.client.roleName === 'presence') return msg('Main Room');
     if (this._roomInfo) return this._roomInfo.name;
     return '[unknown]';
+  }
+
+  handleOpenChart(pubkey: AgentPubKeyB64) {
+    // Unset first to remove the existing chart from the DOM
+    this._logsGraphEnabled = false;
+    this._logsGraphAgent = undefined;
+    // Set again to add chart to DOM from scratch. Otherwise, chart may be
+    // a mix between content of old agent and new agent
+    setTimeout(() => {
+      this._logsGraphAgent = pubkey;
+      this._logsGraphEnabled = true;
+    }, 200);
   }
 
   renderConnectionDetailsToggle() {
@@ -558,6 +616,7 @@ export class RoomView extends LitElement {
                   .agentPubKey=${decodeHashFromBase64(pubkey)}
                   .connectionStatus=${this._connectionStatuses.value[pubkey]}
                   .appVersion=${this._knownAgents.value[pubkey].appVersion}
+                  @open-chart=${() => this.handleOpenChart(pubkey)}
                 ></agent-connection-status>
               `
             )
@@ -579,6 +638,7 @@ export class RoomView extends LitElement {
                     style="width: 100%;"
                     .agentPubKey=${decodeHashFromBase64(pubkey)}
                     .connectionStatus=${this._connectionStatuses.value[pubkey]}
+                    @open-chart=${() => this.handleOpenChart(pubkey)}
                   ></agent-connection-status>
                 `
               )}
@@ -779,6 +839,17 @@ export class RoomView extends LitElement {
                 >trickle ICE (ON by default)</span
               >
             </div>
+            <button
+              style="margin-top: 30px;"
+              @click=${() => {
+                downloadJson(
+                  `Presence_${__APP_VERSION__}_logs_${formattedDate()}.json`,
+                  JSON.stringify(exportLogs(), undefined, 2)
+                );
+              }}
+            >
+              Export Logs
+            </button>
           </div>
         `;
       default:
@@ -789,6 +860,29 @@ export class RoomView extends LitElement {
   renderToggles() {
     return html`
       <div class="toggles-panel">
+        ${this._showConnectionDetails
+          ? html`
+              <sl-tooltip content="${msg('Log Custom Event')}" hoist>
+                <div
+                  class="toggle-btn"
+                  style="position: absolute; left: -80px;"
+                  tabindex="0"
+                  @click=${(e: any) => {
+                    this.openCustomEventLogDialog();
+                    e.stopPropagation();
+                  }}
+                  @keypress=${(e: KeyboardEvent) => {
+                    this.openCustomEventLogDialog();
+                  }}
+                >
+                  <sl-icon
+                    class="toggle-btn-icon"
+                    .src=${wrapPathInSvg(mdiNoteEditOutline)}
+                  ></sl-icon>
+                </div>
+              </sl-tooltip>
+            `
+          : html``}
         <sl-tooltip
           content="${this._microphone
             ? msg('Turn Audio Off')
@@ -995,10 +1089,7 @@ export class RoomView extends LitElement {
                     </div>
                     ${this._videoInputDevices.value.map((device, idx) => {
                       let isSelected = false;
-                      if (
-                        !this._videoInputId.value &&
-                        idx === 0
-                      ) {
+                      if (!this._videoInputId.value && idx === 0) {
                         isSelected = true;
                       }
                       if (
@@ -1206,6 +1297,103 @@ export class RoomView extends LitElement {
 
   render() {
     return html`
+      <div
+        class="custom-log-dialog"
+        style="${this._showCustomLogDialog ? '' : 'display: none;'}"
+      >
+        <div
+          class="panel"
+          @click=${(e: any) => e.stopPropagation()}
+          @keypress=${() => undefined}
+        >
+          <div class="column secondary-font">
+            <div style="font-size: 23px; margin-bottom: 10px;">
+              ${msg('Log a custom event:')}
+            </div>
+            <textarea id="custom-log-textarea"></textarea>
+            <div class="row items-center">
+              <input type="checkbox" id="log-timestamp-checkbox" />
+              <div
+                style="margin-left: 5px; font-size: 14px; max-width: 220px; line-height: 16px; margin: 5px; text-align: left;"
+              >
+                ${msg(
+                  'take timestamp at the time of logging (default is timestamp when dialog opened)'
+                )}
+              </div>
+            </div>
+            <button
+              @click=${() => {
+                const value = this._customLogTextarea.value;
+                this.logCustomEvent(
+                  value,
+                  this._logTimestampCheckbox.checked
+                    ? undefined
+                    : this._customLogTimestamp
+                );
+                this.closeCustomLogDialog();
+              }}
+            >
+              Log!
+            </button>
+          </div>
+        </div>
+      </div>
+      ${this._logsGraphEnabled && this._logsGraphAgent
+        ? html`
+            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9;">
+              <div style="position: relative;">
+                <div
+                  class="row"
+                  style="position: absolute; top: -25px; right: -25px;"
+                >
+                  <button
+                    class="close-graph-btn"
+                    style="margin-right: 3px;${this._logsGraphMinimized
+                      ? 'display: none;'
+                      : ''}"
+                    @click=${() => {
+                      this._logsGraphMinimized = true;
+                    }}
+                  >
+                    <sl-icon .src=${wrapPathInSvg(mdiMinus)}></sl-icon>
+                  </button>
+                  <button
+                    class="close-graph-btn"
+                    style="${this._logsGraphMinimized ? 'display: none;' : ''}"
+                    @click=${() => {
+                      this._logsGraphEnabled = false;
+                      this._logsGraphMinimized = false;
+                    }}
+                  >
+                    <sl-icon .src=${wrapPathInSvg(mdiClose)}></sl-icon>
+                  </button>
+                </div>
+                <logs-graph
+                  style="border-radius: 5px; ${this._logsGraphMinimized
+                    ? 'display: none;'
+                    : ''}"
+                  .agent=${this._logsGraphAgent}
+                ></logs-graph>
+              </div>
+              <button
+                class="logs-graph-btn"
+                @click=${() => {
+                  this._logsGraphMinimized = false;
+                }}
+                style="${this._logsGraphMinimized ? '' : 'display: none;'}"
+              >
+                <div class="row items-center secondary-font">
+                  <sl-icon .src=${wrapPathInSvg(mdiChartLine)}></sl-icon>
+                  <span style="margin-left: 5px;"> ${msg('Logs Graph')} </span>
+                  <agent-avatar
+                    style="margin-bottom: -12px; margin-left: 5px;"
+                    .agentPubKey=${decodeHashFromBase64(this._logsGraphAgent)}
+                  ></agent-avatar>
+                </div>
+              </button>
+            </div>
+          `
+        : html``}
       <div class="row center-content room-name">
         ${this.private
           ? html`<sl-icon
@@ -2003,6 +2191,51 @@ export class RoomView extends LitElement {
         /* left: calc(50% - 150px); */
       }
 
+      .close-graph-btn {
+        all: unset;
+        border-radius: 50%;
+        height: 60px;
+        width: 60px;
+        background: #d8d7f3;
+        z-index: 10;
+        cursor: pointer;
+      }
+
+      .close-graph-btn:hover {
+        background: #bdbbf2;
+      }
+
+      .logs-graph-btn {
+        all: unset;
+        padding: 5px 10px;
+        background: #d8d7f3;
+        cursor: pointer;
+        border-radius: 8px;
+      }
+
+      .logs-graph-btn:hover {
+        background: #bdbbf2;
+      }
+
+      .custom-log-dialog {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 20;
+      }
+
+      .custom-log-dialog .panel {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 2px 2px #c3c3c3;
+      }
+
       sl-icon-button::part(base) {
         color: #24d800;
       }
@@ -2022,6 +2255,12 @@ export class RoomView extends LitElement {
         --sl-tooltip-font-size: 14px;
         --sl-tooltip-color: #0d1543;
         --sl-tooltip-font-family: 'Ubuntu', sans-serif;
+      }
+
+      /* sl dialog styles below */
+      sl-dialog::part(panel) {
+        background: white;
+        min-width: 600px;
       }
     `,
   ];
