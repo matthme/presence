@@ -49,9 +49,12 @@ import './elements/agent-connection-status';
 import './elements/agent-connection-status-icon';
 import './elements/toggle-switch';
 import './logs-graph';
-import { sortConnectionStatuses } from '../utils';
+import { downloadJson, formattedDate, sortConnectionStatuses } from '../utils';
 import { PING_INTERVAL, StreamsStore } from '../streams-store';
 import { AgentInfo, ConnectionStatuses } from '../types';
+import { exportLogs } from '../logging';
+
+declare const __APP_VERSION__: string;
 
 @localized()
 @customElement('room-view')
@@ -836,6 +839,17 @@ export class RoomView extends LitElement {
                 >trickle ICE (ON by default)</span
               >
             </div>
+            <button
+              style="margin-top: 30px;"
+              @click=${() => {
+                downloadJson(
+                  `Presence_${__APP_VERSION__}_logs_${formattedDate()}.json`,
+                  JSON.stringify(exportLogs(), undefined, 2)
+                );
+              }}
+            >
+              Export Logs
+            </button>
           </div>
         `;
       default:
@@ -1312,7 +1326,9 @@ export class RoomView extends LitElement {
                 const value = this._customLogTextarea.value;
                 this.logCustomEvent(
                   value,
-                  this._logTimestampCheckbox.checked ? undefined : this._customLogTimestamp
+                  this._logTimestampCheckbox.checked
+                    ? undefined
+                    : this._customLogTimestamp
                 );
                 this.closeCustomLogDialog();
               }}

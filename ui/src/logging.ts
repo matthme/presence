@@ -120,6 +120,55 @@ export type CallbackWithId = {
   callback: (payload: PresenceLogEventMap[PresenceLogEvent]) => any;
 };
 
+export type FullLogExport = Array<{
+  sessionId: string;
+  start?: number;
+  end?: number;
+  logs: {
+    myStream: StreamInfoLog[];
+    agentPongMetadataLogs: Record<AgentPubKeyB64, PongMetadataInfo[]>;
+    agentEvents: Record<AgentPubKeyB64, SimpleEvent[]>;
+    customLogs: CustomLog[];
+  };
+}>;
+
+export function exportLogs(): FullLogExport | void {
+  const fullExport: FullLogExport = [];
+  const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
+    'session_infos',
+    {}
+  );
+  Object.entries(sessionInfos).forEach(([sessionId, info]) => {
+    const myStream = readLocalStorage<StreamInfoLog[]>(
+      `log_my_stream_${sessionId}`,
+      []
+    );
+    const agentPongMetadataLogs = readLocalStorage<
+      Record<AgentPubKeyB64, PongMetadataInfo[]>
+    >(`log_pong_metadata_${sessionId}`, {});
+    const agentEvents = readLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
+      `agent_events_${sessionId}`,
+      {}
+    );
+    const customLogs = readLocalStorage<CustomLog[]>(
+      `custom_logs_${sessionId}`,
+      []
+    );
+    fullExport.push({
+      sessionId,
+      start: info.start,
+      end: info.end,
+      logs: {
+        myStream,
+        agentPongMetadataLogs,
+        agentEvents,
+        customLogs,
+      },
+    });
+  });
+  return fullExport;
+}
+
 export class PresenceLogger {
   /**
    * The id of the current call session.
@@ -235,7 +284,7 @@ export class PresenceLogger {
   _garbageCollect() {
     const week_ms = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const olderThanOneWeek = (timestamp: number) => now - timestamp > week_ms;
+    const olderThan = (timestamp: number) => now - timestamp > week_ms;
 
     const sessionInfos = readLocalStorage<Record<string, SessionInfo>>(
       'session_infos',
@@ -243,13 +292,13 @@ export class PresenceLogger {
     );
 
     Object.entries(sessionInfos).forEach(([id, info]) => {
-      if (info.start && olderThanOneWeek(info.start)) {
+      if (info.start && olderThan(info.start)) {
         console.log('Deleting old logs...');
         // Delete all logs for this session
         window.localStorage.removeItem(`log_my_stream_${id}`);
         window.localStorage.removeItem(`log_pong_metadata_${id}`);
-        window.localStorage.removeItem(`custom_logs_${id}`);
         window.localStorage.removeItem(`agent_events_${id}`);
+        window.localStorage.removeItem(`custom_logs_${id}`);
       }
     });
   }
@@ -272,14 +321,14 @@ export class PresenceLogger {
       Record<AgentPubKeyB64, PongMetadataInfo[]>
     >(`log_pong_metadata_${this.sessionId}`, {});
 
-    this.customLogs = readLocalStorage<CustomLog[]>(
-      `custom_logs_${this.sessionId}`,
-      []
-    );
-
     this.agentEvents = readLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
       `agent_events_${this.sessionId}`,
       {}
+    );
+
+    this.customLogs = readLocalStorage<CustomLog[]>(
+      `custom_logs_${this.sessionId}`,
+      []
     );
   }
 
@@ -325,14 +374,14 @@ export class PresenceLogger {
       this.agentPongMetadataLogs
     );
 
-    writeLocalStorage<CustomLog[]>(
-      `custom_logs_${this.sessionId}`,
-      this.customLogs
-    );
-
     writeLocalStorage<Record<AgentPubKeyB64, SimpleEvent[]>>(
       `agent_events_${this.sessionId}`,
       this.agentEvents
+    );
+
+    writeLocalStorage<CustomLog[]>(
+      `custom_logs_${this.sessionId}`,
+      this.customLogs
     );
   }
 

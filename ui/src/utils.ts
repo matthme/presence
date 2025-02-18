@@ -198,3 +198,28 @@ export function readSessionStorage<T>(key: string, defaultValue?: T): T | null {
 export function writeSessionStorage<T>(key: string, value: T): void {
   window.sessionStorage.setItem(key, JSON.stringify(value));
 }
+
+export const downloadJson = (filename: string, text: string) => {
+  const element = document.createElement('a');
+  element.setAttribute(
+    'href',
+    `data:text/json;charset=utf-8,${encodeURIComponent(text)}`
+  );
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+};
+
+export function formattedDate(): string {
+  const date = new Date();
+  return `${date.getFullYear()}-${
+    date.getMonth() + 1
+  }-${date.getDate()}-${date.getHours()}_${`00${date.getMinutes()}`.slice(
+    -2
+  )}_${`00${date.getSeconds()}`.slice(-2)}`;
+}
