@@ -12,3 +12,4 @@
 .running
 ui/*.png
 !ui/icon.png
+.kitsune2_bootstrap_srv

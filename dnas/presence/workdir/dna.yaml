@@ -4,7 +4,6 @@ name: presence
 integrity:
   network_seed: ~
   properties: ~
-  origin_time: 1703354068450069
   zomes:
     - name: room_integrity
       hash: ~
