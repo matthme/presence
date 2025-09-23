@@ -93,6 +93,7 @@ export class AgentAvatar extends LitElement {
       case "complete":
         return this.renderProfile(this._agentProfile.value.value);
       case "error":
+        console.error(this._agentProfile.value.error);
         return html`
           <display-error
             tooltip
