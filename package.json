@@ -17,12 +17,12 @@
     "package": "npm run build:happ && npm run package -w ui && hc web-app pack workdir --recursive",
     "package:ui": "npm run package -w ui && hc web-app pack workdir --recursive",
     "build:happ": "npm run build:zomes && hc app pack workdir --recursive",
-    "build:zomes": "RUSTFLAGS='' CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
+    "build:zomes": "RUSTFLAGS='--cfg getrandom_backend=\"custom\"' CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown",
     "cli-help": "weave --help"
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
-    "@theweave/cli": "^0.14.4",
+    "@theweave/cli": "^0.15.2",
     "concurrently": "^6.2.1",
     "rimraf": "^3.0.2"
   },

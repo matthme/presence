@@ -9,7 +9,6 @@ name = "room"
 
 [dependencies]
 hdk = { workspace = true }
-
+holochain_serialized_bytes = { workspace = true }
 serde = { workspace = true }
-
-room_integrity = { workspace = true } 
+room_integrity = { workspace = true }

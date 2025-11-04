@@ -1,5 +1,5 @@
 ---
-manifest_version: "1"
+manifest_version: "0"
 name: presence
 integrity:
   network_seed: ~
@@ -7,14 +7,12 @@ integrity:
   zomes:
     - name: room_integrity
       hash: ~
-      bundled: "../../../target/wasm32-unknown-unknown/release/room_integrity.wasm"
+      path: "../../../target/wasm32-unknown-unknown/release/room_integrity.wasm"
       dependencies: ~
-      dylib: ~
 coordinator:
   zomes:
     - name: room
       hash: ~
-      bundled: "../../../target/wasm32-unknown-unknown/release/room.wasm"
+      path: "../../../target/wasm32-unknown-unknown/release/room.wasm"
       dependencies:
         - name: room_integrity
-      dylib: ~

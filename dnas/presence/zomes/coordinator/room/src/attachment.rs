@@ -18,11 +18,11 @@ pub fn create_attachment(attachment: Attachment) -> ExternResult<Record> {
 #[hdk_extern]
 pub fn get_latest_attachment(original_attachment_hash: ActionHash) -> ExternResult<Option<Record>> {
     let links = get_links(
-        GetLinksInputBuilder::try_new(
+        LinkQuery::try_new(
             original_attachment_hash.clone(),
             LinkTypes::AttachmentUpdates,
-        )?
-        .build(),
+        )?,
+        GetStrategy::Network,
     )?;
     let latest_link = links
         .into_iter()
@@ -62,11 +62,11 @@ pub fn get_all_revisions_for_attachment(
         return Ok(vec![]);
     };
     let links = get_links(
-        GetLinksInputBuilder::try_new(
+        LinkQuery::try_new(
             original_attachment_hash.clone(),
             LinkTypes::AttachmentUpdates,
-        )?
-        .build(),
+        )?,
+        GetStrategy::Network,
     )?;
     let get_input: Vec<GetInput> = links
         .into_iter()
@@ -126,12 +126,13 @@ pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<A
     }?;
     let path = Path::from("all_attachments");
     let links = get_links(
-        GetLinksInputBuilder::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?.build(),
+        LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?,
+        GetStrategy::Network,
     )?;
     for link in links {
         if let Some(hash) = link.target.into_action_hash() {
             if hash.eq(&original_attachment_hash) {
-                delete_link(link.create_link_hash)?;
+                delete_link(link.create_link_hash, GetOptions::network())?;
             }
         }
     }
