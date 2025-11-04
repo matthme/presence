@@ -7,7 +7,8 @@ pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {
     let path = Path::from(ROOM_INFO);
 
     let links = get_links(
-        GetLinksInputBuilder::try_new(path.path_entry_hash()?, LinkTypes::RoomInfoUpdates)?.build(),
+        LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::RoomInfoUpdates)?,
+        GetStrategy::Network,
     )?;
 
     let latest_room_info_link = links

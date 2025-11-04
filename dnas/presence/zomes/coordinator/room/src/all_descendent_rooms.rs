@@ -19,7 +19,7 @@ pub fn create_descendent_room(input: DescendentRoom) -> ExternResult<ActionHash>
 /// Deletes the link from the anchor to that descendent room
 #[hdk_extern]
 pub fn delete_descendent_room(action_hash: ActionHash) -> ExternResult<ActionHash> {
-    delete_link(action_hash)
+    delete_link(action_hash, GetOptions::network())
 }
 
 #[hdk_extern]
@@ -28,8 +28,8 @@ pub fn get_all_descendent_rooms(
 ) -> ExternResult<Vec<(DescendentRoom, AgentPubKey, ActionHash)>> {
     let path = Path::from(ALL_DESCENDENT_ROOMS);
     let links = get_links(
-        GetLinksInputBuilder::try_new(path.path_entry_hash()?, LinkTypes::AllDescendentRooms)?
-            .build(),
+        LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllDescendentRooms)?,
+        GetStrategy::Network,
     )?;
     let mut result = Vec::new();
     for link in links {

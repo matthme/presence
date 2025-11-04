@@ -4,7 +4,8 @@ use room_integrity::*;
 pub fn get_all_attachments(_: ()) -> ExternResult<Vec<Record>> {
     let path = Path::from("all_attachments");
     let links = get_links(
-        GetLinksInputBuilder::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?.build(),
+        LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?,
+        GetStrategy::Network,
     )?;
     let mut attachments = Vec::new();
     for link in links {
