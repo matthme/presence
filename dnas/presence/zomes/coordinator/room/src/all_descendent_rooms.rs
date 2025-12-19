@@ -19,7 +19,7 @@ pub fn create_descendent_room(input: DescendentRoom) -> ExternResult<ActionHash>
 /// Deletes the link from the anchor to that descendent room
 #[hdk_extern]
 pub fn delete_descendent_room(action_hash: ActionHash) -> ExternResult<ActionHash> {
-    delete_link(action_hash, GetOptions::network())
+    delete_link(action_hash, GetOptions::local())
 }
 
 #[hdk_extern]
@@ -29,13 +29,13 @@ pub fn get_all_descendent_rooms(
     let path = Path::from(ALL_DESCENDENT_ROOMS);
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllDescendentRooms)?,
-        GetStrategy::Network,
+        GetStrategy::Local,
     )?;
     let mut result = Vec::new();
     for link in links {
         match EntryHash::try_from(link.target) {
             Ok(eh) => {
-                let maybe_record = get(eh, GetOptions::default())?;
+                let maybe_record = get(eh, GetOptions::local())?;
                 if let Some(record) = maybe_record {
                     let maybe_descendent_room =
                         record.entry().to_app_option::<DescendentRoom>().ok();

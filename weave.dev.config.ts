@@ -8,7 +8,7 @@ export default defineConfig({
       networkSeed: "098rc1m-09384u-crm-29384u-cmkj",
       icon: {
         type: "filesystem",
-        path: "./ui/tennis_club.png",
+        path: "./ui/tennis_club.png"
       },
       creatingAgent: {
         agentIdx: 1,
@@ -76,7 +76,7 @@ export default defineConfig({
       },
       source: {
         type: "localhost",
-        happPath: "/home/matthias/code/holochain/matthme/presence/workdir/presence.happ",
+        happPath: "./workdir/presence.happ",
         uiPort: 8888,
       },
     },
@@ -91,34 +91,34 @@ export default defineConfig({
       },
       source: {
         type: "filesystem",
-        path: "/home/matthias/code/holochain/matthme/presence/workdir/presence.webhapp",
+        path: "./workdir/presence.webhapp",
       },
     },
-    {
-      name: 'KanDo',
-      subtitle: 'KanBan board on Holochain',
-      description: 'KanBan board',
-      icon: {
-        type: 'https',
-        url: 'https://theweave.social/images/kando_icon.png',
-      },
-      source: {
-        type: 'https',
-        url: 'https://github.com/holochain-apps/kando/releases/download/v0.12.0-rc.1/kando.webhapp',
-      },
-    },
-    {
-      name: 'ZipZap',
-      subtitle: 'Ephemeral direct messaging',
-      description: 'Ephemeral direct messaging',
-      icon: {
-        type: 'https',
-        url: 'https://lightningrodlabs.org/projects/notebooks.png',
-      },
-      source: {
-        type: 'https',
-        url: 'https://github.com/lightningrodlabs/zipzap/releases/download/v0.1.3/zipzap.webhapp',
-      },
-    },
+    // {
+    //   name: 'KanDo',
+    //   subtitle: 'KanBan board on Holochain',
+    //   description: 'KanBan board',
+    //   icon: {
+    //     type: 'https',
+    //     url: 'https://theweave.social/images/kando_icon.png',
+    //   },
+    //   source: {
+    //     type: 'https',
+    //     url: 'https://github.com/holochain-apps/kando/releases/download/v0.12.0/kando.webhapp',
+    //   },
+    // },
+    // {
+    //   name: 'ZipZap',
+    //   subtitle: 'Ephemeral direct messaging',
+    //   description: 'Ephemeral direct messaging',
+    //   icon: {
+    //     type: 'https',
+    //     url: 'https://lightningrodlabs.org/projects/notebooks.png',
+    //   },
+    //   source: {
+    //     type: 'https',
+    //     url: 'https://github.com/lightningrodlabs/zipzap/releases/download/v0.1.3/zipzap.webhapp',
+    //   },
+    // },
   ],
 });

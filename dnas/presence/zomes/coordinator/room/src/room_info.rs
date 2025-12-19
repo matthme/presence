@@ -8,7 +8,7 @@ pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {
 
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::RoomInfoUpdates)?,
-        GetStrategy::Network,
+        GetStrategy::Local,
     )?;
 
     let latest_room_info_link = links
@@ -22,7 +22,7 @@ pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {
                 // ActionHash::from(link.target),
                 ActionHash::try_from(link.target)
                     .map_err(|e| wasm_error!(WasmErrorInner::from(e)))?,
-                GetOptions::default(),
+                GetOptions::local(),
             )?;
 
             Ok(record)

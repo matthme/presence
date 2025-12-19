@@ -3,7 +3,7 @@ use room_integrity::*;
 #[hdk_extern]
 pub fn create_attachment(attachment: Attachment) -> ExternResult<Record> {
     let attachment_hash = create_entry(&EntryTypes::Attachment(attachment.clone()))?;
-    let record = get(attachment_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get(attachment_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
         WasmErrorInner::Guest(String::from("Could not find the newly created Attachment"))
     ))?;
     let path = Path::from("all_attachments");
@@ -22,7 +22,7 @@ pub fn get_latest_attachment(original_attachment_hash: ActionHash) -> ExternResu
             original_attachment_hash.clone(),
             LinkTypes::AttachmentUpdates,
         )?,
-        GetStrategy::Network,
+        GetStrategy::Local,
     )?;
     let latest_link = links
         .into_iter()
@@ -38,13 +38,13 @@ pub fn get_latest_attachment(original_attachment_hash: ActionHash) -> ExternResu
         }
         None => original_attachment_hash.clone(),
     };
-    get(latest_attachment_hash, GetOptions::default())
+    get(latest_attachment_hash, GetOptions::local())
 }
 #[hdk_extern]
 pub fn get_original_attachment(
     original_attachment_hash: ActionHash,
 ) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(original_attachment_hash, GetOptions::default())? else {
+    let Some(details) = get_details(original_attachment_hash, GetOptions::local())? else {
         return Ok(None);
     };
     match details {
@@ -66,7 +66,7 @@ pub fn get_all_revisions_for_attachment(
             original_attachment_hash.clone(),
             LinkTypes::AttachmentUpdates,
         )?,
-        GetStrategy::Network,
+        GetStrategy::Local,
     )?;
     let get_input: Vec<GetInput> = links
         .into_iter()
@@ -78,7 +78,7 @@ pub fn get_all_revisions_for_attachment(
                         "No action hash associated with link"
                     ))))?
                     .into(),
-                GetOptions::default(),
+                GetOptions::local(),
             ))
         })
         .collect::<ExternResult<Vec<GetInput>>>()?;
@@ -106,14 +106,14 @@ pub fn update_attachment(input: UpdateAttachmentInput) -> ExternResult<Record> {
         (),
     )?;
     let record =
-        get(updated_attachment_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        get(updated_attachment_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
             WasmErrorInner::Guest(String::from("Could not find the newly updated Attachment"))
         ))?;
     Ok(record)
 }
 #[hdk_extern]
 pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<ActionHash> {
-    let details = get_details(original_attachment_hash.clone(), GetOptions::default())?.ok_or(
+    let details = get_details(original_attachment_hash.clone(), GetOptions::local())?.ok_or(
         wasm_error!(WasmErrorInner::Guest(String::from(
             "{pascal_entry_def_name} not found"
         ))),
@@ -127,12 +127,12 @@ pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<A
     let path = Path::from("all_attachments");
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?,
-        GetStrategy::Network,
+        GetStrategy::Local,
     )?;
     for link in links {
         if let Some(hash) = link.target.into_action_hash() {
             if hash.eq(&original_attachment_hash) {
-                delete_link(link.create_link_hash, GetOptions::network())?;
+                delete_link(link.create_link_hash, GetOptions::local())?;
             }
         }
     }
@@ -142,7 +142,7 @@ pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<A
 pub fn get_all_deletes_for_attachment(
     original_attachment_hash: ActionHash,
 ) -> ExternResult<Option<Vec<SignedActionHashed>>> {
-    let Some(details) = get_details(original_attachment_hash, GetOptions::default())? else {
+    let Some(details) = get_details(original_attachment_hash, GetOptions::local())? else {
         return Ok(None);
     };
     match details {
