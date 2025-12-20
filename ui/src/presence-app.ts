@@ -28,7 +28,7 @@ import {
 import { provide } from '@lit/context';
 import {
   AppletServices,
-  GroupPermissionType,
+  MossAccountability,
   GroupProfile,
   NULL_HASH,
   WAL,
@@ -126,7 +126,7 @@ export class PresenceApp extends LitElement {
   _provisionedCell: ProvisionedCell | undefined;
 
   @state()
-  _myGroupPermission: GroupPermissionType | undefined;
+  _myAccountabilities: MossAccountability[] | undefined;
 
   @state()
   _activeMainRoomParticipants: {
@@ -315,11 +315,25 @@ export class PresenceApp extends LitElement {
   }
 
   async checkPermission(): Promise<void> {
-    let permissionType = this._myGroupPermission;
-    if (!permissionType) {
-      permissionType = await this._weaveClient.myGroupPermissionType();
+    let accountabilities: MossAccountability[] = this._myAccountabilities || [];
+    if (!this._myAccountabilities && this._weaveClient.renderInfo.type === 'applet-view') {
+      const accountabilitiesPerGroup = await this._weaveClient.myAccountabilitiesPerGroup();
+      if (this._weaveClient.renderInfo.groupHash) {
+        const groupHash = encodeHashToBase64(this._weaveClient.renderInfo.groupHash);
+        const maybeAccountabilities = accountabilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
+        if (maybeAccountabilities) {
+          accountabilities = maybeAccountabilities[1]
+          this._myAccountabilities = accountabilities
+        }
+      }
     }
-    if (permissionType.type !== 'Steward') {
+    let amIPrivieged = false
+    for (const acc of accountabilities) {
+      if (acc.role.name === 'Steward' || acc.role.name === 'Progenitor') {
+        amIPrivieged = true;
+      }
+    }
+    if (!amIPrivieged) {
       this.notifyError(
         'Only group Stewards are allowed to create shared rooms.'
       );

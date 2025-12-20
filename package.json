@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@holochain-playground/cli": "^0.1.1",
-    "@theweave/cli": "^0.15.2",
+    "@theweave/cli": "^0.15.11",
     "concurrently": "^6.2.1",
     "rimraf": "^3.0.2"
   },

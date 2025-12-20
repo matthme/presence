@@ -1,12 +1,13 @@
 use hdk::prelude::*;
 use room_integrity::*;
+use crate::helper::ZomeFnInput;
 pub const ALL_AGENTS: &str = "ALL_AGENTS";
 #[hdk_extern]
-pub fn get_all_agents(_: ()) -> ExternResult<Vec<AgentPubKey>> {
+pub fn get_all_agents(input: ZomeFnInput<()>) -> ExternResult<Vec<AgentPubKey>> {
     let path = Path::from(ALL_AGENTS);
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllAgents)?,
-        GetStrategy::Network,
+        input.get_strategy(),
     )?;
     Ok(links
         .into_iter()

@@ -1,9 +1,11 @@
 use hdk::prelude::*;
 use room_integrity::*;
+use crate::helper::ZomeFnInput;
+
 #[hdk_extern]
 pub fn create_attachment(attachment: Attachment) -> ExternResult<Record> {
     let attachment_hash = create_entry(&EntryTypes::Attachment(attachment.clone()))?;
-    let record = get(attachment_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+    let record = get(attachment_hash.clone(), GetOptions::local())?.ok_or(wasm_error!(
         WasmErrorInner::Guest(String::from("Could not find the newly created Attachment"))
     ))?;
     let path = Path::from("all_attachments");
@@ -16,13 +18,14 @@ pub fn create_attachment(attachment: Attachment) -> ExternResult<Record> {
     Ok(record)
 }
 #[hdk_extern]
-pub fn get_latest_attachment(original_attachment_hash: ActionHash) -> ExternResult<Option<Record>> {
+pub fn get_latest_attachment(original_attachment_hash: ZomeFnInput<ActionHash>) -> ExternResult<Option<Record>> {
+    let get_strategy = original_attachment_hash.get_strategy();
     let links = get_links(
         LinkQuery::try_new(
-            original_attachment_hash.clone(),
+            original_attachment_hash.input.clone(),
             LinkTypes::AttachmentUpdates,
         )?,
-        GetStrategy::Network,
+        get_strategy,
     )?;
     let latest_link = links
         .into_iter()
@@ -36,15 +39,15 @@ pub fn get_latest_attachment(original_attachment_hash: ActionHash) -> ExternResu
                     "No action hash associated with link"
                 ))))?
         }
-        None => original_attachment_hash.clone(),
+        None => original_attachment_hash.input.clone(),
     };
-    get(latest_attachment_hash, GetOptions::default())
+    get(latest_attachment_hash, original_attachment_hash.get_options())
 }
 #[hdk_extern]
 pub fn get_original_attachment(
-    original_attachment_hash: ActionHash,
+    original_attachment_hash: ZomeFnInput<ActionHash>,
 ) -> ExternResult<Option<Record>> {
-    let Some(details) = get_details(original_attachment_hash, GetOptions::default())? else {
+    let Some(details) = get_details(original_attachment_hash.input.clone(), original_attachment_hash.get_options())? else {
         return Ok(None);
     };
     match details {
@@ -56,18 +59,20 @@ pub fn get_original_attachment(
 }
 #[hdk_extern]
 pub fn get_all_revisions_for_attachment(
-    original_attachment_hash: ActionHash,
+    original_attachment_hash: ZomeFnInput<ActionHash>,
 ) -> ExternResult<Vec<Record>> {
+    let get_strategy = original_attachment_hash.get_strategy();
     let Some(original_record) = get_original_attachment(original_attachment_hash.clone())? else {
         return Ok(vec![]);
     };
     let links = get_links(
         LinkQuery::try_new(
-            original_attachment_hash.clone(),
+            original_attachment_hash.input.clone(),
             LinkTypes::AttachmentUpdates,
         )?,
-        GetStrategy::Network,
+        get_strategy,
     )?;
+    let get_options = original_attachment_hash.get_options();
     let get_input: Vec<GetInput> = links
         .into_iter()
         .map(|link| {
@@ -78,7 +83,7 @@ pub fn get_all_revisions_for_attachment(
                         "No action hash associated with link"
                     ))))?
                     .into(),
-                GetOptions::default(),
+                get_options.clone(),
             ))
         })
         .collect::<ExternResult<Vec<GetInput>>>()?;
@@ -94,26 +99,28 @@ pub struct UpdateAttachmentInput {
     pub updated_attachment: Attachment,
 }
 #[hdk_extern]
-pub fn update_attachment(input: UpdateAttachmentInput) -> ExternResult<Record> {
+pub fn update_attachment(input: ZomeFnInput<UpdateAttachmentInput>) -> ExternResult<Record> {
     let updated_attachment_hash = update_entry(
-        input.previous_attachment_hash.clone(),
-        &input.updated_attachment,
+        input.input.previous_attachment_hash.clone(),
+        &input.input.updated_attachment,
     )?;
     create_link(
-        input.original_attachment_hash.clone(),
+        input.input.original_attachment_hash.clone(),
         updated_attachment_hash.clone(),
         LinkTypes::AttachmentUpdates,
         (),
     )?;
     let record =
-        get(updated_attachment_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        get(updated_attachment_hash.clone(), input.get_options())?.ok_or(wasm_error!(
             WasmErrorInner::Guest(String::from("Could not find the newly updated Attachment"))
         ))?;
     Ok(record)
 }
 #[hdk_extern]
-pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<ActionHash> {
-    let details = get_details(original_attachment_hash.clone(), GetOptions::default())?.ok_or(
+pub fn delete_attachment(original_attachment_hash: ZomeFnInput<ActionHash>) -> ExternResult<ActionHash> {
+    let get_strategy = original_attachment_hash.get_strategy();
+    let get_options = original_attachment_hash.get_options();
+    let details = get_details(original_attachment_hash.input.clone(), get_options.clone())?.ok_or(
         wasm_error!(WasmErrorInner::Guest(String::from(
             "{pascal_entry_def_name} not found"
         ))),
@@ -127,22 +134,22 @@ pub fn delete_attachment(original_attachment_hash: ActionHash) -> ExternResult<A
     let path = Path::from("all_attachments");
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::AllAttachments)?,
-        GetStrategy::Network,
+        get_strategy,
     )?;
     for link in links {
         if let Some(hash) = link.target.into_action_hash() {
-            if hash.eq(&original_attachment_hash) {
-                delete_link(link.create_link_hash, GetOptions::network())?;
+            if hash.eq(&original_attachment_hash.input) {
+                delete_link(link.create_link_hash, get_options.clone())?;
             }
         }
     }
-    delete_entry(original_attachment_hash)
+    delete_entry(original_attachment_hash.input)
 }
 #[hdk_extern]
 pub fn get_all_deletes_for_attachment(
-    original_attachment_hash: ActionHash,
+    original_attachment_hash: ZomeFnInput<ActionHash>,
 ) -> ExternResult<Option<Vec<SignedActionHashed>>> {
-    let Some(details) = get_details(original_attachment_hash, GetOptions::default())? else {
+    let Some(details) = get_details(original_attachment_hash.input.clone(), original_attachment_hash.get_options())? else {
         return Ok(None);
     };
     match details {
@@ -154,7 +161,7 @@ pub fn get_all_deletes_for_attachment(
 }
 #[hdk_extern]
 pub fn get_oldest_delete_for_attachment(
-    original_attachment_hash: ActionHash,
+    original_attachment_hash: ZomeFnInput<ActionHash>,
 ) -> ExternResult<Option<SignedActionHashed>> {
     let Some(mut deletes) = get_all_deletes_for_attachment(original_attachment_hash)? else {
         return Ok(None);

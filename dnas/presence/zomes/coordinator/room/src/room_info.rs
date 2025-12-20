@@ -1,20 +1,22 @@
 use hdk::prelude::*;
 use room_integrity::*;
+use crate::helper::ZomeFnInput;
 
 // If this function returns None, it means that we haven't synced up yet
 #[hdk_extern]
-pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {
+pub fn get_room_info(input: ZomeFnInput<()>) -> ExternResult<Option<Record>> {
     let path = Path::from(ROOM_INFO);
-
+    let get_strategy = input.get_strategy();
     let links = get_links(
         LinkQuery::try_new(path.path_entry_hash()?, LinkTypes::RoomInfoUpdates)?,
-        GetStrategy::Network,
+        get_strategy,
     )?;
 
     let latest_room_info_link = links
         .into_iter()
         .max_by(|link_a, link_b| link_b.timestamp.cmp(&link_a.timestamp));
 
+    let get_options: GetOptions = input.get_options();
     match latest_room_info_link {
         None => Ok(None),
         Some(link) => {
@@ -22,7 +24,7 @@ pub fn get_room_info(_: ()) -> ExternResult<Option<Record>> {
                 // ActionHash::from(link.target),
                 ActionHash::try_from(link.target)
                     .map_err(|e| wasm_error!(WasmErrorInner::from(e)))?,
-                GetOptions::default(),
+                get_options
             )?;
 
             Ok(record)

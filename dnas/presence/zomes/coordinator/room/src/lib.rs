@@ -2,6 +2,7 @@ pub mod all_agents;
 pub mod all_attachments;
 pub mod all_descendent_rooms;
 pub mod attachment;
+pub mod helper;
 pub mod remote_signals;
 pub mod room_info;
 use all_agents::add_agent_to_anchor;
@@ -68,7 +69,7 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
             Ok(())
         }
         Action::DeleteLink(delete_link) => {
-            let record = get(delete_link.link_add_address.clone(), GetOptions::default())?.ok_or(
+            let record = get(delete_link.link_add_address.clone(), GetOptions::network())?.ok_or(
                 wasm_error!(WasmErrorInner::Guest(
                     "Failed to fetch CreateLink action".to_string()
                 )),
@@ -126,7 +127,7 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
     }
 }
 fn get_entry_for_action(action_hash: &ActionHash) -> ExternResult<Option<EntryTypes>> {
-    let record = match get_details(action_hash.clone(), GetOptions::default())? {
+    let record = match get_details(action_hash.clone(), GetOptions::network())? {
         Some(Details::Record(record_details)) => record_details.record,
         _ => {
             return Ok(None);
