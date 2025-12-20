@@ -55,12 +55,12 @@ export default defineConfig({
         //   registeringAgent: 1,
         //   joiningAgents: [2],
         // },
-        // {
-        //   name: 'KanDo',
-        //   instanceName: 'KanDo',
-        //   registeringAgent: 1,
-        //   joiningAgents: [2],
-        // },
+        {
+          name: 'KanDo',
+          instanceName: 'KanDo',
+          registeringAgent: 1,
+          joiningAgents: [2],
+        },
       ],
     },
   ],
@@ -94,19 +94,19 @@ export default defineConfig({
         path: "./workdir/presence.webhapp",
       },
     },
-    // {
-    //   name: 'KanDo',
-    //   subtitle: 'KanBan board on Holochain',
-    //   description: 'KanBan board',
-    //   icon: {
-    //     type: 'https',
-    //     url: 'https://theweave.social/images/kando_icon.png',
-    //   },
-    //   source: {
-    //     type: 'https',
-    //     url: 'https://github.com/holochain-apps/kando/releases/download/v0.12.0/kando.webhapp',
-    //   },
-    // },
+    {
+      name: 'KanDo',
+      subtitle: 'KanBan board on Holochain',
+      description: 'KanBan board',
+      icon: {
+        type: 'https',
+        url: 'https://theweave.social/images/kando_icon.png',
+      },
+      source: {
+        type: 'https',
+        url: 'https://github.com/holochain-apps/kando/releases/download/v0.16.2/kando.webhapp',
+      },
+    },
     // {
     //   name: 'ZipZap',
     //   subtitle: 'Ephemeral direct messaging',

@@ -20,16 +20,16 @@ export class RoomClient extends ZomeClient<RoomSignal> {
     super(client, roleName, zomeName);
   }
 
-  async getAllAgents(): Promise<AgentPubKey[]> {
-    return this.callZome('get_all_agents', null);
+  async getAllAgents(local: boolean = true): Promise<AgentPubKey[]> {
+    return this.callZome('get_all_agents', { input: null, local });
   }
 
-  async getLatestRoomInfo(): Promise<RoomInfo> {
-    return this.callZome('get_latest_room_info', null);
+  async getLatestRoomInfo(local: boolean = true): Promise<RoomInfo> {
+    return this.callZome('get_latest_room_info', { input: null, local });
   }
 
-  async getAllAttachments(): Promise<Array<EntryRecord<Attachment>>> {
-    const records: Array<Record> = await this.callZome('get_all_attachments', null);
+  async getAllAttachments(local: boolean = true): Promise<Array<EntryRecord<Attachment>>> {
+    const records: Array<Record> = await this.callZome('get_all_attachments', { input: null, local });
     return records.map((record) => new EntryRecord<Attachment>(record));
   }
 
@@ -38,20 +38,20 @@ export class RoomClient extends ZomeClient<RoomSignal> {
     return new EntryRecord(record);
   }
 
-  async deleteAttachment(actionHash: ActionHash): Promise<ActionHash> {
-    return this.callZome('delete_attachment', actionHash);
+  async deleteAttachment(actionHash: ActionHash, local: boolean = true): Promise<ActionHash> {
+    return this.callZome('delete_attachment', {input: actionHash, local });
   }
 
-  async getAllDescendentRooms(): Promise<Array<[DescendentRoom, AgentPubKey, ActionHash]>> {
-    return this.callZome('get_all_descendent_rooms', null);
+  async getAllDescendentRooms(local: boolean = true): Promise<Array<[DescendentRoom, AgentPubKey, ActionHash]>> {
+    return this.callZome('get_all_descendent_rooms', { input: null, local });
   }
 
   async createDescendentRoom(input: DescendentRoom): Promise<ActionHash> {
     return this.callZome('create_descendent_room', input)
   }
 
-  async getRoomInfo(): Promise<RoomInfo | undefined> {
-    const maybeRoomInfoRecord: Record | undefined = await this.callZome('get_room_info', null);
+  async getRoomInfo(local: boolean = true): Promise<RoomInfo | undefined> {
+    const maybeRoomInfoRecord: Record | undefined = await this.callZome('get_room_info', { input: null, local });
     if (maybeRoomInfoRecord) {
       const entryRecord = new EntryRecord<RoomInfo>(maybeRoomInfoRecord);
       return entryRecord.entry;

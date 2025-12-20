@@ -320,20 +320,20 @@ export class PresenceApp extends LitElement {
       const accountbilitiesPerGroup = await this._weaveClient.myAccountabilitiesPerGroup();
       if (this._weaveClient.renderInfo.groupHash) {
         const groupHash = encodeHashToBase64(this._weaveClient.renderInfo.groupHash);
-        const x = accountbilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
-        if (x) {
-          accountabilities = x[1]
+        const maybeAccountabilities = accountbilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
+        if (maybeAccountabilities) {
+          accountabilities = maybeAccountabilities[1]
           this._myAccountabilities = accountabilities
         }
       }
     }
-    let amIPrivaleged = false
+    let amIPrivieged = false
     for (const acc of accountabilities) {
       if (acc.role.name === 'Steward' || acc.role.name === 'Progenitor') {
-        amIPrivaleged = true;
+        amIPrivieged = true;
       }
     }
-    if (!amIPrivaleged) {
+    if (!amIPrivieged) {
       this.notifyError(
         'Only group Stewards are allowed to create shared rooms.'
       );
