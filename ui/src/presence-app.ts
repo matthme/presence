@@ -317,7 +317,7 @@ export class PresenceApp extends LitElement {
   async checkPermission(): Promise<void> {
     let accountabilities: MossAccountability[] = this._myAccountabilities || [];
     if (!this._myAccountabilities && this._weaveClient.renderInfo.type === 'applet-view') {
-      const accountbilitiesPerGroup = await this._weaveClient.myAccountabilitiesPerGroup();
+      const accountabilitiesPerGroup = await this._weaveClient.myAccountabilitiesPerGroup();
       if (this._weaveClient.renderInfo.groupHash) {
         const groupHash = encodeHashToBase64(this._weaveClient.renderInfo.groupHash);
         const maybeAccountabilities = accountbilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
