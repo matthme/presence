@@ -320,7 +320,7 @@ export class PresenceApp extends LitElement {
       const accountabilitiesPerGroup = await this._weaveClient.myAccountabilitiesPerGroup();
       if (this._weaveClient.renderInfo.groupHash) {
         const groupHash = encodeHashToBase64(this._weaveClient.renderInfo.groupHash);
-        const maybeAccountabilities = accountbilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
+        const maybeAccountabilities = accountabilitiesPerGroup.find(([hash,_])=> encodeHashToBase64(hash) ===groupHash)
         if (maybeAccountabilities) {
           accountabilities = maybeAccountabilities[1]
           this._myAccountabilities = accountabilities
