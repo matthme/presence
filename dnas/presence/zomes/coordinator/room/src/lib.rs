@@ -69,7 +69,7 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
             Ok(())
         }
         Action::DeleteLink(delete_link) => {
-            let record = get(delete_link.link_add_address.clone(), GetOptions::local())?.ok_or(
+            let record = get(delete_link.link_add_address.clone(), GetOptions::network())?.ok_or(
                 wasm_error!(WasmErrorInner::Guest(
                     "Failed to fetch CreateLink action".to_string()
                 )),
@@ -127,7 +127,7 @@ fn signal_action(action: SignedActionHashed) -> ExternResult<()> {
     }
 }
 fn get_entry_for_action(action_hash: &ActionHash) -> ExternResult<Option<EntryTypes>> {
-    let record = match get_details(action_hash.clone(), GetOptions::local())? {
+    let record = match get_details(action_hash.clone(), GetOptions::network())? {
         Some(Details::Record(record_details)) => record_details.record,
         _ => {
             return Ok(None);
